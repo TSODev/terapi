@@ -4,25 +4,12 @@ use serde_json::Value;
 
 #[derive(Debug, Clone)]
 pub enum ValueType {
-    Object(usize),
-    Array(usize),
+    Object,
+    Array,
     Str,
     Number,
     Boolean,
     Null,
-}
-
-impl ValueType {
-    pub fn label(&self) -> &'static str {
-        match self {
-            Self::Object(_) => "Object",
-            Self::Array(_) => "Array",
-            Self::Str => "String",
-            Self::Number => "Number",
-            Self::Boolean => "Boolean",
-            Self::Null => "Null",
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -109,7 +96,7 @@ fn collect(
             result.push(JsonRow {
                 depth,
                 key,
-                value_type: ValueType::Array(count),
+                value_type: ValueType::Array,
                 value_preview: if is_folded || count == 0 {
                     format!("[ {} ]", count)
                 } else {
@@ -141,7 +128,7 @@ fn collect(
             result.push(JsonRow {
                 depth,
                 key,
-                value_type: ValueType::Object(count),
+                value_type: ValueType::Object,
                 value_preview: if is_folded || count == 0 {
                     format!("{{ {} }}", count)
                 } else {

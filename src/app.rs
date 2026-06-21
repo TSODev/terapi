@@ -79,6 +79,7 @@ pub enum CollectionNode {
     Request {
         name: String,
         method: String,
+        #[allow(dead_code)]
         url: String,
     },
 }

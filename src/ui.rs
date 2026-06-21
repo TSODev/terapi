@@ -150,7 +150,7 @@ fn render_response_table(frame: &mut Frame, app: &App, area: Rect) {
         };
 
         let key_color = match r.value_type {
-            ValueType::Object(_) | ValueType::Array(_) => Color::Cyan,
+            ValueType::Object | ValueType::Array => Color::Cyan,
             _ => Color::White,
         };
 
@@ -160,8 +160,8 @@ fn render_response_table(frame: &mut Frame, app: &App, area: Rect) {
         ]));
 
         let (type_color, type_label) = match r.value_type {
-            ValueType::Object(_) => (Color::Cyan,    "Object "),
-            ValueType::Array(_)  => (Color::Blue,    "Array  "),
+            ValueType::Object => (Color::Cyan,    "Object "),
+            ValueType::Array  => (Color::Blue,    "Array  "),
             ValueType::Str       => (Color::Green,   "String "),
             ValueType::Number    => (Color::Yellow,  "Number "),
             ValueType::Boolean   => (Color::Magenta, "Boolean"),
@@ -171,7 +171,7 @@ fn render_response_table(frame: &mut Frame, app: &App, area: Rect) {
         let type_cell = Cell::from(Span::styled(type_label, Style::default().fg(type_color)));
 
         let value_color = match r.value_type {
-            ValueType::Object(_) | ValueType::Array(_) => Color::White,
+            ValueType::Object | ValueType::Array => Color::White,
             ValueType::Str     => Color::Green,
             ValueType::Number  => Color::Yellow,
             ValueType::Boolean => Color::Magenta,
@@ -209,7 +209,7 @@ fn render_response_table(frame: &mut Frame, app: &App, area: Rect) {
                 .title(hint)
                 .border_style(Style::default().fg(Color::Green)),
         )
-        .highlight_style(Style::default().bg(Color::Indexed(237)))
+        .row_highlight_style(Style::default().bg(Color::Indexed(237)))
         .column_spacing(1);
 
     let mut state = TableState::default()

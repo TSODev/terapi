@@ -4,6 +4,7 @@ mod json_highlight;
 mod ui;
 
 use anyhow::Result;
+use clap::Parser;
 use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -14,9 +15,21 @@ use std::io;
 use app::App;
 use event::{Event, EventHandler};
 
+/// Terapi — keyboard-driven TUI for REST and GraphQL APIs
+#[derive(Parser)]
+#[command(name = "terapi", version, about, long_about = None)]
+struct Cli {
+    /// JSON file to load in the response viewer on startup
+    #[arg(value_name = "FILE")]
+    file: Option<String>,
+
+    // Future subcommands (run, validate, …) will be added here
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    let json = load_initial_json();
+    let cli = Cli::parse();
+    let json = load_json(cli.file.as_deref());
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -34,16 +47,13 @@ async fn main() -> Result<()> {
     result
 }
 
-/// Load JSON from the first CLI argument, or fall back to `demo.json` in the
-/// current directory. Returns None if neither is found.
-fn load_initial_json() -> Option<String> {
-    if let Some(path) = std::env::args().nth(1) {
-        match std::fs::read_to_string(&path) {
+fn load_json(path: Option<&str>) -> Option<String> {
+    if let Some(p) = path {
+        match std::fs::read_to_string(p) {
             Ok(content) => return Some(content),
-            Err(e) => eprintln!("terapi: cannot read '{}': {}", path, e),
+            Err(e) => eprintln!("terapi: cannot read '{}': {}", p, e),
         }
     }
-
     std::fs::read_to_string("demo.json").ok()
 }
 

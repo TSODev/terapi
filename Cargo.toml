@@ -1,0 +1,26 @@
+[package]
+name = "terapi"
+version = "0.1.0"
+edition = "2021"
+authors = ["Thierry <thierry@tsodev.fr>"]
+description = "A terminal UI for REST API and GraphQL automation"
+license = "MIT"
+repository = "https://github.com/tsodev/terapi"
+homepage = "https://github.com/tsodev/terapi"
+keywords = ["tui", "api", "graphql", "rest", "terminal"]
+categories = ["command-line-utilities", "development-tools"]
+readme = "README.md"
+exclude = ["CLAUDE.md", "PUBLISH.md"]
+
+[[bin]]
+name = "terapi"
+path = "src/main.rs"
+
+[dependencies]
+ratatui = "0.29"
+crossterm = "0.28"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"

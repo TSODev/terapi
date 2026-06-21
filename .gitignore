@@ -1,0 +1,6 @@
+/target
+Cargo.lock
+.env
+*.log
+CLAUDE.md
+PUBLISH.md

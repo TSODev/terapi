@@ -3,6 +3,12 @@ use crossterm::event::{KeyCode, KeyEvent};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum ResponseView {
+    Json,
+    Raw,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Tab {
     Request,
     Collections,
@@ -159,6 +165,7 @@ pub struct App {
     pub collections: Vec<CollectionNode>,
     pub collection_cursor: usize,
     pub response_body: Option<String>,
+    pub response_view: ResponseView,
     pub response_cursor: usize,
     pub response_scroll: u16,
     pub response_folds: HashSet<String>,
@@ -175,11 +182,12 @@ impl App {
             collections: Self::sample_collections(),
             collection_cursor: 0,
             response_body,
+            response_view: ResponseView::Json,
             response_cursor: 0,
             response_scroll: 0,
             response_folds: HashSet::new(),
             key_col_width: 22,
-            status_message: String::from("Tab: switch panel  ←/→: section  ↑/↓: cursor  Enter: fold  -/=: resize  q: quit"),
+            status_message: String::from("Tab: panels  ←/→: section  ↑/↓: cursor  Enter: fold  r: raw/json  -/=: resize  q: quit"),
         }
     }
 
@@ -264,19 +272,43 @@ impl App {
             KeyCode::Left if self.active_tab == Tab::Request => {
                 self.active_request_tab = self.active_request_tab.prev();
             }
+            KeyCode::Char('r') if self.active_tab == Tab::Request => {
+                self.response_view = match self.response_view {
+                    ResponseView::Json => ResponseView::Raw,
+                    ResponseView::Raw => ResponseView::Json,
+                };
+                self.response_cursor = 0;
+                self.response_scroll = 0;
+            }
             KeyCode::Up if self.active_tab == Tab::Request => {
-                self.response_cursor = self.response_cursor.saturating_sub(1);
-                self.sync_scroll();
+                match self.response_view {
+                    ResponseView::Json => {
+                        self.response_cursor = self.response_cursor.saturating_sub(1);
+                        self.sync_scroll();
+                    }
+                    ResponseView::Raw => {
+                        self.response_scroll = self.response_scroll.saturating_sub(1);
+                    }
+                }
             }
             KeyCode::Down if self.active_tab == Tab::Request => {
-                let len = self.response_line_count();
-                if self.response_cursor + 1 < len {
-                    self.response_cursor += 1;
+                match self.response_view {
+                    ResponseView::Json => {
+                        let len = self.response_line_count();
+                        if self.response_cursor + 1 < len {
+                            self.response_cursor += 1;
+                        }
+                        self.sync_scroll();
+                    }
+                    ResponseView::Raw => {
+                        self.response_scroll = self.response_scroll.saturating_add(1);
+                    }
                 }
-                self.sync_scroll();
             }
             KeyCode::Enter if self.active_tab == Tab::Request => {
-                self.toggle_response_fold();
+                if self.response_view == ResponseView::Json {
+                    self.toggle_response_fold();
+                }
             }
             KeyCode::Char('-') if self.active_tab == Tab::Request => {
                 self.key_col_width = self.key_col_width.saturating_sub(2).max(8);

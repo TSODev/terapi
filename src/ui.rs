@@ -6,7 +6,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::app::{flatten_collections, App, RequestTab, Tab};
+use crate::app::{flatten_collections, App, RequestTab, ResponseView, Tab};
 use crate::json_highlight::{self, ValueType};
 
 pub fn render(frame: &mut Frame, app: &App) {
@@ -84,7 +84,7 @@ fn render_request_panel(frame: &mut Frame, app: &App, area: Rect) {
 
     render_request_subtabs(frame, app, chunks[1]);
     render_request_content(frame, app, chunks[2]);
-    render_response_table(frame, app, chunks[3]);
+    render_response(frame, app, chunks[3]);
 }
 
 fn render_request_subtabs(frame: &mut Frame, app: &App, area: Rect) {
@@ -135,7 +135,43 @@ fn render_request_content(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(content, area);
 }
 
-fn render_response_table(frame: &mut Frame, app: &App, area: Rect) {
+fn render_response(frame: &mut Frame, app: &App, area: Rect) {
+    let json_active = app.response_view == ResponseView::Json;
+
+    let json_style = if json_active {
+        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+    let raw_style = if !json_active {
+        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+
+    let title = Line::from(vec![
+        Span::raw(" "),
+        Span::styled("JSON", json_style),
+        Span::styled(" · ", Style::default().fg(Color::DarkGray)),
+        Span::styled("Raw", raw_style),
+        Span::raw("  r: toggle  -/=: resize "),
+    ]);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(title)
+        .border_style(Style::default().fg(Color::Green));
+
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    match app.response_view {
+        ResponseView::Json => render_response_json(frame, app, inner),
+        ResponseView::Raw  => render_response_raw(frame, app, inner),
+    }
+}
+
+fn render_response_json(frame: &mut Frame, app: &App, area: Rect) {
     let json_rows = match &app.response_body {
         Some(json) => json_highlight::rows(json, &app.response_folds),
         None => vec![],
@@ -160,15 +196,13 @@ fn render_response_table(frame: &mut Frame, app: &App, area: Rect) {
         ]));
 
         let (type_color, type_label) = match r.value_type {
-            ValueType::Object => (Color::Cyan,    "Object "),
-            ValueType::Array  => (Color::Blue,    "Array  "),
-            ValueType::Str       => (Color::Green,   "String "),
-            ValueType::Number    => (Color::Yellow,  "Number "),
-            ValueType::Boolean   => (Color::Magenta, "Boolean"),
-            ValueType::Null      => (Color::DarkGray,"Null   "),
+            ValueType::Object  => (Color::Cyan,    "Object "),
+            ValueType::Array   => (Color::Blue,    "Array  "),
+            ValueType::Str     => (Color::Green,   "String "),
+            ValueType::Number  => (Color::Yellow,  "Number "),
+            ValueType::Boolean => (Color::Magenta, "Boolean"),
+            ValueType::Null    => (Color::DarkGray,"Null   "),
         };
-
-        let type_cell = Cell::from(Span::styled(type_label, Style::default().fg(type_color)));
 
         let value_color = match r.value_type {
             ValueType::Object | ValueType::Array => Color::White,
@@ -178,17 +212,16 @@ fn render_response_table(frame: &mut Frame, app: &App, area: Rect) {
             ValueType::Null    => Color::DarkGray,
         };
 
-        let value_cell = Cell::from(Span::styled(
-            r.value_preview.clone(),
-            Style::default().fg(value_color),
-        ));
-
-        Row::new(vec![key_cell, type_cell, value_cell])
+        Row::new(vec![
+            key_cell,
+            Cell::from(Span::styled(type_label, Style::default().fg(type_color))),
+            Cell::from(Span::styled(r.value_preview.clone(), Style::default().fg(value_color))),
+        ])
     }).collect();
 
     let header = Row::new(vec![
-        Cell::from(Span::styled("Key", Style::default().fg(Color::White).add_modifier(Modifier::BOLD))),
-        Cell::from(Span::styled("Type", Style::default().fg(Color::White).add_modifier(Modifier::BOLD))),
+        Cell::from(Span::styled("Key",   Style::default().fg(Color::White).add_modifier(Modifier::BOLD))),
+        Cell::from(Span::styled("Type",  Style::default().fg(Color::White).add_modifier(Modifier::BOLD))),
         Cell::from(Span::styled("Value", Style::default().fg(Color::White).add_modifier(Modifier::BOLD))),
     ])
     .style(Style::default().bg(Color::Indexed(236)))
@@ -200,15 +233,8 @@ fn render_response_table(frame: &mut Frame, app: &App, area: Rect) {
         Constraint::Min(10),
     ];
 
-    let hint = format!(" Response  -/=: resize key col ({}) ", app.key_col_width);
     let table = Table::new(rows, widths)
         .header(header)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(hint)
-                .border_style(Style::default().fg(Color::Green)),
-        )
         .row_highlight_style(Style::default().bg(Color::Indexed(237)))
         .column_spacing(1);
 
@@ -217,6 +243,14 @@ fn render_response_table(frame: &mut Frame, app: &App, area: Rect) {
         .with_offset(app.response_scroll as usize);
 
     frame.render_stateful_widget(table, area, &mut state);
+}
+
+fn render_response_raw(frame: &mut Frame, app: &App, area: Rect) {
+    let text = app.response_body.as_deref().unwrap_or("No response.");
+    let para = Paragraph::new(text)
+        .style(Style::default().fg(Color::White))
+        .scroll((app.response_scroll, 0));
+    frame.render_widget(para, area);
 }
 
 fn render_collections_panel(frame: &mut Frame, app: &App, area: Rect) {

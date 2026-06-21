@@ -7,8 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [0.2.0] — 2026-06-21 — REST API (in progress)
 
+### Added
+- `terapi run <campaign.toml> --silent` (`-s`) — suppresses all output, returns exit code 0/1 for CI/cron use
+
 ### Changed
 - Version bump to 0.2.0, beginning of interactive REST API implementation
+- Author updated to Thierry Soulie <thierry.soulie@tsodev.fr>
 
 ---
 

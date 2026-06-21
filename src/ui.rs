@@ -7,6 +7,7 @@ use ratatui::{
 };
 
 use crate::app::{flatten_collections, App, RequestTab, Tab};
+use crate::json_highlight;
 
 pub fn render(frame: &mut Frame, app: &App) {
     let area = frame.area();
@@ -84,14 +85,22 @@ fn render_request_panel(frame: &mut Frame, app: &App, area: ratatui::layout::Rec
     render_request_subtabs(frame, app, chunks[1]);
     render_request_content(frame, app, chunks[2]);
 
-    let response = Paragraph::new("Response will appear here…")
+    let response_lines = match &app.response_body {
+        Some(json) => json_highlight::highlight(json),
+        None => vec![ratatui::text::Line::from(ratatui::text::Span::styled(
+            "Response will appear here…",
+            Style::default().fg(Color::DarkGray),
+        ))],
+    };
+
+    let response = Paragraph::new(response_lines)
         .block(
             Block::default()
                 .borders(Borders::ALL)
                 .title(" Response ")
                 .border_style(Style::default().fg(Color::Green)),
         )
-        .style(Style::default().fg(Color::DarkGray));
+        .scroll((app.response_scroll, 0));
     frame.render_widget(response, chunks[3]);
 }
 

@@ -150,12 +150,32 @@ fn toggle_recursive(nodes: &mut [CollectionNode], cursor: usize, count: &mut usi
     false
 }
 
+const SAMPLE_RESPONSE: &str = r#"{
+  "id": 42,
+  "name": "Alice Dupont",
+  "active": true,
+  "score": 98.5,
+  "role": null,
+  "address": {
+    "street": "12 rue de la Paix",
+    "city": "Paris",
+    "zip": "75001"
+  },
+  "tags": ["rust", "tui", "graphql"],
+  "permissions": [
+    { "resource": "users", "action": "read" },
+    { "resource": "users", "action": "write" }
+  ]
+}"#;
+
 pub struct App {
     pub running: bool,
     pub active_tab: Tab,
     pub active_request_tab: RequestTab,
     pub collections: Vec<CollectionNode>,
     pub collection_cursor: usize,
+    pub response_body: Option<String>,
+    pub response_scroll: u16,
     pub status_message: String,
 }
 
@@ -167,7 +187,9 @@ impl App {
             active_request_tab: RequestTab::Description,
             collections: Self::sample_collections(),
             collection_cursor: 0,
-            status_message: String::from("Tab: switch panel  ←/→: switch section  q: quit"),
+            response_body: Some(SAMPLE_RESPONSE.to_string()),
+            response_scroll: 0,
+            status_message: String::from("Tab: switch panel  ←/→: section  ↑/↓: scroll response  q: quit"),
         }
     }
 
@@ -251,6 +273,12 @@ impl App {
             }
             KeyCode::Left if self.active_tab == Tab::Request => {
                 self.active_request_tab = self.active_request_tab.prev();
+            }
+            KeyCode::Up if self.active_tab == Tab::Request => {
+                self.response_scroll = self.response_scroll.saturating_sub(1);
+            }
+            KeyCode::Down if self.active_tab == Tab::Request => {
+                self.response_scroll = self.response_scroll.saturating_add(1);
             }
             KeyCode::Up if self.active_tab == Tab::Collections => {
                 if self.collection_cursor > 0 {

@@ -1,5 +1,6 @@
 mod app;
 mod event;
+mod json_highlight;
 mod ui;
 
 use anyhow::Result;

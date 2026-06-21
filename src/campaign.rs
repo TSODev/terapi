@@ -84,21 +84,25 @@ pub fn load(path: &str) -> Result<Campaign> {
 
 // ── runner ────────────────────────────────────────────────────────────────────
 
-pub async fn run(campaign: &Campaign) -> Result<()> {
-    println!("Campaign : {}", campaign.campaign.name);
+pub async fn run(campaign: &Campaign, silent: bool) -> Result<()> {
+    macro_rules! out {
+        ($($arg:tt)*) => { if !silent { println!($($arg)*); } }
+    }
+
+    out!("Campaign : {}", campaign.campaign.name);
     if !campaign.campaign.description.is_empty() {
-        println!("           {}", campaign.campaign.description);
+        out!("           {}", campaign.campaign.description);
     }
 
     // Build iteration list from connectors
     let rows: Vec<Row> = match campaign.connectors.as_slice() {
         [] => {
-            println!();
+            out!();
             vec![HashMap::new()]
         }
         [single] => {
             let rows = connector::load_rows(single)?;
-            println!("Connector : {} ({} rows)\n", single.path, rows.len());
+            out!("Connector : {} ({} rows)\n", single.path, rows.len());
             rows
         }
         _ => bail!("multiple connectors per campaign are not yet supported"),
@@ -113,7 +117,6 @@ pub async fn run(campaign: &Campaign) -> Result<()> {
     let mut all: Vec<IterationResult> = Vec::new();
 
     for (idx, row_vars) in rows.into_iter().enumerate() {
-        // Merge base env + row vars (row vars win on conflict)
         let mut env = campaign.env.clone();
         env.extend(row_vars.clone());
 
@@ -122,7 +125,7 @@ pub async fn run(campaign: &Campaign) -> Result<()> {
                 .map(|(k, v)| format!("{}={}", k, truncate(v, 20)))
                 .collect::<Vec<_>>()
                 .join("  ");
-            println!("── Row {}/{} — {} ", idx + 1, total_iters, row_summary);
+            out!("── Row {}/{} — {} ", idx + 1, total_iters, row_summary);
         }
 
         let step_results = run_steps(&client, &campaign.steps, &mut env).await;
@@ -132,11 +135,11 @@ pub async fn run(campaign: &Campaign) -> Result<()> {
                 .map(|s| format!("{}", s))
                 .unwrap_or_else(|| "ERR".into());
             let result_str = if sr.success { "✓" } else { "✗" };
-            println!("  {} {:<22} {:<7} {}  {:>6} ms  {}",
+            out!("  {} {:<22} {:<7} {}  {:>6} ms  {}",
                 result_str, sr.name, sr.method, status_str, sr.duration_ms,
                 sr.error.as_deref().unwrap_or(""));
             for (var, val) in &sr.extracted {
-                println!("      ↳ {} = {}", var, truncate(val, 60));
+                out!("      ↳ {} = {}", var, truncate(val, 60));
             }
         }
 
@@ -146,10 +149,19 @@ pub async fn run(campaign: &Campaign) -> Result<()> {
             steps: step_results,
         });
 
-        if use_iter_prefix { println!(); }
+        if use_iter_prefix { out!(); }
     }
 
-    print_report(campaign, &all);
+    if !silent {
+        print_report(campaign, &all);
+    }
+
+    // In silent mode, propagate failure as a non-zero exit code
+    let total_fail: usize = all.iter().map(|r| r.fail_count()).sum();
+    if total_fail > 0 {
+        std::process::exit(1);
+    }
+
     Ok(())
 }
 

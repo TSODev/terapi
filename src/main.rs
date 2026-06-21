@@ -36,6 +36,10 @@ enum Commands {
         /// Path to the campaign TOML file
         #[arg(value_name = "CAMPAIGN")]
         file: String,
+
+        /// Suppress all output — exit 0 on success, 1 on failure
+        #[arg(long, short = 's')]
+        silent: bool,
     },
 }
 
@@ -44,9 +48,9 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Some(Commands::Run { file }) => {
+        Some(Commands::Run { file, silent }) => {
             let camp = campaign::load(&file)?;
-            campaign::run(&camp).await?;
+            campaign::run(&camp, silent).await?;
         }
         None => launch_tui(load_json(cli.demo.as_deref())).await?,
     }

@@ -19,9 +19,9 @@ use event::{Event, EventHandler};
 #[derive(Parser)]
 #[command(name = "terapi", version, about, long_about = None)]
 struct Cli {
-    /// JSON file to load in the response viewer on startup
-    #[arg(value_name = "FILE")]
-    file: Option<String>,
+    /// Load a JSON file into the response viewer (demo/dev mode)
+    #[arg(long, value_name = "FILE")]
+    demo: Option<String>,
 
     // Future subcommands (run, validate, …) will be added here
 }
@@ -29,7 +29,7 @@ struct Cli {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-    let json = load_json(cli.file.as_deref());
+    let json = load_json(cli.demo.as_deref());
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -48,13 +48,14 @@ async fn main() -> Result<()> {
 }
 
 fn load_json(path: Option<&str>) -> Option<String> {
-    if let Some(p) = path {
-        match std::fs::read_to_string(p) {
-            Ok(content) => return Some(content),
-            Err(e) => eprintln!("terapi: cannot read '{}': {}", p, e),
+    let p = path?;
+    match std::fs::read_to_string(p) {
+        Ok(content) => Some(content),
+        Err(e) => {
+            eprintln!("terapi: cannot read '{}': {}", p, e);
+            None
         }
     }
-    std::fs::read_to_string("demo.json").ok()
 }
 
 async fn run(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, json: Option<String>) -> Result<()> {

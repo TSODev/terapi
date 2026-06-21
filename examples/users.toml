@@ -1,37 +1,53 @@
 [campaign]
 name = "Users API — smoke tests"
-description = "Validates the basic CRUD flow on the user resource"
+description = "Login, then validate the basic CRUD flow on the user resource"
 
 [env]
 BASE_URL = "https://api.example.com"
-TOKEN    = "Bearer my-secret-token"
+EMAIL    = "admin@example.com"
+PASSWORD = "secret"
+
+# ── Step 1: login → extract JWT and user id ──────────────────────────────────
+
+[[steps]]
+name   = "Login"
+method = "POST"
+url    = "{{BASE_URL}}/auth/login"
+body   = '{"email": "{{EMAIL}}", "password": "{{PASSWORD}}"}'
+[steps.headers]
+Content-Type = "application/json"
+[steps.extract]
+JWT     = "token"        # response.token
+USER_ID = "user.id"      # response.user.id
+
+# ── Step 2: use JWT from previous step ───────────────────────────────────────
+
+[[steps]]
+name   = "Get my profile"
+method = "GET"
+url    = "{{BASE_URL}}/users/{{USER_ID}}"
+[steps.headers]
+Authorization = "Bearer {{JWT}}"
 
 [[steps]]
 name   = "List users"
 method = "GET"
 url    = "{{BASE_URL}}/users"
 [steps.headers]
-Authorization = "{{TOKEN}}"
+Authorization = "Bearer {{JWT}}"
 
 [[steps]]
 name   = "Create user"
 method = "POST"
 url    = "{{BASE_URL}}/users"
-body   = '{"username": "tsodev", "email": "thierry@tsodev.fr", "role": "admin"}'
+body   = '{"username": "tsodev", "email": "thierry@tsodev.fr", "role": "editor"}'
 [steps.headers]
-Authorization = "{{TOKEN}}"
+Authorization = "Bearer {{JWT}}"
 Content-Type  = "application/json"
-
-[[steps]]
-name   = "Get user by id"
-method = "GET"
-url    = "{{BASE_URL}}/users/42"
-[steps.headers]
-Authorization = "{{TOKEN}}"
 
 [[steps]]
 name   = "Delete user"
 method = "DELETE"
 url    = "{{BASE_URL}}/users/42"
 [steps.headers]
-Authorization = "{{TOKEN}}"
+Authorization = "Bearer {{JWT}}"

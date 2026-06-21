@@ -45,7 +45,7 @@ async fn main() -> Result<()> {
     match cli.command {
         Some(Commands::Run { file }) => {
             let camp = campaign::load(&file)?;
-            campaign::run(&camp)?;
+            campaign::run(&camp).await?;
         }
         None => launch_tui(load_json(cli.demo.as_deref())).await?,
     }

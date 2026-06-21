@@ -93,15 +93,19 @@ fn collect(
             let is_folded = !arr.is_empty() && folds.contains(path);
             let fold_path = if count > 0 { Some(path.to_string()) } else { None };
 
+            let value_preview = if count == 0 {
+                "[ ]".into()
+            } else if is_folded {
+                preview_array(arr)
+            } else {
+                String::new()
+            };
+
             result.push(JsonRow {
                 depth,
                 key,
                 value_type: ValueType::Array,
-                value_preview: if is_folded || count == 0 {
-                    format!("[ {} ]", count)
-                } else {
-                    String::new()
-                },
+                value_preview,
                 fold_path,
                 is_folded,
             });
@@ -125,15 +129,19 @@ fn collect(
             let is_folded = !map.is_empty() && folds.contains(path);
             let fold_path = if count > 0 { Some(path.to_string()) } else { None };
 
+            let value_preview = if count == 0 {
+                "{ }".into()
+            } else if is_folded {
+                preview_object(map)
+            } else {
+                String::new()
+            };
+
             result.push(JsonRow {
                 depth,
                 key,
                 value_type: ValueType::Object,
-                value_preview: if is_folded || count == 0 {
-                    format!("{{ {} }}", count)
-                } else {
-                    String::new()
-                },
+                value_preview,
                 fold_path,
                 is_folded,
             });
@@ -152,4 +160,50 @@ fn collect(
             }
         }
     }
+}
+
+// ── inline preview helpers ────────────────────────────────────────────────────
+
+/// One-line preview of a primitive value, or a short summary for containers.
+fn preview_atom(v: &Value) -> String {
+    match v {
+        Value::Null => "null".into(),
+        Value::Bool(b) => b.to_string(),
+        Value::Number(n) => n.to_string(),
+        Value::String(s) => format!("\"{}\"", s),
+        Value::Array(a) => format!("[{}]", a.len()),
+        Value::Object(m) => format!("{{{}}}", m.len()),
+    }
+}
+
+/// Build `[ v1, v2, … ]` for a folded array, capped at ~80 chars.
+fn preview_array(arr: &[Value]) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    let mut len = 4usize; // "[ " + " ]"
+    for item in arr {
+        let s = preview_atom(item);
+        if len + s.len() > 80 {
+            parts.push("…".into());
+            break;
+        }
+        len += s.len() + 2; // ", "
+        parts.push(s);
+    }
+    format!("[ {} ]", parts.join(", "))
+}
+
+/// Build `{ k: v, k: v, … }` for a folded object, capped at ~80 chars.
+fn preview_object(map: &serde_json::Map<String, Value>) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    let mut len = 4usize; // "{ " + " }"
+    for (k, v) in map {
+        let s = format!("{}: {}", k, preview_atom(v));
+        if len + s.len() > 80 {
+            parts.push("…".into());
+            break;
+        }
+        len += s.len() + 2;
+        parts.push(s);
+    }
+    format!("{{ {} }}", parts.join(", "))
 }

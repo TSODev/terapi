@@ -85,8 +85,11 @@ fn render_request_panel(frame: &mut Frame, app: &App, area: ratatui::layout::Rec
     render_request_subtabs(frame, app, chunks[1]);
     render_request_content(frame, app, chunks[2]);
 
-    let response_lines = match &app.response_body {
-        Some(json) => json_highlight::highlight(json),
+    let response_lines: Vec<_> = match &app.response_body {
+        Some(json) => json_highlight::render(json, &app.response_folds, app.response_cursor)
+            .into_iter()
+            .map(|i| i.line)
+            .collect(),
         None => vec![ratatui::text::Line::from(ratatui::text::Span::styled(
             "Response will appear here…",
             Style::default().fg(Color::DarkGray),

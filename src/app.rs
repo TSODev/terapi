@@ -1,5 +1,6 @@
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Tab {
@@ -175,7 +176,9 @@ pub struct App {
     pub collections: Vec<CollectionNode>,
     pub collection_cursor: usize,
     pub response_body: Option<String>,
+    pub response_cursor: usize,
     pub response_scroll: u16,
+    pub response_folds: HashSet<String>,
     pub status_message: String,
 }
 
@@ -188,8 +191,10 @@ impl App {
             collections: Self::sample_collections(),
             collection_cursor: 0,
             response_body: Some(SAMPLE_RESPONSE.to_string()),
+            response_cursor: 0,
             response_scroll: 0,
-            status_message: String::from("Tab: switch panel  ←/→: section  ↑/↓: scroll response  q: quit"),
+            response_folds: HashSet::new(),
+            status_message: String::from("Tab: switch panel  ←/→: section  ↑/↓: cursor  Enter: fold  q: quit"),
         }
     }
 
@@ -275,10 +280,18 @@ impl App {
                 self.active_request_tab = self.active_request_tab.prev();
             }
             KeyCode::Up if self.active_tab == Tab::Request => {
-                self.response_scroll = self.response_scroll.saturating_sub(1);
+                self.response_cursor = self.response_cursor.saturating_sub(1);
+                self.sync_scroll();
             }
             KeyCode::Down if self.active_tab == Tab::Request => {
-                self.response_scroll = self.response_scroll.saturating_add(1);
+                let len = self.response_line_count();
+                if self.response_cursor + 1 < len {
+                    self.response_cursor += 1;
+                }
+                self.sync_scroll();
+            }
+            KeyCode::Enter if self.active_tab == Tab::Request => {
+                self.toggle_response_fold();
             }
             KeyCode::Up if self.active_tab == Tab::Collections => {
                 if self.collection_cursor > 0 {
@@ -300,4 +313,34 @@ impl App {
     }
 
     pub fn tick(&mut self) {}
+
+    fn response_line_count(&self) -> usize {
+        crate::json_highlight::render(
+            self.response_body.as_deref().unwrap_or(""),
+            &self.response_folds,
+            0,
+        )
+        .len()
+    }
+
+    fn sync_scroll(&mut self) {
+        self.response_scroll = (self.response_cursor as u16).saturating_sub(3);
+    }
+
+    fn toggle_response_fold(&mut self) {
+        let json = self.response_body.as_deref().unwrap_or("");
+        let infos =
+            crate::json_highlight::render(json, &self.response_folds, self.response_cursor);
+
+        if let Some(path) = infos.get(self.response_cursor).and_then(|i| i.fold_path.clone()) {
+            if !self.response_folds.remove(&path) {
+                self.response_folds.insert(path);
+            }
+            let new_len = self.response_line_count();
+            if self.response_cursor >= new_len && new_len > 0 {
+                self.response_cursor = new_len - 1;
+            }
+            self.sync_scroll();
+        }
+    }
 }

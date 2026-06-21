@@ -200,7 +200,7 @@ fn render_response_table(frame: &mut Frame, app: &App, area: Rect) {
         Constraint::Min(10),
     ];
 
-    let hint = format!(" Response  [/]: resize key col ({}) ", app.key_col_width);
+    let hint = format!(" Response  -/=: resize key col ({}) ", app.key_col_width);
     let table = Table::new(rows, widths)
         .header(header)
         .block(

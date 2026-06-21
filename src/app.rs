@@ -196,7 +196,7 @@ impl App {
             response_scroll: 0,
             response_folds: HashSet::new(),
             key_col_width: 22,
-            status_message: String::from("Tab: switch panel  ←/→: section  ↑/↓: cursor  Enter: fold  [/]: resize  q: quit"),
+            status_message: String::from("Tab: switch panel  ←/→: section  ↑/↓: cursor  Enter: fold  -/=: resize  q: quit"),
         }
     }
 
@@ -295,10 +295,10 @@ impl App {
             KeyCode::Enter if self.active_tab == Tab::Request => {
                 self.toggle_response_fold();
             }
-            KeyCode::Char('[') if self.active_tab == Tab::Request => {
+            KeyCode::Char('-') if self.active_tab == Tab::Request => {
                 self.key_col_width = self.key_col_width.saturating_sub(2).max(8);
             }
-            KeyCode::Char(']') if self.active_tab == Tab::Request => {
+            KeyCode::Char('=') if self.active_tab == Tab::Request => {
                 self.key_col_width = (self.key_col_width + 2).min(50);
             }
             KeyCode::Up if self.active_tab == Tab::Collections => {

@@ -151,24 +151,6 @@ fn toggle_recursive(nodes: &mut [CollectionNode], cursor: usize, count: &mut usi
     false
 }
 
-const SAMPLE_RESPONSE: &str = r#"{
-  "id": 42,
-  "name": "Alice Dupont",
-  "active": true,
-  "score": 98.5,
-  "role": null,
-  "address": {
-    "street": "12 rue de la Paix",
-    "city": "Paris",
-    "zip": "75001"
-  },
-  "tags": ["rust", "tui", "graphql"],
-  "permissions": [
-    { "resource": "users", "action": "read" },
-    { "resource": "users", "action": "write" }
-  ]
-}"#;
-
 pub struct App {
     pub running: bool,
     pub active_tab: Tab,
@@ -184,14 +166,14 @@ pub struct App {
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(response_body: Option<String>) -> Self {
         Self {
             running: true,
             active_tab: Tab::Request,
             active_request_tab: RequestTab::Description,
             collections: Self::sample_collections(),
             collection_cursor: 0,
-            response_body: Some(SAMPLE_RESPONSE.to_string()),
+            response_body,
             response_cursor: 0,
             response_scroll: 0,
             response_folds: HashSet::new(),

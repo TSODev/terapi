@@ -1,8 +1,8 @@
 [package]
 name = "terapi"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-authors = ["Thierry <thierry@tsodev.fr>"]
+authors = ["Thierry Soulie <thierry.soulie@tsodev.fr>"]
 description = "A terminal UI for REST API and GraphQL automation"
 license = "MIT"
 repository = "https://github.com/tsodev/terapi"

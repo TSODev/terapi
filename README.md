@@ -3,20 +3,23 @@
 **Terminal + API** — a keyboard-driven TUI for exploring, testing, and automating REST and GraphQL APIs, without leaving your terminal.
 
 ```
-┌─────────────────── terapi ───────────────────┐
-│  Request  |  Collections  |  History          │
-├──────────────────────────────────────────────┤
-│ ┌─ URL ──────────────────────────────────── ┐│
-│ │ GET  https://                              ││
-│ └────────────────────────────────────────── ┘│
-│ ┌─ Response ─────────────────────────────── ┐│
-│ │                                            ││
-│ │  Response will appear here…               ││
-│ │                                            ││
-│ └────────────────────────────────────────── ┘│
-├──────────────────────────────────────────────┤
-│ Ready — press q to quit, Tab to switch panels │
-└──────────────────────────────────────────────┘
+┌─────────────────────────── terapi ────────────────────────────┐
+│  Request  |  Collections  |  History                           │
+├────────────────────────────────────────────────────────────────┤
+│ ┌─ URL ──────────────────────────────────────────────────────┐ │
+│ │ GET  https://api.example.com/users                         │ │
+│ └────────────────────────────────────────────────────────────┘ │
+│  Description | Headers | URL Params | Body | Auth | Options    │
+│ ┌─ JSON · Raw  r: toggle  -/=: resize ──────────────────────┐ │
+│ │ ▼ (root)          Object                                   │ │
+│ │   status          String   "success"                       │ │
+│ │   code            Number   200                             │ │
+│ │ ▼ data            Object                                   │ │
+│ │   ▶ user          Object   { id: 42, username: "tsodev" …} │ │
+│ └────────────────────────────────────────────────────────────┘ │
+├────────────────────────────────────────────────────────────────┤
+│ Tab: panels  ←/→: section  ↑/↓: cursor  Enter: fold  q: quit  │
+└────────────────────────────────────────────────────────────────┘
 ```
 
 ## Why terapi?
@@ -31,9 +34,11 @@
 **terapi** aims to be all of the above in one tool:
 
 - **GraphQL native** — schema introspection, query autocompletion, variable editing
-- **Pipeline automation** — chain requests, extract variables from responses, run assertions
+- **Pipeline automation** — chain requests, extract variables, run campaigns headlessly
 - **Local-first** — collections stored as TOML, git-friendly, no account, no cloud
 - **Single binary** — `cargo install terapi`, instant startup, zero Electron
+
+---
 
 ## Installation
 
@@ -52,29 +57,123 @@ cargo build --release
 
 **Requirements:** Rust 1.75+ (edition 2021), any modern terminal with 256-color support.
 
-## Keybindings
+---
+
+## Usage
+
+```bash
+terapi                        # launch TUI (empty)
+terapi --demo response.json   # launch TUI with a JSON file pre-loaded
+terapi run campaign.toml      # run a campaign headlessly
+terapi --version
+terapi --help
+```
+
+---
+
+## TUI keybindings
 
 | Key | Action |
 |-----|--------|
-| `Tab` | Switch panel |
+| `Tab` | Switch panel (Request / Collections / History) |
+| `←` / `→` | Navigate request sub-tabs |
+| `↑` / `↓` | Move cursor / scroll response |
+| `Enter` | Fold / unfold JSON node — expand/collapse collection folder |
+| `r` | Toggle response view: JSON ↔ Raw |
+| `-` / `=` | Resize Key column in JSON viewer |
 | `q` / `Esc` | Quit |
 
-More keybindings will be added as features are implemented.
+---
 
-## Status
+## Campaign runner
 
-> **v0.1.0 — early skeleton.** The TUI boots and renders 3 panels. Everything else is coming.
+Terapi includes a headless campaign runner for API automation.
 
-This is a very early release to establish the crate name and project structure. See the roadmap below.
+### Campaign TOML format
+
+```toml
+[campaign]
+name        = "Users API — smoke tests"
+description = "Login then run CRUD operations"
+
+[env]
+BASE_URL = "https://api.example.com"
+
+[[steps]]
+name   = "Login"
+method = "POST"
+url    = "{{BASE_URL}}/auth/login"
+body   = '{"email": "admin@example.com", "password": "secret"}'
+[steps.headers]
+Content-Type = "application/json"
+[steps.extract]
+JWT     = "token"    # extracted from response JSON
+USER_ID = "user.id"
+
+[[steps]]
+name   = "Get profile"
+method = "GET"
+url    = "{{BASE_URL}}/users/{{USER_ID}}"
+[steps.headers]
+Authorization = "Bearer {{JWT}}"
+```
+
+### Data-driven campaigns (CSV connector)
+
+```toml
+[[connectors]]
+type = "csv"
+path = "contacts.csv"   # columns become {{variables}}
+
+# Campaign runs once per CSV row
+[[steps]]
+name   = "Invite contact"
+method = "POST"
+url    = "{{BASE_URL}}/invitations"
+body   = '{"email": "{{contact_email}}", "name": "{{contact_name}}"}'
+```
+
+### Variable extraction
+
+Extracted values use dot-path notation over the JSON response:
+
+| Path | Extracts |
+|------|----------|
+| `token` | `response["token"]` |
+| `user.id` | `response["user"]["id"]` |
+| `data.items.0.name` | `response["data"]["items"][0]["name"]` |
+
+### Campaign report
+
+```
+Campaign : Users API — smoke tests
+
+  ✓ Login                  POST    200    142 ms
+      ↳ JWT = eyJhbGciOiJIUzI1NiIs…
+      ↳ USER_ID = 42
+  ✓ Get profile            GET     200     89 ms
+  ✗ Delete user            DELETE  404     34 ms  HTTP 404
+
+╔════════════════════════════════════════════════════════════════════╗
+║  Campaign Report — Users API — smoke tests                         ║
+╠════════════════════════════════════════════════════════════════════╣
+║  Steps      : 2 ok  /  1 failed  (3 total)                        ║
+║  Duration   : 265 ms                                               ║
+╠════════════════════════════════════════════════════════════════════╣
+║  ✗  SOME STEPS FAILED                                              ║
+╚════════════════════════════════════════════════════════════════════╝
+```
+
+---
 
 ## Roadmap
 
-### v0.2 — REST basics
+### v0.2 — REST basics *(in progress)*
 - [ ] Method selector (GET / POST / PUT / PATCH / DELETE)
 - [ ] URL input (editable)
 - [ ] Headers editor
 - [ ] Body editor (raw JSON)
-- [ ] Send request (`Enter`) — async via tokio
+- [ ] Send request — async via tokio
 - [ ] Response viewer: status, headers, pretty-printed JSON
 
 ### v0.3 — Collections
@@ -94,19 +193,16 @@ This is a very early release to establish the crate name and project structure. 
 - [ ] Mutations support
 
 ### v0.6 — Automation / Scripting
-- [ ] Chain requests (output of req N → input of req N+1)
-- [ ] Variable extraction from JSON responses (JSONPath-style)
 - [ ] Assertions (status code, body field values)
-- [ ] Headless pipeline: `terapi run collection.toml`
-
-### v1.0
-- [ ] Auth: Bearer token, API Key, OAuth2 (basic)
-- [ ] Syntax highlighting (syntect)
 - [ ] Import from Postman collection (JSON v2.1)
 
-## Stack
+### v1.0
+- [ ] Auth: Bearer token, API Key, OAuth2 (basic) — via the Auth tab
+- [ ] Syntax highlighting (syntect)
 
-Built with Rust 2021:
+---
+
+## Stack
 
 | Role | Crate |
 |------|-------|
@@ -114,11 +210,12 @@ Built with Rust 2021:
 | HTTP client | `reqwest` (async) |
 | Async runtime | `tokio` |
 | Serialization | `serde` + `serde_json` |
+| Config / campaigns | `toml` |
+| CSV connector | `csv` |
+| CLI | `clap` |
 | Error handling | `anyhow` |
 
-## Contributing
-
-Contributions, issues, and feature requests are welcome. This project is in early development — the best way to contribute right now is to open an issue describing what you'd like to see.
+---
 
 ## License
 

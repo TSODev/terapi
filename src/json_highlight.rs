@@ -1,257 +1,167 @@
 use std::collections::HashSet;
 
-use ratatui::{
-    style::{Color, Style},
-    text::{Line, Span},
-};
 use serde_json::Value;
 
-const INDENT: &str = "  ";
-
-pub struct LineInfo {
-    pub line: Line<'static>,
-    /// Path of the foldable node on this line (JSON Pointer format), if any.
-    pub fold_path: Option<String>,
+#[derive(Debug, Clone)]
+pub enum ValueType {
+    Object(usize),
+    Array(usize),
+    Str,
+    Number,
+    Boolean,
+    Null,
 }
 
-/// Render a JSON string as syntax-highlighted ratatui Lines with fold support.
-///
-/// - `folds`  — set of JSON Pointer paths that are currently collapsed
-/// - `cursor` — index of the currently selected line (highlighted background)
-pub fn render(json: &str, folds: &HashSet<String>, cursor: usize) -> Vec<LineInfo> {
+impl ValueType {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Object(_) => "Object",
+            Self::Array(_) => "Array",
+            Self::Str => "String",
+            Self::Number => "Number",
+            Self::Boolean => "Boolean",
+            Self::Null => "Null",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct JsonRow {
+    pub depth: usize,
+    pub key: String,
+    pub value_type: ValueType,
+    /// Shown in the Value column. Empty for expanded objects/arrays.
+    pub value_preview: String,
+    /// Some(path) if this row can be folded/unfolded.
+    pub fold_path: Option<String>,
+    pub is_folded: bool,
+}
+
+/// Build a flat list of rows from a JSON string, respecting the current fold state.
+pub fn rows(json: &str, folds: &HashSet<String>) -> Vec<JsonRow> {
     match serde_json::from_str::<Value>(json) {
         Ok(value) => {
-            let mut infos = Vec::new();
-            let mut idx = 0;
-            render_value(&value, 0, false, None, "", folds, cursor, &mut idx, &mut infos);
-            infos
+            let mut result = Vec::new();
+            collect(&value, 0, "(root)".to_string(), "", folds, &mut result);
+            result
         }
-        Err(e) => vec![LineInfo {
-            line: Line::from(Span::styled(
-                format!("Parse error: {e}"),
-                Style::default().fg(Color::Red),
-            )),
+        Err(e) => vec![JsonRow {
+            depth: 0,
+            key: "error".into(),
+            value_type: ValueType::Null,
+            value_preview: format!("Parse error: {e}"),
             fold_path: None,
+            is_folded: false,
         }],
     }
 }
 
-fn fg(color: Color) -> Style {
-    Style::default().fg(color)
-}
-
-fn cursor_style(idx: usize, cursor: usize) -> Style {
-    if idx == cursor {
-        Style::default().bg(Color::Indexed(237))
-    } else {
-        Style::default()
-    }
-}
-
-fn emit(
-    spans: Vec<Span<'static>>,
-    fold_path: Option<String>,
-    idx: usize,
-    cursor: usize,
-    infos: &mut Vec<LineInfo>,
-) {
-    infos.push(LineInfo {
-        line: Line::from(spans).style(cursor_style(idx, cursor)),
-        fold_path,
-    });
-}
-
-#[allow(clippy::too_many_arguments)]
-fn render_value(
+fn collect(
     value: &Value,
     depth: usize,
-    trailing_comma: bool,
-    key_prefix: Option<Vec<Span<'static>>>,
+    key: String,
     path: &str,
     folds: &HashSet<String>,
-    cursor: usize,
-    idx: &mut usize,
-    infos: &mut Vec<LineInfo>,
+    result: &mut Vec<JsonRow>,
 ) {
-    let indent = INDENT.repeat(depth);
-    let comma = if trailing_comma { "," } else { "" };
-
     match value {
-        Value::Null => {
-            let i = *idx;
-            *idx += 1;
-            let mut spans = key_prefix.unwrap_or_else(|| vec![Span::raw(indent)]);
-            spans.push(Span::styled("null", fg(Color::DarkGray)));
-            if trailing_comma {
-                spans.push(Span::raw(","));
-            }
-            emit(spans, None, i, cursor, infos);
-        }
+        Value::Null => result.push(JsonRow {
+            depth,
+            key,
+            value_type: ValueType::Null,
+            value_preview: "null".into(),
+            fold_path: None,
+            is_folded: false,
+        }),
 
-        Value::Bool(b) => {
-            let i = *idx;
-            *idx += 1;
-            let mut spans = key_prefix.unwrap_or_else(|| vec![Span::raw(indent)]);
-            spans.push(Span::styled(
-                if *b { "true" } else { "false" },
-                fg(Color::Magenta),
-            ));
-            if trailing_comma {
-                spans.push(Span::raw(","));
-            }
-            emit(spans, None, i, cursor, infos);
-        }
+        Value::Bool(b) => result.push(JsonRow {
+            depth,
+            key,
+            value_type: ValueType::Boolean,
+            value_preview: b.to_string(),
+            fold_path: None,
+            is_folded: false,
+        }),
 
-        Value::Number(n) => {
-            let i = *idx;
-            *idx += 1;
-            let mut spans = key_prefix.unwrap_or_else(|| vec![Span::raw(indent)]);
-            spans.push(Span::styled(n.to_string(), fg(Color::Yellow)));
-            if trailing_comma {
-                spans.push(Span::raw(","));
-            }
-            emit(spans, None, i, cursor, infos);
-        }
+        Value::Number(n) => result.push(JsonRow {
+            depth,
+            key,
+            value_type: ValueType::Number,
+            value_preview: n.to_string(),
+            fold_path: None,
+            is_folded: false,
+        }),
 
-        Value::String(s) => {
-            let i = *idx;
-            *idx += 1;
-            let mut spans = key_prefix.unwrap_or_else(|| vec![Span::raw(indent)]);
-            spans.push(Span::styled(format!("\"{}\"", s), fg(Color::Green)));
-            if trailing_comma {
-                spans.push(Span::raw(","));
-            }
-            emit(spans, None, i, cursor, infos);
-        }
-
-        Value::Array(arr) if arr.is_empty() => {
-            let i = *idx;
-            *idx += 1;
-            let mut spans = key_prefix.unwrap_or_else(|| vec![Span::raw(indent)]);
-            spans.push(Span::styled("[]", fg(Color::White)));
-            if trailing_comma {
-                spans.push(Span::raw(","));
-            }
-            emit(spans, None, i, cursor, infos);
-        }
+        Value::String(s) => result.push(JsonRow {
+            depth,
+            key,
+            value_type: ValueType::Str,
+            value_preview: format!("\"{}\"", s),
+            fold_path: None,
+            is_folded: false,
+        }),
 
         Value::Array(arr) => {
-            let is_folded = folds.contains(path);
-            let i = *idx;
-            *idx += 1;
-            let icon = if is_folded { "▶ " } else { "▼ " };
+            let count = arr.len();
+            let is_folded = !arr.is_empty() && folds.contains(path);
+            let fold_path = if count > 0 { Some(path.to_string()) } else { None };
 
-            if is_folded {
-                let mut spans = key_prefix.unwrap_or_else(|| vec![Span::raw(indent)]);
-                spans.push(Span::styled(icon, fg(Color::DarkGray)));
-                spans.push(Span::styled("[", fg(Color::White)));
-                spans.push(Span::styled(
-                    format!(" {} ", arr.len()),
-                    fg(Color::DarkGray),
-                ));
-                spans.push(Span::styled("]", fg(Color::White)));
-                if trailing_comma {
-                    spans.push(Span::raw(","));
-                }
-                emit(spans, Some(path.to_string()), i, cursor, infos);
-            } else {
-                let mut open = key_prefix.unwrap_or_else(|| vec![Span::raw(indent.clone())]);
-                open.push(Span::styled(icon, fg(Color::DarkGray)));
-                open.push(Span::styled("[", fg(Color::White)));
-                emit(open, Some(path.to_string()), i, cursor, infos);
+            result.push(JsonRow {
+                depth,
+                key,
+                value_type: ValueType::Array(count),
+                value_preview: if is_folded || count == 0 {
+                    format!("[ {} ]", count)
+                } else {
+                    String::new()
+                },
+                fold_path,
+                is_folded,
+            });
 
-                let last = arr.len() - 1;
-                for (j, item) in arr.iter().enumerate() {
-                    render_value(
+            if !is_folded {
+                for (i, item) in arr.iter().enumerate() {
+                    collect(
                         item,
                         depth + 1,
-                        j < last,
-                        None,
-                        &format!("{}/{}", path, j),
+                        format!("[{}]", i),
+                        &format!("{}/{}", path, i),
                         folds,
-                        cursor,
-                        idx,
-                        infos,
+                        result,
                     );
                 }
-
-                let ci = *idx;
-                *idx += 1;
-                emit(
-                    vec![Span::raw(format!("{indent}]{comma}"))],
-                    None,
-                    ci,
-                    cursor,
-                    infos,
-                );
             }
-        }
-
-        Value::Object(map) if map.is_empty() => {
-            let i = *idx;
-            *idx += 1;
-            let mut spans = key_prefix.unwrap_or_else(|| vec![Span::raw(indent)]);
-            spans.push(Span::styled("{}", fg(Color::White)));
-            if trailing_comma {
-                spans.push(Span::raw(","));
-            }
-            emit(spans, None, i, cursor, infos);
         }
 
         Value::Object(map) => {
-            let is_folded = folds.contains(path);
-            let i = *idx;
-            *idx += 1;
-            let icon = if is_folded { "▶ " } else { "▼ " };
+            let count = map.len();
+            let is_folded = !map.is_empty() && folds.contains(path);
+            let fold_path = if count > 0 { Some(path.to_string()) } else { None };
 
-            if is_folded {
-                let mut spans = key_prefix.unwrap_or_else(|| vec![Span::raw(indent)]);
-                spans.push(Span::styled(icon, fg(Color::DarkGray)));
-                spans.push(Span::styled("{", fg(Color::White)));
-                spans.push(Span::styled(
-                    format!(" {} ", map.len()),
-                    fg(Color::DarkGray),
-                ));
-                spans.push(Span::styled("}", fg(Color::White)));
-                if trailing_comma {
-                    spans.push(Span::raw(","));
-                }
-                emit(spans, Some(path.to_string()), i, cursor, infos);
-            } else {
-                let mut open = key_prefix.unwrap_or_else(|| vec![Span::raw(indent.clone())]);
-                open.push(Span::styled(icon, fg(Color::DarkGray)));
-                open.push(Span::styled("{", fg(Color::White)));
-                emit(open, Some(path.to_string()), i, cursor, infos);
+            result.push(JsonRow {
+                depth,
+                key,
+                value_type: ValueType::Object(count),
+                value_preview: if is_folded || count == 0 {
+                    format!("{{ {} }}", count)
+                } else {
+                    String::new()
+                },
+                fold_path,
+                is_folded,
+            });
 
-                let last = map.len() - 1;
-                for (j, (key, val)) in map.iter().enumerate() {
-                    let prefix = vec![
-                        Span::raw(INDENT.repeat(depth + 1)),
-                        Span::styled(format!("\"{}\"", key), fg(Color::Cyan)),
-                        Span::styled(": ", fg(Color::White)),
-                    ];
-                    render_value(
-                        val,
+            if !is_folded {
+                for (k, v) in map.iter() {
+                    collect(
+                        v,
                         depth + 1,
-                        j < last,
-                        Some(prefix),
-                        &format!("{}/{}", path, key),
+                        k.clone(),
+                        &format!("{}/{}", path, k),
                         folds,
-                        cursor,
-                        idx,
-                        infos,
+                        result,
                     );
                 }
-
-                let ci = *idx;
-                *idx += 1;
-                emit(
-                    vec![Span::raw(format!("{indent}}}{comma}"))],
-                    None,
-                    ci,
-                    cursor,
-                    infos,
-                );
             }
         }
     }

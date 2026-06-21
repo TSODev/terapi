@@ -1,13 +1,13 @@
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph, Tabs},
+    widgets::{Block, Borders, Cell, List, ListItem, Paragraph, Row, Table, TableState, Tabs},
     Frame,
 };
 
 use crate::app::{flatten_collections, App, RequestTab, Tab};
-use crate::json_highlight;
+use crate::json_highlight::{self, ValueType};
 
 pub fn render(frame: &mut Frame, app: &App) {
     let area = frame.area();
@@ -26,7 +26,7 @@ pub fn render(frame: &mut Frame, app: &App) {
     render_status(frame, app, chunks[2]);
 }
 
-fn render_tabs(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
+fn render_tabs(frame: &mut Frame, app: &App, area: Rect) {
     let tabs: Vec<Line> = Tab::all()
         .into_iter()
         .map(|t| Line::from(t.title()))
@@ -53,7 +53,7 @@ fn render_tabs(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     frame.render_widget(tabs_widget, area);
 }
 
-fn render_body(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
+fn render_body(frame: &mut Frame, app: &App, area: Rect) {
     match app.active_tab {
         Tab::Request => render_request_panel(frame, app, area),
         Tab::Collections => render_collections_panel(frame, app, area),
@@ -61,7 +61,7 @@ fn render_body(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     }
 }
 
-fn render_request_panel(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
+fn render_request_panel(frame: &mut Frame, app: &App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -84,30 +84,10 @@ fn render_request_panel(frame: &mut Frame, app: &App, area: ratatui::layout::Rec
 
     render_request_subtabs(frame, app, chunks[1]);
     render_request_content(frame, app, chunks[2]);
-
-    let response_lines: Vec<_> = match &app.response_body {
-        Some(json) => json_highlight::render(json, &app.response_folds, app.response_cursor)
-            .into_iter()
-            .map(|i| i.line)
-            .collect(),
-        None => vec![ratatui::text::Line::from(ratatui::text::Span::styled(
-            "Response will appear here…",
-            Style::default().fg(Color::DarkGray),
-        ))],
-    };
-
-    let response = Paragraph::new(response_lines)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(" Response ")
-                .border_style(Style::default().fg(Color::Green)),
-        )
-        .scroll((app.response_scroll, 0));
-    frame.render_widget(response, chunks[3]);
+    render_response_table(frame, app, chunks[3]);
 }
 
-fn render_request_subtabs(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
+fn render_request_subtabs(frame: &mut Frame, app: &App, area: Rect) {
     let tabs: Vec<Line> = RequestTab::all()
         .into_iter()
         .map(|t| Line::from(t.title()))
@@ -132,7 +112,7 @@ fn render_request_subtabs(frame: &mut Frame, app: &App, area: ratatui::layout::R
     frame.render_widget(sub_tabs, area);
 }
 
-fn render_request_content(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
+fn render_request_content(frame: &mut Frame, app: &App, area: Rect) {
     let (title, msg) = match app.active_request_tab {
         RequestTab::Description => ("Description", "Add a description for this request."),
         RequestTab::Headers => ("Headers", "Add request headers (key: value)."),
@@ -155,7 +135,91 @@ fn render_request_content(frame: &mut Frame, app: &App, area: ratatui::layout::R
     frame.render_widget(content, area);
 }
 
-fn render_collections_panel(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
+fn render_response_table(frame: &mut Frame, app: &App, area: Rect) {
+    let json_rows = match &app.response_body {
+        Some(json) => json_highlight::rows(json, &app.response_folds),
+        None => vec![],
+    };
+
+    let rows: Vec<Row> = json_rows.iter().map(|r| {
+        let indent = "  ".repeat(r.depth);
+        let icon = match r.fold_path {
+            Some(_) if r.is_folded => "▶ ",
+            Some(_) => "▼ ",
+            None => "  ",
+        };
+
+        let key_color = match r.value_type {
+            ValueType::Object(_) | ValueType::Array(_) => Color::Cyan,
+            _ => Color::White,
+        };
+
+        let key_cell = Cell::from(Line::from(vec![
+            Span::raw(format!("{}{}", indent, icon)),
+            Span::styled(r.key.clone(), Style::default().fg(key_color)),
+        ]));
+
+        let (type_color, type_label) = match r.value_type {
+            ValueType::Object(_) => (Color::Cyan,    "Object "),
+            ValueType::Array(_)  => (Color::Blue,    "Array  "),
+            ValueType::Str       => (Color::Green,   "String "),
+            ValueType::Number    => (Color::Yellow,  "Number "),
+            ValueType::Boolean   => (Color::Magenta, "Boolean"),
+            ValueType::Null      => (Color::DarkGray,"Null   "),
+        };
+
+        let type_cell = Cell::from(Span::styled(type_label, Style::default().fg(type_color)));
+
+        let value_color = match r.value_type {
+            ValueType::Object(_) | ValueType::Array(_) => Color::White,
+            ValueType::Str     => Color::Green,
+            ValueType::Number  => Color::Yellow,
+            ValueType::Boolean => Color::Magenta,
+            ValueType::Null    => Color::DarkGray,
+        };
+
+        let value_cell = Cell::from(Span::styled(
+            r.value_preview.clone(),
+            Style::default().fg(value_color),
+        ));
+
+        Row::new(vec![key_cell, type_cell, value_cell])
+    }).collect();
+
+    let header = Row::new(vec![
+        Cell::from(Span::styled("Key", Style::default().fg(Color::White).add_modifier(Modifier::BOLD))),
+        Cell::from(Span::styled("Type", Style::default().fg(Color::White).add_modifier(Modifier::BOLD))),
+        Cell::from(Span::styled("Value", Style::default().fg(Color::White).add_modifier(Modifier::BOLD))),
+    ])
+    .style(Style::default().bg(Color::Indexed(236)))
+    .height(1);
+
+    let widths = [
+        Constraint::Length(app.key_col_width),
+        Constraint::Length(8),
+        Constraint::Min(10),
+    ];
+
+    let hint = format!(" Response  [/]: resize key col ({}) ", app.key_col_width);
+    let table = Table::new(rows, widths)
+        .header(header)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(hint)
+                .border_style(Style::default().fg(Color::Green)),
+        )
+        .highlight_style(Style::default().bg(Color::Indexed(237)))
+        .column_spacing(1);
+
+    let mut state = TableState::default()
+        .with_selected(Some(app.response_cursor))
+        .with_offset(app.response_scroll as usize);
+
+    frame.render_stateful_widget(table, area, &mut state);
+}
+
+fn render_collections_panel(frame: &mut Frame, app: &App, area: Rect) {
     let flat = flatten_collections(&app.collections);
 
     let items: Vec<ListItem> = flat
@@ -214,7 +278,7 @@ fn render_collections_panel(frame: &mut Frame, app: &App, area: ratatui::layout:
     frame.render_widget(list, area);
 }
 
-fn render_placeholder(frame: &mut Frame, area: ratatui::layout::Rect, title: &str, msg: &str) {
+fn render_placeholder(frame: &mut Frame, area: Rect, title: &str, msg: &str) {
     let widget = Paragraph::new(msg)
         .block(
             Block::default()
@@ -228,7 +292,7 @@ fn render_placeholder(frame: &mut Frame, area: ratatui::layout::Rect, title: &st
     frame.render_widget(widget, area);
 }
 
-fn render_status(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
+fn render_status(frame: &mut Frame, app: &App, area: Rect) {
     let status = Paragraph::new(app.status_message.as_str())
         .style(Style::default().fg(Color::DarkGray));
     frame.render_widget(status, area);

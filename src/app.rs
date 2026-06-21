@@ -179,6 +179,7 @@ pub struct App {
     pub response_cursor: usize,
     pub response_scroll: u16,
     pub response_folds: HashSet<String>,
+    pub key_col_width: u16,
     pub status_message: String,
 }
 
@@ -194,7 +195,8 @@ impl App {
             response_cursor: 0,
             response_scroll: 0,
             response_folds: HashSet::new(),
-            status_message: String::from("Tab: switch panel  ←/→: section  ↑/↓: cursor  Enter: fold  q: quit"),
+            key_col_width: 22,
+            status_message: String::from("Tab: switch panel  ←/→: section  ↑/↓: cursor  Enter: fold  [/]: resize  q: quit"),
         }
     }
 
@@ -293,6 +295,12 @@ impl App {
             KeyCode::Enter if self.active_tab == Tab::Request => {
                 self.toggle_response_fold();
             }
+            KeyCode::Char('[') if self.active_tab == Tab::Request => {
+                self.key_col_width = self.key_col_width.saturating_sub(2).max(8);
+            }
+            KeyCode::Char(']') if self.active_tab == Tab::Request => {
+                self.key_col_width = (self.key_col_width + 2).min(50);
+            }
             KeyCode::Up if self.active_tab == Tab::Collections => {
                 if self.collection_cursor > 0 {
                     self.collection_cursor -= 1;
@@ -315,10 +323,9 @@ impl App {
     pub fn tick(&mut self) {}
 
     fn response_line_count(&self) -> usize {
-        crate::json_highlight::render(
+        crate::json_highlight::rows(
             self.response_body.as_deref().unwrap_or(""),
             &self.response_folds,
-            0,
         )
         .len()
     }
@@ -329,10 +336,12 @@ impl App {
 
     fn toggle_response_fold(&mut self) {
         let json = self.response_body.as_deref().unwrap_or("");
-        let infos =
-            crate::json_highlight::render(json, &self.response_folds, self.response_cursor);
+        let json_rows = crate::json_highlight::rows(json, &self.response_folds);
 
-        if let Some(path) = infos.get(self.response_cursor).and_then(|i| i.fold_path.clone()) {
+        if let Some(path) = json_rows
+            .get(self.response_cursor)
+            .and_then(|r| r.fold_path.clone())
+        {
             if !self.response_folds.remove(&path) {
                 self.response_folds.insert(path);
             }

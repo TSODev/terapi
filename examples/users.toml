@@ -1,0 +1,37 @@
+[campaign]
+name = "Users API — smoke tests"
+description = "Validates the basic CRUD flow on the user resource"
+
+[env]
+BASE_URL = "https://api.example.com"
+TOKEN    = "Bearer my-secret-token"
+
+[[steps]]
+name   = "List users"
+method = "GET"
+url    = "{{BASE_URL}}/users"
+[steps.headers]
+Authorization = "{{TOKEN}}"
+
+[[steps]]
+name   = "Create user"
+method = "POST"
+url    = "{{BASE_URL}}/users"
+body   = '{"username": "tsodev", "email": "thierry@tsodev.fr", "role": "admin"}'
+[steps.headers]
+Authorization = "{{TOKEN}}"
+Content-Type  = "application/json"
+
+[[steps]]
+name   = "Get user by id"
+method = "GET"
+url    = "{{BASE_URL}}/users/42"
+[steps.headers]
+Authorization = "{{TOKEN}}"
+
+[[steps]]
+name   = "Delete user"
+method = "DELETE"
+url    = "{{BASE_URL}}/users/42"
+[steps.headers]
+Authorization = "{{TOKEN}}"

@@ -1,0 +1,4 @@
+contact_email,contact_name,role
+alice@example.com,Alice Martin,editor
+bob@example.com,Bob Dupont,viewer
+carol@example.com,Carol Lemaire,admin

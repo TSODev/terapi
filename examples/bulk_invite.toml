@@ -1,0 +1,39 @@
+[campaign]
+name        = "Bulk user invitation"
+description = "Login once, then invite each contact from the CSV"
+
+[env]
+BASE_URL = "https://api.example.com"
+EMAIL    = "admin@example.com"
+PASSWORD = "secret"
+
+# ── Data source ───────────────────────────────────────────────────────────────
+# The campaign runs once per CSV row.
+# Each column header becomes a {{variable}} available in all steps.
+
+[[connectors]]
+type = "csv"
+path = "examples/contacts.csv"
+
+# ── Steps ─────────────────────────────────────────────────────────────────────
+
+[[steps]]
+name   = "Login"
+method = "POST"
+url    = "{{BASE_URL}}/auth/login"
+body   = '{"email": "{{EMAIL}}", "password": "{{PASSWORD}}"}'
+[steps.headers]
+Content-Type = "application/json"
+[steps.extract]
+JWT = "token"   # → {{JWT}} available in all subsequent steps
+
+[[steps]]
+name   = "Invite contact"
+method = "POST"
+url    = "{{BASE_URL}}/invitations"
+body   = '{"email": "{{contact_email}}", "name": "{{contact_name}}", "role": "{{role}}"}'
+[steps.headers]
+Authorization = "Bearer {{JWT}}"
+Content-Type  = "application/json"
+[steps.extract]
+INVITE_ID = "id"   # capture the created invitation id if needed

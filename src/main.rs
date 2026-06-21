@@ -1,5 +1,6 @@
 mod app;
 mod campaign;
+mod connector;
 mod event;
 mod json_highlight;
 mod ui;

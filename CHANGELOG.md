@@ -22,6 +22,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - **Cookie jar** — when enabled, stores received `Set-Cookie` headers and re-sends cookies on subsequent requests (session mode); jar is cleared when disabled or when starting a new request (`n`)
   - All four options are persisted in the collection TOML and restored when loading a request
 - **Persistent HTTP client** — `reqwest::Client` is now kept alive in `App` and reused across requests (previously rebuilt on every send). The shared connection pool improves performance on repeated requests to the same host, and the cookie jar survives between sends when enabled.
+- **User-Agent header** — all outgoing requests automatically include `User-Agent: terapi/<version>` (e.g. `terapi/0.2.0`). The value can be overridden per-request by adding a custom `User-Agent` header in the Headers sub-tab.
 
 ### Added
 - **`terapi import <file.toml>`** — CLI subcommand to import a collection TOML file directly into the terapi collections directory:

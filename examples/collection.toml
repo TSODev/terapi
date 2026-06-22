@@ -1,0 +1,59 @@
+# Example terapi collection
+# Place in: ~/.config/terapi/collections/  OR  .terapi/collections/  OR $TERAPI_DIR/collections/
+
+[collection]
+name = "My API"
+description = "Example collection — rename and adapt"
+
+# --- Folders (optional grouping) ---
+
+[[folders]]
+name = "Auth"
+
+[[folders.requests]]
+name = "Login"
+method = "POST"
+url = "https://api.example.com/auth/login"
+description = "Obtain a JWT token"
+body = '''
+{
+  "email": "{{EMAIL}}",
+  "password": "{{PASSWORD}}"
+}
+'''
+
+[folders.requests.headers]
+Content-Type = "application/json"
+
+[[folders.requests]]
+name = "Refresh token"
+method = "POST"
+url = "https://api.example.com/auth/refresh"
+
+[folders.requests.headers]
+Authorization = "Bearer {{TOKEN}}"
+
+# --- Root-level requests (no folder) ---
+
+[[requests]]
+name = "List users"
+method = "GET"
+url = "https://api.example.com/users"
+
+[requests.headers]
+Authorization = "Bearer {{TOKEN}}"
+
+[[requests]]
+name = "Create user"
+method = "POST"
+url = "https://api.example.com/users"
+body = '''
+{
+  "name": "{{NAME}}",
+  "email": "{{EMAIL}}"
+}
+'''
+
+[requests.headers]
+Authorization = "Bearer {{TOKEN}}"
+Content-Type = "application/json"

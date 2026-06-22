@@ -175,11 +175,15 @@ pub struct App {
 
 impl App {
     pub fn new(response_body: Option<String>) -> Self {
+        let collections = match crate::storage::load_collections() {
+            Ok(cols) if !cols.is_empty() => cols,
+            _ => Self::sample_collections(),
+        };
         Self {
             running: true,
             active_tab: Tab::Request,
             active_request_tab: RequestTab::Description,
-            collections: Self::sample_collections(),
+            collections,
             collection_cursor: 0,
             response_body,
             response_view: ResponseView::Json,

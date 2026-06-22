@@ -3,6 +3,7 @@ mod campaign;
 mod connector;
 mod event;
 mod json_highlight;
+mod storage;
 mod ui;
 
 use anyhow::Result;

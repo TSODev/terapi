@@ -62,7 +62,7 @@ fn render_body(frame: &mut Frame, app: &App, area: Rect) {
         Tab::Request => render_request_panel(frame, app, area),
         Tab::Collections => render_collections_panel(frame, app, area),
         Tab::Env => render_env_panel(frame, app, area),
-        Tab::History => render_placeholder(frame, area, "History", "Recent requests will appear here."),
+        Tab::History => render_history_panel(frame, app, area),
     }
 }
 
@@ -1283,6 +1283,63 @@ fn render_modal(frame: &mut Frame, app: &App) {
 
         None => {}
     }
+}
+
+// ── History panel ────────────────────────────────────────────────────────────
+
+fn render_history_panel(frame: &mut Frame, app: &App, area: Rect) {
+    if app.history.is_empty() {
+        render_placeholder(frame, area, "History", "No requests yet — send one to start recording history.");
+        return;
+    }
+
+    let items: Vec<ListItem> = app.history.iter().enumerate().map(|(i, entry)| {
+        let ts = crate::storage::format_timestamp(entry.timestamp_secs);
+        let status_str = match entry.status {
+            Some(s) => format!("{}", s),
+            None => "ERR".to_string(),
+        };
+        let status_color = match entry.status {
+            Some(s) if s < 300 => Color::Green,
+            Some(s) if s < 500 => Color::Yellow,
+            Some(_) => Color::Red,
+            None => Color::Gray,
+        };
+        let elapsed_str = match entry.elapsed_ms {
+            Some(ms) => format!("  {}ms", ms),
+            None => String::new(),
+        };
+        let method_col = method_color(&entry.method);
+        let url_max = area.width.saturating_sub(42) as usize;
+        let url_display = if entry.url.len() > url_max {
+            format!("{}…", &entry.url[..url_max.saturating_sub(1)])
+        } else {
+            entry.url.clone()
+        };
+
+        let selected = i == app.history_cursor;
+        let bg = if selected { Color::Indexed(236) } else { Color::Reset };
+
+        let line = Line::from(vec![
+            Span::styled(format!("  {}", ts), Style::default().fg(Color::DarkGray).bg(bg)),
+            Span::styled("  ", Style::default().bg(bg)),
+            Span::styled(format!("{:<6}", entry.method), Style::default().fg(method_col).add_modifier(Modifier::BOLD).bg(bg)),
+            Span::styled(format!("{:<3}", status_str), Style::default().fg(status_color).bg(bg)),
+            Span::styled(format!("{:<7}", elapsed_str), Style::default().fg(Color::DarkGray).bg(bg)),
+            Span::styled(format!("  {}", url_display), Style::default().fg(if selected { Color::White } else { Color::Gray }).bg(bg)),
+        ]);
+        ListItem::new(line)
+    }).collect();
+
+    let list = List::new(items)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(format!(" History ({}) ", app.history.len()))
+                .border_style(Style::default().fg(Color::Cyan)),
+        );
+
+    frame.render_widget(list, area);
 }
 
 // ── Shared helpers ───────────────────────────────────────────────────────────

@@ -191,6 +191,83 @@ pub fn resolve_vars(text: &str, vars: &std::collections::HashMap<String, String>
     out
 }
 
+// ── History ──────────────────────────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct HistoryEntry {
+    pub timestamp_secs: u64,
+    pub method: String,
+    pub url: String,
+    #[serde(default)]
+    pub headers: HashMap<String, String>,
+    #[serde(default)]
+    pub body: Option<String>,
+    pub status: Option<u16>,
+    pub elapsed_ms: Option<u64>,
+    #[serde(default)]
+    pub response_body: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+struct HistoryFile {
+    #[serde(default)]
+    entries: Vec<HistoryEntry>,
+}
+
+pub fn load_history() -> Result<Vec<HistoryEntry>> {
+    let path = resolve_terapi_dir().join("history.toml");
+    if !path.exists() {
+        return Ok(vec![]);
+    }
+    let content = std::fs::read_to_string(&path)?;
+    let file: HistoryFile = toml::from_str(&content)?;
+    Ok(file.entries)
+}
+
+pub fn save_history(entries: &[HistoryEntry]) -> Result<()> {
+    let dir = resolve_terapi_dir();
+    std::fs::create_dir_all(&dir)?;
+    let file = HistoryFile { entries: entries.to_vec() };
+    let content = toml::to_string_pretty(&file)?;
+    std::fs::write(dir.join("history.toml"), content)?;
+    Ok(())
+}
+
+pub fn format_timestamp(secs: u64) -> String {
+    let s = (secs % 60) as u8;
+    let m = ((secs / 60) % 60) as u8;
+    let h = ((secs / 3600) % 24) as u8;
+    let days = (secs / 86400) as u32;
+    let (y, mo, d) = days_to_ymd(days);
+    format!("{:04}-{:02}-{:02} {:02}:{:02}:{:02}", y, mo, d, h, m, s)
+}
+
+fn days_to_ymd(mut days: u32) -> (u32, u8, u8) {
+    let mut year = 1970u32;
+    loop {
+        let days_in_year = if is_leap_year(year) { 366 } else { 365 };
+        if days < days_in_year { break; }
+        days -= days_in_year;
+        year += 1;
+    }
+    let months = if is_leap_year(year) {
+        [31u8, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    } else {
+        [31u8, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    };
+    let mut month = 1u8;
+    for &dim in &months {
+        if days < dim as u32 { break; }
+        days -= dim as u32;
+        month += 1;
+    }
+    (year, month, days as u8 + 1)
+}
+
+fn is_leap_year(year: u32) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+}
+
 // ── Shared ───────────────────────────────────────────────────────────────────
 
 pub fn sanitize_filename(name: &str) -> String {

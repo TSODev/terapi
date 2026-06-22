@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use tokio::sync::mpsc;
 use tui_textarea::TextArea;
 
-use crate::storage::{StoredCollection, StoredEnv, StoredRequest};
+use crate::storage::{HistoryEntry, StoredCollection, StoredEnv, StoredRequest};
 
 mod collections;
 mod envs;
@@ -61,6 +61,9 @@ pub struct App {
     pub response_folds: HashSet<String>,
     pub key_col_width: u16,
     pub status_message: String,
+    // History
+    pub history: Vec<HistoryEntry>,
+    pub history_cursor: usize,
     // Async channel — receives HTTP results from spawned tasks
     pub(super) response_rx: mpsc::UnboundedReceiver<HttpOutcome>,
     pub(super) response_tx: mpsc::UnboundedSender<HttpOutcome>,
@@ -77,6 +80,7 @@ impl App {
             expanded_nodes.insert("c0".to_string());
         }
         let environments = crate::storage::load_envs().unwrap_or_default();
+        let history = crate::storage::load_history().unwrap_or_default();
         let (response_tx, response_rx) = mpsc::unbounded_channel();
         Self {
             running: true,
@@ -116,6 +120,8 @@ impl App {
             response_folds: HashSet::new(),
             key_col_width: 22,
             status_message: "Tab: panels  e: edit URL  s: send  S: save  n: new  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into(),
+            history,
+            history_cursor: 0,
             response_rx,
             response_tx,
         }
@@ -159,7 +165,7 @@ impl App {
                     Tab::Request => "Tab: switch panel  ←/→: section  q: quit".into(),
                     Tab::Collections => "Tab: switch panel  ↑/↓: navigate  Enter: expand/load  n: new  f: folder  a: add  e: edit  d: delete  q: quit".into(),
                     Tab::Env => "Tab: switch panel  ←/→: switch focus  ↑/↓: navigate  Enter: activate  n: new env  a: add var  d: delete  q: quit".into(),
-                    Tab::History => "Tab: switch panel  q: quit".into(),
+                    Tab::History => "Tab: switch panel  ↑/↓: navigate  Enter: load  d: delete  q: quit".into(),
                 };
             }
 
@@ -541,6 +547,22 @@ impl App {
             }
             KeyCode::Char('d') if self.active_tab == Tab::Env => {
                 self.open_env_delete_modal();
+            }
+
+            // ── History panel ──────────────────────────────────────────────
+            KeyCode::Up if self.active_tab == Tab::History => {
+                if self.history_cursor > 0 { self.history_cursor -= 1; }
+            }
+            KeyCode::Down if self.active_tab == Tab::History => {
+                if self.history_cursor + 1 < self.history.len() {
+                    self.history_cursor += 1;
+                }
+            }
+            KeyCode::Enter if self.active_tab == Tab::History => {
+                self.load_from_history(self.history_cursor);
+            }
+            KeyCode::Char('d') if self.active_tab == Tab::History => {
+                self.delete_history_entry(self.history_cursor);
             }
 
             _ => {}

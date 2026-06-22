@@ -1,0 +1,323 @@
+use std::collections::HashSet;
+
+use crate::storage::{StoredCollection, StoredEnv};
+
+// ── HTTP types ────────────────────────────────────────────────────────────────
+
+pub struct HttpResult {
+    pub status: u16,
+    pub body: String,
+    pub headers: Vec<(String, String)>,
+    pub elapsed_ms: u64,
+}
+
+pub type HttpOutcome = anyhow::Result<HttpResult, String>;
+
+// ── Request types ─────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RequestFocus {
+    Url,
+    Body,
+    Response,
+}
+
+pub const METHODS: &[&str] = &["GET", "POST", "PUT", "PATCH", "DELETE"];
+
+pub const COMMON_HEADERS: &[(&str, &str)] = &[
+    ("Authorization",    "Bearer "),
+    ("Content-Type",     "application/json"),
+    ("Accept",           "application/json"),
+    ("Accept-Language",  "en-US,en;q=0.9"),
+    ("Accept-Encoding",  "gzip, deflate, br"),
+    ("Cache-Control",    "no-cache"),
+    ("X-API-Key",        ""),
+    ("X-Request-ID",     ""),
+    ("User-Agent",       ""),
+    ("Origin",           ""),
+    ("Referer",          ""),
+];
+
+pub const COMMON_CONTENT_TYPES: &[&str] = &[
+    "application/json",
+    "application/x-www-form-urlencoded",
+    "multipart/form-data",
+    "text/plain; charset=utf-8",
+    "text/html; charset=utf-8",
+    "text/xml",
+    "application/xml",
+    "application/octet-stream",
+    "application/graphql",
+];
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum BodyMode {
+    Text,
+    Json,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ResponseView {
+    Json,
+    Raw,
+    Http,
+}
+
+pub struct RawRequest {
+    pub method: String,
+    pub url: String,
+    pub headers: Vec<(String, String)>,
+    pub body: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum VarPickerTarget {
+    Url,
+    ModalValue,
+    BodyText,
+}
+
+pub struct VarPickerState {
+    pub target: VarPickerTarget,
+    pub prefix: String,
+    pub cursor: usize,
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Tab {
+    Request,
+    Collections,
+    Env,
+    History,
+}
+
+impl Tab {
+    pub fn title(&self) -> &'static str {
+        match self {
+            Tab::Request => "Request",
+            Tab::Collections => "Collections",
+            Tab::Env => "Env",
+            Tab::History => "History",
+        }
+    }
+
+    pub fn all() -> Vec<Tab> {
+        vec![Tab::Request, Tab::Collections, Tab::Env, Tab::History]
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RequestTab {
+    Description,
+    Headers,
+    UrlParams,
+    Body,
+    Auth,
+    Options,
+}
+
+impl RequestTab {
+    pub fn title(&self) -> &'static str {
+        match self {
+            RequestTab::Description => "Description",
+            RequestTab::Headers => "Headers",
+            RequestTab::UrlParams => "URL Params",
+            RequestTab::Body => "Body",
+            RequestTab::Auth => "Auth",
+            RequestTab::Options => "Options",
+        }
+    }
+
+    pub fn all() -> Vec<RequestTab> {
+        vec![
+            RequestTab::Description,
+            RequestTab::Headers,
+            RequestTab::UrlParams,
+            RequestTab::Body,
+            RequestTab::Auth,
+            RequestTab::Options,
+        ]
+    }
+
+    pub fn next(&self) -> RequestTab {
+        let all = RequestTab::all();
+        let pos = all.iter().position(|t| t == self).unwrap_or(0);
+        all.into_iter().nth((pos + 1) % 6).unwrap_or(RequestTab::Description)
+    }
+
+    pub fn prev(&self) -> RequestTab {
+        let all = RequestTab::all();
+        let pos = all.iter().position(|t| t == self).unwrap_or(0);
+        all.into_iter().nth(if pos == 0 { 5 } else { pos - 1 }).unwrap_or(RequestTab::Options)
+    }
+}
+
+// ── Modal field selectors ─────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum InputField {
+    Name,
+    Url,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum VarField {
+    Key,
+    Value,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum EnvFocus {
+    Envs,
+    Vars,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SaveField {
+    Name,
+    Collection,
+    Folder,
+}
+
+// ── Collections tree ──────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone)]
+pub enum NodeAddress {
+    Collection(usize),
+    Folder(usize, usize),
+    RootRequest(usize, usize),
+    FolderRequest(usize, usize, usize),
+    Env(usize),
+    EnvVar { env_idx: usize, key: String },
+}
+
+#[derive(Debug, Clone)]
+pub enum ModalState {
+    NewCollection {
+        input: String,
+    },
+    NewFolder {
+        input: String,
+        collection_idx: usize,
+    },
+    NewRequest {
+        name: String,
+        method_idx: usize,
+        url: String,
+        active_field: InputField,
+        collection_idx: usize,
+        folder_idx: Option<usize>,
+    },
+    NewEnv {
+        input: String,
+    },
+    NewVar {
+        key: String,
+        value: String,
+        active_field: VarField,
+        env_idx: usize,
+    },
+    HeaderPicker {
+        cursor: usize,
+    },
+    ContentTypePicker {
+        cursor: usize,
+    },
+    NewHeader {
+        key: String,
+        value: String,
+        active_field: VarField,
+    },
+    UrlParam {
+        key: String,
+        value: String,
+        active_field: VarField,
+        edit_idx: Option<usize>,
+    },
+    SaveRequest {
+        name: String,
+        collection_idx: usize,
+        folder_display_idx: usize,
+        active_field: SaveField,
+    },
+    BodyPair {
+        key: String,
+        value: String,
+        active_field: VarField,
+        edit_idx: Option<usize>,
+    },
+    ConfirmDelete {
+        label: String,
+        address: NodeAddress,
+    },
+}
+
+pub struct FlatNode {
+    pub depth: usize,
+    pub name: String,
+    pub is_folder: bool,
+    pub expanded: bool,
+    pub method: Option<String>,
+    pub address: NodeAddress,
+}
+
+pub fn flatten_stored(cols: &[StoredCollection], expanded: &HashSet<String>) -> Vec<FlatNode> {
+    let mut result = Vec::new();
+    for (ci, col) in cols.iter().enumerate() {
+        let col_key = format!("c{}", ci);
+        let col_expanded = expanded.contains(&col_key);
+        result.push(FlatNode {
+            depth: 0,
+            name: col.collection.name.clone(),
+            is_folder: true,
+            expanded: col_expanded,
+            method: None,
+            address: NodeAddress::Collection(ci),
+        });
+        if col_expanded {
+            for (fi, folder) in col.folders.iter().enumerate() {
+                let folder_key = format!("c{}f{}", ci, fi);
+                let folder_expanded = expanded.contains(&folder_key);
+                result.push(FlatNode {
+                    depth: 1,
+                    name: folder.name.clone(),
+                    is_folder: true,
+                    expanded: folder_expanded,
+                    method: None,
+                    address: NodeAddress::Folder(ci, fi),
+                });
+                if folder_expanded {
+                    for (ri, req) in folder.requests.iter().enumerate() {
+                        result.push(FlatNode {
+                            depth: 2,
+                            name: req.name.clone(),
+                            is_folder: false,
+                            expanded: false,
+                            method: Some(req.method.clone()),
+                            address: NodeAddress::FolderRequest(ci, fi, ri),
+                        });
+                    }
+                }
+            }
+            for (ri, req) in col.requests.iter().enumerate() {
+                result.push(FlatNode {
+                    depth: 1,
+                    name: req.name.clone(),
+                    is_folder: false,
+                    expanded: false,
+                    method: Some(req.method.clone()),
+                    address: NodeAddress::RootRequest(ci, ri),
+                });
+            }
+        }
+    }
+    result
+}
+
+pub fn sorted_vars(env: &StoredEnv) -> Vec<(String, String)> {
+    let mut pairs: Vec<(String, String)> = env.vars.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+    pairs.sort_by(|a, b| a.0.cmp(&b.0));
+    pairs
+}

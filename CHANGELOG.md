@@ -43,6 +43,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `examples/crud_demo.toml` — full CRUD on JSONPlaceholder (POST → extract id → GET → PUT → PATCH → DELETE)
   - `examples/auth_flow.toml` — ReqRes auth flow (login → extract token → GET user → PUT update)
   - `examples/debug_toolbox.toml` — httpbin.io edge cases (status codes, headers, bearer auth)
+- **New request (`n`)** — resets all fields in the Request tab (URL, method, headers, URL params, body, response) ready for a blank request
+- **Save to collection (`S`)** — saves the current request state to a collection from the Request tab:
+  - Modal with three fields: Name (free text), Collection (↑/↓ to cycle, `n/total` indicator), Folder (↑/↓ to cycle including root)
+  - `Tab` to move between fields, `Enter` to save, `Esc` to cancel
+  - Saves method, URL + query params, headers, and body; writes to disk immediately
+  - Status bar confirms the collection saved to
 - **URL Params editor** — key/value list in the URL Params sub-tab:
   - `a` — add a param (Key + Value modal, `Tab` to switch fields)
   - `d` — delete selected param

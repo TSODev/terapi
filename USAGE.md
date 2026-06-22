@@ -78,6 +78,13 @@ In URL edit mode (`e`), the bar highlights and shows a cursor:
 └───────────────────────────────────────────────────────────────────┘
 ```
 
+**Workflow — building a request from scratch:**
+1. Press `n` to clear all fields and start a new blank request
+2. Press `e` to enter URL edit mode — type the URL, use `←`/`→` to set the method, `Enter` to send or `Esc` to cancel
+3. Navigate sub-tabs (`←`/`→`) to add headers, URL params, and body
+4. Press `s` to send at any time
+5. Press `S` to save the current request to a collection (see below)
+
 **Sending a request:**
 1. Press `e` to enter URL edit mode
 2. Type the URL (Backspace to delete)
@@ -117,6 +124,32 @@ The response block title shows the **status code** (color-coded green/yellow/red
 | Body | Raw JSON body editor |
 | Auth | Bearer token, API Key, OAuth2 |
 | Options | Timeout, redirects, SSL |
+
+#### Saving a request (`S`)
+
+Press `S` (Shift+s) from anywhere in the Request tab to save the current request state to a collection:
+
+```
+┌──────────────── Save Request ───────────────────┐
+│                                                  │
+│  Name:        Get Pikachu_                       │
+│                                                  │
+│  Collection:  ↑ Public REST APIs ↓  (1/2)       │
+│                                                  │
+│  Folder:      ↑ PokeAPI ↓          (3/6)        │
+│                                                  │
+│  Tab: next field   ↑/↓: navigate   Enter: save  │
+└──────────────────────────────────────────────────┘
+```
+
+- **Name** — free text, required
+- **Collection** — `↑`/`↓` to cycle through collections; counter shows position
+- **Folder** — `↑`/`↓` to cycle through folders in the selected collection plus `(root)` for the collection root
+- `Tab` moves between the three fields
+- `Enter` saves and writes to disk immediately; the request appears in the Collections tab
+- `Esc` cancels without saving
+
+The saved request includes method, URL (with query params appended), headers, and body.
 
 #### URL Params editor
 
@@ -314,9 +347,11 @@ Placeholder — will show recent requests in v0.4.
 |-----|---------|--------|
 | `Tab` | Global | Cycle panels: Request → Collections → History |
 | `q` / `Esc` | Global | Quit |
+| `n` | Request panel | New request — clear all fields |
 | `e` | Request panel | Enter URL edit mode |
 | `m` | Request panel | Cycle HTTP method (GET → POST → PUT → PATCH → DELETE) |
 | `s` | Request panel | Send current request |
+| `S` | Request panel | Save current request to a collection |
 | `a` | Request panel (URL Params sub-tab) | Add param |
 | `d` | Request panel (URL Params sub-tab) | Delete selected param |
 | `Enter` | Request panel (URL Params sub-tab) | Edit selected param |

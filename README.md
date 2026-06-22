@@ -81,7 +81,9 @@ terapi --help
 | `Tab` | Switch panel |
 | `e` | Edit URL (enter URL mode) |
 | `m` | Cycle HTTP method |
+| `n` | New request — clear all fields |
 | `s` | Send request |
+| `S` | Save current request to a collection |
 | `i` | Edit body (Body sub-tab — enter editor) |
 | `a` / `d` | URL Params sub-tab — add / delete param |
 | `t` | Toggle body mode: Text ↔ JSON (Body sub-tab, outside editor) |
@@ -264,6 +266,8 @@ Campaign : Users API — smoke tests
 - [x] Response viewer: status code (color-coded) + elapsed time in title
 - [x] Headers editor — `a`/`d`/`↑↓` in Headers sub-tab, `{{VAR}}` resolved before send
 - [x] URL Params editor — `a`/`d`/`Enter`/`↑↓`; appended to URL at send time; auto-parsed when loading from Collections
+- [x] New request (`n`) — clears all fields
+- [x] Save to collection (`S`) — modal: name + collection selector + folder selector
 - [x] Body editor — dual mode: Text (`tui-textarea`) and JSON key/value table; `t` to toggle, `i` to edit
 
 ### v0.3 — Collections

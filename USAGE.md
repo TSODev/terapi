@@ -707,6 +707,43 @@ Useful for exploring the JSON viewer, testing fold behaviour, or demoing the TUI
 
 ---
 
+## Import
+
+Import a collection TOML file directly into your terapi collections directory:
+
+```bash
+terapi import examples/collections/france-geo.toml
+terapi import examples/collections/sncf.toml
+```
+
+Terapi validates that the file is readable and is a well-formed collection TOML, then copies it to the resolved collections directory (same priority as the TUI: `$TERAPI_DIR` → `./.terapi/collections/` → `~/.config/terapi/collections/`).
+
+The destination filename is derived from the `[collection] name` field in the TOML. If a file with the same name already exists it is overwritten.
+
+**Output:**
+
+```
+Imported "France — Géographie" → /Users/you/.config/terapi/collections/france-géographie.toml
+Updated  "France — Géographie" → /Users/you/.config/terapi/collections/france-géographie.toml
+```
+
+**Typical workflow with the example collections:**
+
+```bash
+# Import a single collection
+terapi import examples/collections/france-geo.toml
+
+# Import all example collections at once
+for f in examples/collections/*.toml; do terapi import "$f"; done
+
+# Then launch the TUI — collections appear immediately
+terapi
+```
+
+For collections that require authentication (`sncf.toml`, `france-meteo.toml`), open the **Env** tab, create an environment, add the required variable (`SNCF_TOKEN` or `METEO_TOKEN`), and activate it with `Enter`.
+
+---
+
 ## Campaign runner
 
 Run a sequence of HTTP requests headlessly from a TOML file:

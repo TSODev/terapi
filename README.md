@@ -67,6 +67,7 @@ terapi                        # launch TUI (empty)
 terapi --demo response.json   # launch TUI with a JSON file pre-loaded
 terapi run campaign.toml            # run a campaign headlessly
 terapi run campaign.toml --silent   # run silently — exit 0/1 only (CI/cron)
+terapi import collection.toml       # import a collection into the terapi directory
 terapi --version
 terapi --help
 ```

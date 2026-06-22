@@ -8,6 +8,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **`terapi import <file.toml>`** — CLI subcommand to import a collection TOML file directly into the terapi collections directory:
+  - Validates that the file is readable and is a valid collection TOML (same format as `examples/collections/`)
+  - Derives the destination filename from the collection name (`sanitize_filename`)
+  - Prints `Imported "<name>" → <path>` on first import or `Updated "<name>" → <path>` if a file with the same name already existed
+
 - **Example collections — open data français** (`examples/collections/`) :
   - `sncf.toml` — API SNCF/Navitia : 6 dossiers, 20 requêtes (couverture, gares, horaires, itinéraires, réseau, temps réel) — auth Basic `{{SNCF_TOKEN}}`
   - `france-geo.toml` — API Géo + API Adresse IGN : 4 dossiers, 19 requêtes (communes, départements, régions, géocodage, géocodage inverse) — sans authentification

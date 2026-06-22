@@ -98,7 +98,7 @@ impl App {
         let (response_tx, response_rx) = mpsc::unbounded_channel();
         Self {
             running: true,
-            active_tab: Tab::Request,
+            active_tab: Tab::Collections,
             active_request_tab: RequestTab::Description,
             stored_collections,
             expanded_nodes,
@@ -213,10 +213,10 @@ impl App {
             }
             KeyCode::Tab => {
                 self.active_tab = match self.active_tab {
-                    Tab::Request => Tab::Collections,
-                    Tab::Collections => Tab::Env,
+                    Tab::Collections => Tab::Request,
+                    Tab::Request => Tab::Env,
                     Tab::Env => Tab::History,
-                    Tab::History => Tab::Request,
+                    Tab::History => Tab::Collections,
                 };
                 self.status_message = match self.active_tab {
                     Tab::Request => "Tab: switch panel  ←/→: section  q: quit".into(),

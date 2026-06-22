@@ -105,7 +105,7 @@ impl Tab {
     }
 
     pub fn all() -> Vec<Tab> {
-        vec![Tab::Request, Tab::Collections, Tab::Env, Tab::History]
+        vec![Tab::Collections, Tab::Request, Tab::Env, Tab::History]
     }
 }
 

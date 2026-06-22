@@ -133,6 +133,7 @@ impl App {
             cookie_jar: false,
             options_cursor: 0,
             http_client: reqwest::Client::builder()
+                .user_agent(concat!("terapi/", env!("CARGO_PKG_VERSION")))
                 .timeout(std::time::Duration::from_secs(30))
                 .redirect(reqwest::redirect::Policy::limited(10))
                 .build()
@@ -158,6 +159,7 @@ impl App {
 
     pub(super) fn rebuild_http_client(&mut self) {
         let mut builder = reqwest::Client::builder()
+            .user_agent(concat!("terapi/", env!("CARGO_PKG_VERSION")))
             .timeout(std::time::Duration::from_secs(self.request_timeout_secs))
             .danger_accept_invalid_certs(self.skip_tls_verify)
             .redirect(if self.follow_redirects {

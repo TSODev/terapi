@@ -1,0 +1,63 @@
+[campaign]
+name        = "httpbin — Debug Toolbox"
+description = "Edge cases: status codes, headers inspection, timeout, bearer auth. Uses httpbin.io (official hosted instance)."
+
+[env]
+BASE_URL = "https://httpbin.io"
+TOKEN    = "my-test-token"
+
+[[steps]]
+name   = "Echo GET params"
+method = "GET"
+url    = "{{BASE_URL}}/get?tool=terapi&version=0.2"
+
+[[steps]]
+name   = "Echo POST body"
+method = "POST"
+url    = "{{BASE_URL}}/post"
+body   = '{"tool": "terapi", "action": "test"}'
+
+[steps.headers]
+Content-Type = "application/json"
+
+[[steps]]
+name   = "Inspect sent headers"
+method = "GET"
+url    = "{{BASE_URL}}/headers"
+
+[steps.headers]
+X-Terapi-Version = "0.2"
+X-Custom-Header  = "hello"
+
+[[steps]]
+name   = "Bearer auth echo"
+method = "GET"
+url    = "{{BASE_URL}}/bearer"
+
+[steps.headers]
+Authorization = "Bearer {{TOKEN}}"
+
+[steps.extract]
+AUTHENTICATED = "authenticated"
+
+[[steps]]
+name   = "Force 200 OK"
+method = "GET"
+url    = "{{BASE_URL}}/status/200"
+
+# ── The steps below intentionally fail — uncomment to test failure handling ───
+
+# [[steps]]
+# name   = "Force 401 Unauthorized"
+# method = "GET"
+# url    = "{{BASE_URL}}/status/401"
+
+# [[steps]]
+# name   = "Force 500 Internal Server Error"
+# method = "GET"
+# url    = "{{BASE_URL}}/status/500"
+
+# [[steps]]
+# name   = "Delay 3s (timeout simulation)"
+# method = "GET"
+# url    = "{{BASE_URL}}/delay/3"

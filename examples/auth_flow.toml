@@ -1,0 +1,61 @@
+[campaign]
+name        = "ReqRes — Auth Flow"
+description = "Login to get a token, then use it to fetch and update a user. Requires a free ReqRes API key: https://reqres.in/signup"
+
+# ReqRes now requires a free API key (sign up at https://reqres.in/signup).
+# Set REQRES_API_KEY in your terapi environment or replace the placeholder below.
+
+[env]
+BASE_URL      = "https://reqres.in/api"
+EMAIL         = "eve.holt@reqres.in"
+PASSWORD      = "cityslicka"
+REQRES_API_KEY = "reqres-free-v1"   # replace with your key from reqres.in/signup
+
+[[steps]]
+name   = "Login"
+method = "POST"
+url    = "{{BASE_URL}}/login"
+body   = '{"email": "{{EMAIL}}", "password": "{{PASSWORD}}"}'
+
+[steps.headers]
+Content-Type = "application/json"
+x-api-key    = "{{REQRES_API_KEY}}"
+
+[steps.extract]
+TOKEN = "token"
+
+[[steps]]
+name   = "List users (page 2)"
+method = "GET"
+url    = "{{BASE_URL}}/users?page=2"
+
+[steps.headers]
+Authorization = "Bearer {{TOKEN}}"
+x-api-key     = "{{REQRES_API_KEY}}"
+
+[steps.extract]
+TOTAL_USERS = "total"
+
+[[steps]]
+name   = "Get single user"
+method = "GET"
+url    = "{{BASE_URL}}/users/2"
+
+[steps.headers]
+Authorization = "Bearer {{TOKEN}}"
+x-api-key     = "{{REQRES_API_KEY}}"
+
+[steps.extract]
+USER_EMAIL = "data.email"
+USER_NAME  = "data.first_name"
+
+[[steps]]
+name   = "Update user"
+method = "PUT"
+url    = "{{BASE_URL}}/users/2"
+body   = '{"name": "{{USER_NAME}}", "job": "terapi tester"}'
+
+[steps.headers]
+Content-Type  = "application/json"
+Authorization = "Bearer {{TOKEN}}"
+x-api-key     = "{{REQRES_API_KEY}}"

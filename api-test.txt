@@ -1,0 +1,84 @@
+LISTE D'APIS PUBLIQUES POUR TESTS DE REST-API ET GRAPHQL
+
+================================================================================
+1. POUR LES TESTS DE CRUD COMPLETS (GET, POST, PUT, DELETE)
+================================================================================
+
+* JSONPlaceholder
+  - Description : Faux blog avec des posts, commentaires et utilisateurs.
+  - Points forts : Sans authentification, supporte toutes les méthodes HTTP, codes statuts réalistes.
+  - Note : Les mutations (POST/PUT/DELETE) sont simulées — les ressources ne persistent pas.
+  - URL : https://jsonplaceholder.typicode.com/
+  - Campaign exemple : examples/crud_demo.toml
+
+* ReqRes
+  - Description : Simulation d'authentification utilisateur (login réussi/échoué) et de pagination.
+  - Note : Nécessite une clé API gratuite depuis https://reqres.in/signup (header x-api-key).
+  - URL : https://reqres.in/
+  - Campaign exemple : examples/auth_flow.toml
+
+================================================================================
+2. API SIMPLES ET FUN (SANS AUTHENTIFICATION - GET RAPIDE)
+================================================================================
+
+* PokeAPI
+  - Description : API ultra-complète sur l'univers de Pokémon.
+  - Points forts : Idéale pour la pagination, les requêtes imbriquées et les gros JSON.
+  - URL : https://pokeapi.co/
+  - Collection TUI : examples/collections/public-rest.toml (dossier PokeAPI)
+
+* Open Library API
+  - Description : Accès aux données de millions de livres.
+  - Points forts : Idéal pour tester la recherche par paramètres (?q=...).
+  - URL : https://openlibrary.org/dev/docs/api/books
+
+* The Cat API / Dog API
+  - Description : Renvoie des images et des infos aléatoires sur les animaux.
+  - Points forts : Utile pour tester la gestion des URLs de médias.
+  - URL : https://api.thecatapi.com/v1/images/search
+
+================================================================================
+3. API RÉELLES AVEC AUTHENTIFICATION (HEADERS & CLÉS)
+================================================================================
+
+* OpenWeatherMap
+  - Description : Données météo actuelles et prévisions.
+  - Authentification : Clé API gratuite (inscription requise).
+  - URL : https://openweathermap.org/api
+
+* CoinGecko API
+  - Description : Données sur les cryptomonnaies en temps réel.
+  - Points forts : Parfait pour les structures de données financières et le rate-limiting.
+  - URL : https://www.coingecko.com/en/api
+  - Collection TUI : examples/collections/public-rest.toml (dossier CoinGecko)
+
+================================================================================
+4. OUTIL DE DEBUG / EDGE CASES
+================================================================================
+
+* httpbin.io  [⚠ utiliser httpbin.io — httpbin.org est instable]
+  - Description : Permet de forcer des codes de statut, inspecter les headers/body envoyés,
+                  simuler des délais et tester l'auth Bearer.
+  - Exemples :
+      https://httpbin.io/status/500    → forcer une erreur 500
+      https://httpbin.io/delay/3       → simuler un timeout de 3s
+      https://httpbin.io/headers       → inspecter les headers envoyés
+      https://httpbin.io/bearer        → valider un Bearer token
+  - URL : https://httpbin.io/
+  - Campaign exemple : examples/debug_toolbox.toml
+
+================================================================================
+5. GRAPHQL PUBLICS (SANS AUTHENTIFICATION)
+================================================================================
+
+* Countries API (Trevor Blades)
+  - Description : Pays du monde, continents, langues, devises.
+  - Points forts : Schéma simple, idéal pour les premiers tests GraphQL et l'introspection.
+  - Endpoint : https://countries.trevorblades.com/graphql
+  - Collection TUI : examples/collections/graphql.toml (dossier Countries API)
+
+* Rick & Morty API
+  - Description : Personnages, épisodes et lieux de la série.
+  - Points forts : Filtres, pagination, structure imbriquée — bon pour tester les variables GraphQL.
+  - Endpoint : https://rickandmortyapi.com/graphql
+  - Collection TUI : examples/collections/graphql.toml (dossier Rick & Morty API)

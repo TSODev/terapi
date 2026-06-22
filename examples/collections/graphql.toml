@@ -1,0 +1,111 @@
+[collection]
+name        = "Public GraphQL APIs"
+description = "Countries API and Rick & Morty API — public, no auth, good for GraphQL v0.5 dev"
+
+# All GraphQL requests are POST to the endpoint with:
+#   Content-Type: application/json
+#   body: {"query": "..."}   or   {"query": "...", "variables": {...}}
+
+# ── Countries (trevorblades) ──────────────────────────────────────────────────
+# Stable public GraphQL API with country, continent, and language data.
+# Endpoint: https://countries.trevorblades.com/graphql
+
+[[folders]]
+name = "Countries API"
+
+[[folders.requests]]
+name   = "List all countries"
+method = "POST"
+url    = "https://countries.trevorblades.com/graphql"
+body   = '{"query": "{ countries { name code capital emoji } }"}'
+
+[folders.requests.headers]
+Content-Type = "application/json"
+
+[[folders.requests]]
+name   = "Get France detail"
+method = "POST"
+url    = "https://countries.trevorblades.com/graphql"
+body   = '{"query": "{ country(code: \"FR\") { name capital currency emoji languages { name } } }"}'
+
+[folders.requests.headers]
+Content-Type = "application/json"
+
+[[folders.requests]]
+name   = "List continents"
+method = "POST"
+url    = "https://countries.trevorblades.com/graphql"
+body   = '{"query": "{ continents { name code countries { name } } }"}'
+
+[folders.requests.headers]
+Content-Type = "application/json"
+
+[[folders.requests]]
+name   = "Countries by continent (Europe)"
+method = "POST"
+url    = "https://countries.trevorblades.com/graphql"
+body   = '{"query": "{ continent(code: \"EU\") { name countries { name code capital } } }"}'
+
+[folders.requests.headers]
+Content-Type = "application/json"
+
+[[folders.requests]]
+name   = "Schema introspection"
+method = "POST"
+url    = "https://countries.trevorblades.com/graphql"
+body   = '{"query": "{ __schema { types { name kind } } }"}'
+
+[folders.requests.headers]
+Content-Type = "application/json"
+
+# ── Rick & Morty ──────────────────────────────────────────────────────────────
+# Well-documented GraphQL API with characters, episodes, and locations.
+# Endpoint: https://rickandmortyapi.com/graphql
+
+[[folders]]
+name = "Rick & Morty API"
+
+[[folders.requests]]
+name   = "List characters"
+method = "POST"
+url    = "https://rickandmortyapi.com/graphql"
+body   = '{"query": "{ characters { results { id name status species image } } }"}'
+
+[folders.requests.headers]
+Content-Type = "application/json"
+
+[[folders.requests]]
+name   = "Get Rick Sanchez"
+method = "POST"
+url    = "https://rickandmortyapi.com/graphql"
+body   = '{"query": "{ character(id: 1) { id name status species type gender origin { name } location { name } image } }"}'
+
+[folders.requests.headers]
+Content-Type = "application/json"
+
+[[folders.requests]]
+name   = "Filter alive humans"
+method = "POST"
+url    = "https://rickandmortyapi.com/graphql"
+body   = '{"query": "{ characters(filter: { status: \"alive\", species: \"Human\" }) { info { count pages } results { name origin { name } } } }"}'
+
+[folders.requests.headers]
+Content-Type = "application/json"
+
+[[folders.requests]]
+name   = "List episodes (page 1)"
+method = "POST"
+url    = "https://rickandmortyapi.com/graphql"
+body   = '{"query": "{ episodes { results { id name air_date episode } } }"}'
+
+[folders.requests.headers]
+Content-Type = "application/json"
+
+[[folders.requests]]
+name   = "Schema introspection"
+method = "POST"
+url    = "https://rickandmortyapi.com/graphql"
+body   = '{"query": "{ __schema { queryType { name } types { name kind description } } }"}'
+
+[folders.requests.headers]
+Content-Type = "application/json"

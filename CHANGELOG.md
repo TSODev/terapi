@@ -25,6 +25,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   Extracted vars from previous steps still override the step env (highest priority)
 - `storage::load_env_by_name(name)` — load a single terapi environment by name (used by campaign runner)
 - `storage::resolve_vars(text, vars)` — `{{VAR}}` substitution helper (foundation for TUI request sending)
+- Example collections for the TUI (`examples/collections/`):
+  - `public-rest.toml` — JSONPlaceholder, ReqRes, httpbin, PokeAPI, CoinGecko (5 folders)
+  - `graphql.toml` — Countries API and Rick & Morty API (GraphQL via POST, ready for v0.5)
+- Example campaigns:
+  - `examples/crud_demo.toml` — full CRUD on JSONPlaceholder (POST → extract id → GET → PUT → PATCH → DELETE)
+  - `examples/auth_flow.toml` — ReqRes auth flow (login → extract token → GET user → PUT update)
+  - `examples/debug_toolbox.toml` — httpbin.io edge cases (status codes, headers, bearer auth)
 
 ### Changed
 - Collection CRUD in the TUI (Collections panel):

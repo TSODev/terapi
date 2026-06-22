@@ -1,0 +1,56 @@
+[campaign]
+name        = "JSONPlaceholder — CRUD Demo"
+description = "Demonstrates all HTTP methods. Note: JSONPlaceholder simulates mutations (POST always returns id=101 but doesn't persist), so GET/PUT/DELETE use a real existing id."
+
+[env]
+BASE_URL = "https://jsonplaceholder.typicode.com"
+POST_ID  = "1"
+
+[[steps]]
+name   = "Create post (POST — simulated)"
+method = "POST"
+url    = "{{BASE_URL}}/posts"
+body   = '{"title": "terapi test", "body": "Created by terapi campaign runner", "userId": 1}'
+
+[steps.headers]
+Content-Type = "application/json"
+
+[steps.extract]
+CREATED_ID = "id"   # always 101 on JSONPlaceholder (not persisted)
+
+[[steps]]
+name   = "Get post"
+method = "GET"
+url    = "{{BASE_URL}}/posts/{{POST_ID}}"
+
+[steps.extract]
+POST_TITLE = "title"
+POST_USER  = "userId"
+
+[[steps]]
+name   = "Get comments on post"
+method = "GET"
+url    = "{{BASE_URL}}/posts/{{POST_ID}}/comments"
+
+[[steps]]
+name   = "Update post (PUT)"
+method = "PUT"
+url    = "{{BASE_URL}}/posts/{{POST_ID}}"
+body   = '{"id": 1, "title": "updated by terapi", "body": "Updated!", "userId": 1}'
+
+[steps.headers]
+Content-Type = "application/json"
+
+[[steps]]
+name   = "Patch post title (PATCH)"
+method = "PATCH"
+url    = "{{BASE_URL}}/posts/{{POST_ID}}"
+body   = '{"title": "patched title"}'
+
+[steps.headers]
+Content-Type = "application/json"
+
+[[steps]]
+name   = "Delete post"
+method = "DELETE"
+url    = "{{BASE_URL}}/posts/{{POST_ID}}"

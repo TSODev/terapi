@@ -15,6 +15,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Description sub-tab** — now a real editable textarea (replaces the static placeholder). Press `i` to enter edit mode (border turns green), `Esc` to exit. Description is persisted in the collection TOML and restored when loading a request from Collections.
 - **Response panel** — takes 2/3 of the available height (up from 1/2), giving more room to inspect responses.
 - **`S: save` hint** — shown in the status bar on every Request sub-tab (was previously missing from Headers, URL Params, Body, Auth, and Options).
+- **Options sub-tab** — now has three configurable options navigable with `↑`/`↓`; `Space`/`Enter` toggles or cycles the selected option:
+  - **Skip TLS verification** — accept self-signed / hostname-mismatched certificates (existing)
+  - **Follow redirects** — automatically follow 3xx responses (up to 10 hops); default on
+  - **Timeout** — cycles through presets: 5 / 10 / 15 / 20 / **30** / 45 / 60 / 90 / 120 / 300 s; default 30 s
+  - All three options are persisted in the collection TOML and restored when loading a request
 
 ### Added
 - **`terapi import <file.toml>`** — CLI subcommand to import a collection TOML file directly into the terapi collections directory:

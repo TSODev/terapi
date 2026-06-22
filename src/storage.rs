@@ -57,7 +57,16 @@ pub struct StoredRequest {
     pub description: Option<String>,
     #[serde(default)]
     pub auth: StoredAuth,
+    #[serde(default = "default_timeout")]
+    pub timeout_secs: u64,
+    #[serde(default = "default_follow_redirects")]
+    pub follow_redirects: bool,
+    #[serde(default)]
+    pub skip_tls_verify: bool,
 }
+
+fn default_timeout() -> u64 { 30 }
+fn default_follow_redirects() -> bool { true }
 
 impl StoredRequest {
     pub fn new(name: impl Into<String>, method: impl Into<String>, url: impl Into<String>) -> Self {
@@ -69,6 +78,9 @@ impl StoredRequest {
             body: None,
             description: None,
             auth: StoredAuth::default(),
+            timeout_secs: 30,
+            follow_redirects: true,
+            skip_tls_verify: false,
         }
     }
 }

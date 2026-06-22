@@ -201,31 +201,63 @@ fn render_options_editor(frame: &mut Frame, app: &App, area: Rect) {
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let checkbox = if app.skip_tls_verify { "[x]" } else { "[ ]" };
-    let (checkbox_style, label_style) = if app.skip_tls_verify {
-        (
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
-            Style::default().fg(Color::Yellow),
-        )
-    } else {
-        (
-            Style::default().fg(Color::Gray),
-            Style::default().fg(Color::White),
-        )
+    let cursor = app.options_cursor;
+
+    let option_line = |idx: usize, checked: bool, label: &str, detail: &str| -> Line<'static> {
+        let selected = idx == cursor;
+        let cursor_marker = if selected { "▶ " } else { "  " };
+        let checkbox = if checked { "[x]" } else { "[ ]" };
+        let (check_style, label_style) = if checked {
+            (Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+             Style::default().fg(Color::Yellow))
+        } else {
+            (Style::default().fg(Color::Gray),
+             if selected { Style::default().fg(Color::White).add_modifier(Modifier::BOLD) }
+             else        { Style::default().fg(Color::White) })
+        };
+        let cursor_style = if selected {
+            Style::default().fg(Color::Cyan)
+        } else {
+            Style::default().fg(Color::DarkGray)
+        };
+        Line::from(vec![
+            Span::styled(cursor_marker.to_string(), cursor_style),
+            Span::styled(format!("{} ", checkbox), check_style),
+            Span::styled(label.to_string(), label_style),
+            Span::styled(format!("  {}", detail), Style::default().fg(Color::Indexed(244))),
+        ])
     };
 
-    let line = Line::from(vec![
-        Span::styled(format!(" {} ", checkbox), checkbox_style),
-        Span::styled("Skip TLS verification", label_style),
-        Span::styled("  (accept self-signed / mismatched certificates)", Style::default().fg(Color::Indexed(244))),
+    // Timeout row (numeric, cycles through presets)
+    let timeout_selected = cursor == 2;
+    let timeout_cursor_style = if timeout_selected { Style::default().fg(Color::Cyan) } else { Style::default().fg(Color::DarkGray) };
+    let timeout_label_style = if timeout_selected {
+        Style::default().fg(Color::White).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::White)
+    };
+    let timeout_line = Line::from(vec![
+        Span::styled(if timeout_selected { "▶ " } else { "  " }.to_string(), timeout_cursor_style),
+        Span::styled(format!("[{}s]", app.request_timeout_secs), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        Span::styled("  Timeout".to_string(), timeout_label_style),
+        Span::styled("  (Space/Enter cycles: 5→10→15→20→30→45→60→90→120→300 s)".to_string(), Style::default().fg(Color::Indexed(244))),
     ]);
 
     let hint = Line::from(Span::styled(
-        " Space or Enter to toggle",
+        "  ↑/↓: navigate   Space/Enter: toggle / cycle timeout",
         Style::default().fg(Color::Indexed(238)),
     ));
 
-    let text = vec![Line::from(""), line, Line::from(""), hint];
+    let text = vec![
+        Line::from(""),
+        option_line(0, app.skip_tls_verify, "Skip TLS verification", "(accept self-signed / mismatched certificates)"),
+        Line::from(""),
+        option_line(1, app.follow_redirects, "Follow redirects",     "(automatically follow 3xx responses, up to 10)"),
+        Line::from(""),
+        timeout_line,
+        Line::from(""),
+        hint,
+    ];
     frame.render_widget(Paragraph::new(text), inner);
 }
 

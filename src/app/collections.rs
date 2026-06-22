@@ -108,6 +108,10 @@ impl App {
                 api_key_location: ApiKeyLocation::from_str(&req.auth.api_key_location),
             };
             self.auth_field_cursor = 0;
+            self.skip_tls_verify = req.skip_tls_verify;
+            self.follow_redirects = req.follow_redirects;
+            self.request_timeout_secs = req.timeout_secs;
+            self.options_cursor = 0;
             self.editing_request_origin = None;
             self.request_focus = RequestFocus::Response;
             self.response_body = None;
@@ -218,6 +222,9 @@ impl App {
         req.body = body;
         req.description = description;
         req.auth = auth;
+        req.timeout_secs = self.request_timeout_secs;
+        req.follow_redirects = self.follow_redirects;
+        req.skip_tls_verify = self.skip_tls_verify;
 
         crate::storage::save_collection(&self.stored_collections[ci])?;
         self.editing_request_origin = None;

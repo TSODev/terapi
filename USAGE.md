@@ -221,24 +221,30 @@ The saved request includes method, URL (with query params appended), headers, an
 
 #### Options sub-tab
 
-Navigate to the Options sub-tab with `←/→` to configure per-request options:
+Navigate to the Options sub-tab with `←/→`. Use `↑`/`↓` to move between the three options, `Space` or `Enter` to toggle or cycle the selected one.
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | Skip TLS verification | off | Accept self-signed or hostname-mismatched certificates |
+| Follow redirects | on | Automatically follow 3xx responses (up to 10 hops) |
+| Timeout | 30 s | Request timeout — cycles through presets: 5 / 10 / 15 / 20 / 30 / 45 / 60 / 90 / 120 / 300 s |
 
-Press `Space` or `Enter` to toggle the highlighted option. When **Skip TLS verification** is active the checkbox turns yellow — a visual reminder that cert validation is disabled.
+Active boolean options turn yellow. The timeout shows the current value in brackets (e.g. `[30s]`); each press of `Space`/`Enter` advances to the next preset, wrapping back to 5 s after 300 s.
 
 ```
-┌─ Options ───────────────────────────────────────────────────────┐
-│                                                                   │
-│  [x] Skip TLS verification  (accept self-signed / mismatched…)   │
-│                                                                   │
-│      Space or Enter to toggle                                     │
-└───────────────────────────────────────────────────────────────────┘
+┌─ Options ──────────────────────────────────────────────────────────┐
+│                                                                      │
+│▶ [x] Skip TLS verification  (accept self-signed / mismatched certs) │
+│                                                                      │
+│  [ ] Follow redirects        (automatically follow 3xx, up to 10)   │
+│                                                                      │
+│  [30s] Timeout               (Space/Enter cycles: 5→10→…→300 s)     │
+│                                                                      │
+│  ↑/↓: navigate   Space/Enter: toggle / cycle timeout                │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-Useful for local dev servers, VPS endpoints with self-signed certs, or APIs behind a corporate proxy.
+All three options are persisted in the collection TOML and restored when loading a request from Collections.
 
 #### URL Params editor
 

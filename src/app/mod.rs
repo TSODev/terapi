@@ -54,8 +54,12 @@ pub struct App {
     // Auth
     pub auth_config: AuthConfig,
     pub auth_field_cursor: usize,
-    // Response
+    // Options
     pub skip_tls_verify: bool,
+    pub follow_redirects: bool,
+    pub request_timeout_secs: u64,
+    pub options_cursor: usize,
+    // Response
     pub last_request_raw: Option<RawRequest>,
     pub response_body: Option<String>,
     pub response_status: Option<u16>,
@@ -120,6 +124,9 @@ impl App {
             auth_config: AuthConfig::default(),
             auth_field_cursor: 0,
             skip_tls_verify: false,
+            follow_redirects: true,
+            request_timeout_secs: 30,
+            options_cursor: 0,
             last_request_raw: None,
             response_body,
             response_status: None,
@@ -352,13 +359,35 @@ impl App {
                     self.url_params_cursor += 1;
                 }
             }
+            KeyCode::Up
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::Options =>
+            {
+                if self.options_cursor > 0 { self.options_cursor -= 1; }
+            }
+            KeyCode::Down
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::Options =>
+            {
+                if self.options_cursor < 2 { self.options_cursor += 1; }
+            }
             KeyCode::Char(' ') | KeyCode::Enter
                 if self.active_tab == Tab::Request
                     && self.active_request_tab == RequestTab::Options =>
             {
-                self.skip_tls_verify = !self.skip_tls_verify;
-                let state = if self.skip_tls_verify { "enabled" } else { "disabled" };
-                self.status_message = format!("Skip TLS verify: {}  —  Space/Enter: toggle  ←/→: section  s: send  q: quit", state);
+                const TIMEOUT_STEPS: &[u64] = &[5, 10, 15, 20, 30, 45, 60, 90, 120, 300];
+                match self.options_cursor {
+                    0 => { self.skip_tls_verify = !self.skip_tls_verify; }
+                    1 => { self.follow_redirects = !self.follow_redirects; }
+                    2 => {
+                        let next = TIMEOUT_STEPS.iter()
+                            .find(|&&v| v > self.request_timeout_secs)
+                            .copied()
+                            .unwrap_or(TIMEOUT_STEPS[0]);
+                        self.request_timeout_secs = next;
+                    }
+                    _ => {}
+                }
             }
             KeyCode::Up
                 if self.active_tab == Tab::Request

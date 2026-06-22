@@ -26,6 +26,20 @@ fn base64_encode(input: &str) -> String {
 }
 
 impl App {
+    pub fn has_unresolved_vars(&self) -> bool {
+        let has = |s: &str| s.contains("{{");
+        has(&self.request_url)
+            || self.request_headers.iter().any(|(_, v)| has(v))
+            || self.request_url_params.iter().any(|(_, v)| has(v))
+            || self.body_textarea.lines().iter().any(|l| has(l.as_str()))
+            || self.body_json_pairs.iter().any(|(_, v)| has(v))
+            || has(&self.auth_config.bearer_token)
+            || has(&self.auth_config.basic_username)
+            || has(&self.auth_config.basic_password)
+            || has(&self.auth_config.api_key_name)
+            || has(&self.auth_config.api_key_value)
+    }
+
     pub(super) fn send_request(&mut self) {
         if self.request_loading {
             return;
@@ -35,6 +49,7 @@ impl App {
             self.status_message = "No URL — press e to enter one".into();
             return;
         }
+        let warn_vars = self.active_env_idx.is_none() && self.has_unresolved_vars();
 
         let env_vars = self.active_env_idx
             .and_then(|i| self.environments.get(i))
@@ -118,7 +133,11 @@ impl App {
 
         self.request_loading = true;
         self.request_focus = RequestFocus::Response;
-        self.status_message = format!("Sending {} {}…", method, resolved_url);
+        self.status_message = if warn_vars {
+            format!("⚠ unresolved {{{{VAR}}}} — Sending {} {}…", method, resolved_url)
+        } else {
+            format!("Sending {} {}…", method, resolved_url)
+        };
 
         tokio::spawn(async move {
             let result = execute_http(client, &method, &resolved_url, &resolved_headers, body).await;

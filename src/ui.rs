@@ -1595,6 +1595,12 @@ fn context_breadcrumb(app: &App) -> String {
 }
 
 fn env_indicator(app: &App) -> (String, Color) {
+    if app.active_tab == Tab::Request
+        && app.active_env_idx.is_none()
+        && app.has_unresolved_vars()
+    {
+        return ("⚠ {{VAR}} not resolved".to_string(), Color::Yellow);
+    }
     match app.active_env_idx.and_then(|i| app.environments.get(i)) {
         Some(env) => (format!("● env: {}", env.env.name), Color::Green),
         None => ("○ no active env".to_string(), Color::Indexed(238)),

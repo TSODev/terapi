@@ -58,7 +58,7 @@ The interface is divided into three top-level panels, navigated with `Tab`:
 | **Request** | Build and send HTTP requests, view responses |
 | **Collections** | Browse saved collections and requests |
 | **Env** | Create and manage environment variables across multiple environments |
-| **History** | Recent requests *(coming in v0.4)* |
+| **History** | Persistent log of all sent requests and their responses |
 
 ### Request panel
 
@@ -439,7 +439,22 @@ The panel is split into two columns:
 
 ### History panel
 
-Placeholder — will show recent requests in v0.4.
+Every request sent from the TUI is recorded automatically in `<terapi_dir>/history.toml` (newest first, max 100 entries). Both successful requests and transport errors are saved.
+
+Each entry shows:
+- **Timestamp** — UTC date and time (`YYYY-MM-DD HH:MM:SS`)
+- **Method** — HTTP verb
+- **Status** — HTTP status code, colour-coded: green 2xx, yellow 3xx/4xx, red 5xx, grey for transport errors
+- **Elapsed** — response time in ms (blank for errors)
+- **URL** — the fully-resolved URL that was sent
+
+**Keybindings**
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Navigate entries |
+| `Enter` | Load entry into the Request tab (method, URL, headers, body restored; switches to Request tab) |
+| `d` | Delete the selected entry (removed from list and saved to disk) |
 
 ### Context bar
 
@@ -501,6 +516,9 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `n` | Env panel | New environment |
 | `a` | Env panel | Add variable to selected environment |
 | `d` | Env panel | Delete selected environment or variable |
+| `↑` / `↓` | History panel | Navigate entries |
+| `Enter` | History panel | Load entry into Request tab |
+| `d` | History panel | Delete selected entry |
 | `Tab` | Modal | Cycle input fields (Name ↔ URL, Key ↔ Value) |
 | `←` / `→` | Modal (New Request) | Cycle HTTP method |
 | `Enter` | Modal | Confirm |

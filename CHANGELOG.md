@@ -8,6 +8,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Persistent request history** — every sent request is recorded in `<terapi_dir>/history.toml` (max 100 entries, newest first):
+  - History tab replaces the placeholder with a live list showing: timestamp (UTC) / method / status / elapsed / URL
+  - Status codes are colour-coded: green 2xx, yellow 3xx/4xx, red 5xx, gray for transport errors
+  - Both successful and failed requests are recorded
+  - `↑` / `↓` to navigate, `Enter` to load the request back into the Request tab (method, URL, headers, body restored), `d` to delete an entry
+  - Storage: `HistoryEntry` struct with timestamp, method, url, headers, body, status, elapsed_ms, response_body
+
 - **Edit existing request** — press `e` on a request node in the Collections panel to open an **Edit Request** modal (cyan border) pre-filled with the current name, method and URL:
   - `Tab` to cycle between Name and URL fields
   - `←` / `→` to change the HTTP method

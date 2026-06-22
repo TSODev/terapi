@@ -125,6 +125,16 @@ terapi --help
 | `d` | Delete selected environment or variable |
 | `q` / `Esc` | Quit |
 
+**History panel**
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Switch panel |
+| `↑` / `↓` | Navigate entries |
+| `Enter` | Load request into Request tab |
+| `d` | Delete entry |
+| `q` / `Esc` | Quit |
+
 ---
 
 ## Collections
@@ -283,7 +293,7 @@ Campaign : Users API — smoke tests
 - [x] Select a request from Collections to load into the Request tab (`Enter`)
 - [x] Edit an existing request — `e` opens a pre-filled modal (name, method, URL); headers and body preserved
 
-### v0.4 — Environment & History
+### v0.4 — Environment & History *(complete)*
 - [x] Environment tab — create / manage multiple environments (test, staging, prod…)
 - [x] Add variables per environment (`KEY = value`), activate with `Enter`
 - [x] Storage: one TOML file per environment in `<terapi_dir>/envs/`
@@ -291,7 +301,7 @@ Campaign : Users API — smoke tests
 - [x] Campaign: `env_file = "name"` loads a terapi env as base variable set
 - [x] Campaign: per-step `env = "name"` to switch environment for a single step
 - [x] `{{VAR}}` substitution in URL, headers and body when sending from TUI
-- [ ] Request history (persistent, TOML)
+- [x] Request history — persistent TOML, colour-coded list, load/delete entries
 
 ### v0.5 — GraphQL
 - [ ] GraphQL mode toggle

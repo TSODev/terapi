@@ -57,21 +57,24 @@ impl App {
     }
 
     pub(super) fn load_collection_request(&mut self, address: &NodeAddress) {
-        let req = match address {
+        // Clone everything out of the stored request so we hold no borrow
+        // when mutating self (needed for rebuild_http_client).
+        let loaded = match address {
             NodeAddress::RootRequest(ci, ri) => {
-                self.stored_collections.get(*ci).and_then(|c| c.requests.get(*ri))
+                self.stored_collections.get(*ci).and_then(|c| c.requests.get(*ri)).cloned()
             }
             NodeAddress::FolderRequest(ci, fi, ri) => {
                 self.stored_collections.get(*ci)
                     .and_then(|c| c.folders.get(*fi))
                     .and_then(|f| f.requests.get(*ri))
+                    .cloned()
             }
             _ => None,
         };
 
-        if let Some(req) = req {
+        if let Some(req) = loaded {
             self.request_method_idx = METHODS.iter()
-                .position(|&m| m == req.method)
+                .position(|&m| m == req.method.as_str())
                 .unwrap_or(0);
             let (base_url, params) = split_url_params(&req.url);
             self.request_url = base_url;
@@ -111,8 +114,12 @@ impl App {
             self.skip_tls_verify = req.skip_tls_verify;
             self.follow_redirects = req.follow_redirects;
             self.request_timeout_secs = req.timeout_secs;
+            self.cookie_jar = req.cookie_jar;
             self.options_cursor = 0;
+            self.cookie_jar_store = std::sync::Arc::new(reqwest::cookie::Jar::default());
+            self.rebuild_http_client();
             self.editing_request_origin = None;
+            let req_name = req.name.clone();
             self.request_focus = RequestFocus::Response;
             self.response_body = None;
             self.response_status = None;
@@ -124,7 +131,7 @@ impl App {
             self.active_request_tab = RequestTab::Description;
             self.status_message = format!(
                 "Loaded: {}  —  e: edit URL  s: send  q: quit",
-                req.name
+                req_name
             );
         }
     }
@@ -225,6 +232,7 @@ impl App {
         req.timeout_secs = self.request_timeout_secs;
         req.follow_redirects = self.follow_redirects;
         req.skip_tls_verify = self.skip_tls_verify;
+        req.cookie_jar = self.cookie_jar;
 
         crate::storage::save_collection(&self.stored_collections[ci])?;
         self.editing_request_origin = None;

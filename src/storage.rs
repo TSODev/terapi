@@ -63,6 +63,8 @@ pub struct StoredRequest {
     pub follow_redirects: bool,
     #[serde(default)]
     pub skip_tls_verify: bool,
+    #[serde(default)]
+    pub cookie_jar: bool,
 }
 
 fn default_timeout() -> u64 { 30 }
@@ -81,6 +83,7 @@ impl StoredRequest {
             timeout_secs: 30,
             follow_redirects: true,
             skip_tls_verify: false,
+            cookie_jar: false,
         }
     }
 }

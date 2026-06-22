@@ -104,9 +104,7 @@ impl App {
 
         let method = METHODS[self.request_method_idx].to_string();
         let tx = self.response_tx.clone();
-        let skip_tls = self.skip_tls_verify;
-        let follow_redirects = self.follow_redirects;
-        let timeout_secs = self.request_timeout_secs;
+        let client = self.http_client.clone();
 
         let body = self.body_string()
             .map(|b| crate::storage::resolve_vars(&b, &env_vars));
@@ -123,7 +121,7 @@ impl App {
         self.status_message = format!("Sending {} {}…", method, resolved_url);
 
         tokio::spawn(async move {
-            let result = execute_http(&method, &resolved_url, &resolved_headers, body, skip_tls, follow_redirects, timeout_secs).await;
+            let result = execute_http(client, &method, &resolved_url, &resolved_headers, body).await;
             let _ = tx.send(result);
         });
     }
@@ -146,7 +144,10 @@ impl App {
         self.skip_tls_verify = false;
         self.follow_redirects = true;
         self.request_timeout_secs = 30;
+        self.cookie_jar = false;
         self.options_cursor = 0;
+        self.cookie_jar_store = std::sync::Arc::new(reqwest::cookie::Jar::default());
+        self.rebuild_http_client();
         self.editing_request_origin = None;
         self.editing_request_name = String::new();
         self.last_request_raw = None;
@@ -203,6 +204,7 @@ impl App {
             timeout_secs: self.request_timeout_secs,
             follow_redirects: self.follow_redirects,
             skip_tls_verify: self.skip_tls_verify,
+            cookie_jar: self.cookie_jar,
             auth: StoredAuth {
                 auth_type: self.auth_config.auth_type.as_str().to_string(),
                 bearer_token: self.auth_config.bearer_token.clone(),

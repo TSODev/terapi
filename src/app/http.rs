@@ -1,27 +1,14 @@
 use super::{HttpOutcome, HttpResult};
 
 pub(super) async fn execute_http(
+    client: reqwest::Client,
     method: &str,
     url: &str,
     headers: &[(String, String)],
     body: Option<String>,
-    skip_tls_verify: bool,
-    follow_redirects: bool,
-    timeout_secs: u64,
 ) -> HttpOutcome {
     use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
     use std::str::FromStr;
-
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(timeout_secs))
-        .danger_accept_invalid_certs(skip_tls_verify)
-        .redirect(if follow_redirects {
-            reqwest::redirect::Policy::limited(10)
-        } else {
-            reqwest::redirect::Policy::none()
-        })
-        .build()
-        .map_err(|e| e.to_string())?;
 
     let t0 = std::time::Instant::now();
 

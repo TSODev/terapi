@@ -58,7 +58,11 @@ pub struct App {
     pub skip_tls_verify: bool,
     pub follow_redirects: bool,
     pub request_timeout_secs: u64,
+    pub cookie_jar: bool,
     pub options_cursor: usize,
+    // HTTP client — persistent across requests (shares cookie jar)
+    pub(super) http_client: reqwest::Client,
+    pub(super) cookie_jar_store: std::sync::Arc<reqwest::cookie::Jar>,
     // Response
     pub last_request_raw: Option<RawRequest>,
     pub response_body: Option<String>,
@@ -126,7 +130,14 @@ impl App {
             skip_tls_verify: false,
             follow_redirects: true,
             request_timeout_secs: 30,
+            cookie_jar: false,
             options_cursor: 0,
+            http_client: reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(30))
+                .redirect(reqwest::redirect::Policy::limited(10))
+                .build()
+                .expect("HTTP client init failed"),
+            cookie_jar_store: std::sync::Arc::new(reqwest::cookie::Jar::default()),
             last_request_raw: None,
             response_body,
             response_status: None,
@@ -143,6 +154,21 @@ impl App {
             response_rx,
             response_tx,
         }
+    }
+
+    pub(super) fn rebuild_http_client(&mut self) {
+        let mut builder = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(self.request_timeout_secs))
+            .danger_accept_invalid_certs(self.skip_tls_verify)
+            .redirect(if self.follow_redirects {
+                reqwest::redirect::Policy::limited(10)
+            } else {
+                reqwest::redirect::Policy::none()
+            });
+        if self.cookie_jar {
+            builder = builder.cookie_provider(self.cookie_jar_store.clone());
+        }
+        self.http_client = builder.build().expect("HTTP client build failed");
     }
 
     pub fn handle_key(&mut self, key: KeyEvent) -> Result<()> {
@@ -369,7 +395,7 @@ impl App {
                 if self.active_tab == Tab::Request
                     && self.active_request_tab == RequestTab::Options =>
             {
-                if self.options_cursor < 2 { self.options_cursor += 1; }
+                if self.options_cursor < 3 { self.options_cursor += 1; }
             }
             KeyCode::Char(' ') | KeyCode::Enter
                 if self.active_tab == Tab::Request
@@ -386,8 +412,16 @@ impl App {
                             .unwrap_or(TIMEOUT_STEPS[0]);
                         self.request_timeout_secs = next;
                     }
+                    3 => {
+                        self.cookie_jar = !self.cookie_jar;
+                        if !self.cookie_jar {
+                            // clear the jar when disabled
+                            self.cookie_jar_store = std::sync::Arc::new(reqwest::cookie::Jar::default());
+                        }
+                    }
                     _ => {}
                 }
+                self.rebuild_http_client();
             }
             KeyCode::Up
                 if self.active_tab == Tab::Request

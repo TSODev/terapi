@@ -256,6 +256,8 @@ fn render_options_editor(frame: &mut Frame, app: &App, area: Rect) {
         Line::from(""),
         timeout_line,
         Line::from(""),
+        option_line(3, app.cookie_jar,       "Cookie jar",           "(store & send cookies across requests — cleared on new request)"),
+        Line::from(""),
         hint,
     ];
     frame.render_widget(Paragraph::new(text), inner);

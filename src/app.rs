@@ -813,7 +813,55 @@ impl App {
                 if !self.expanded_nodes.remove(&key) {
                     self.expanded_nodes.insert(key);
                 }
+            } else {
+                let address = node.address.clone();
+                self.load_collection_request(&address);
             }
+        }
+    }
+
+    fn load_collection_request(&mut self, address: &NodeAddress) {
+        let req = match address {
+            NodeAddress::RootRequest(ci, ri) => {
+                self.stored_collections.get(*ci).and_then(|c| c.requests.get(*ri))
+            }
+            NodeAddress::FolderRequest(ci, fi, ri) => {
+                self.stored_collections.get(*ci)
+                    .and_then(|c| c.folders.get(*fi))
+                    .and_then(|f| f.requests.get(*ri))
+            }
+            _ => None,
+        };
+
+        if let Some(req) = req {
+            self.request_method_idx = METHODS.iter()
+                .position(|&m| m == req.method)
+                .unwrap_or(0);
+            self.request_url = req.url.clone();
+            self.request_headers = req.headers.iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            self.request_headers.sort_by(|a, b| a.0.cmp(&b.0));
+            self.header_cursor = 0;
+            self.body_textarea = if let Some(body) = &req.body {
+                let lines: Vec<String> = body.lines().map(|l| l.to_string()).collect();
+                TextArea::from(lines)
+            } else {
+                TextArea::default()
+            };
+            self.request_focus = RequestFocus::Response;
+            self.response_body = None;
+            self.response_status = None;
+            self.response_elapsed_ms = None;
+            self.response_cursor = 0;
+            self.response_scroll = 0;
+            self.response_folds = HashSet::new();
+            self.active_tab = Tab::Request;
+            self.active_request_tab = RequestTab::Description;
+            self.status_message = format!(
+                "Loaded: {}  —  e: edit URL  s: send  q: quit",
+                req.name
+            );
         }
     }
 

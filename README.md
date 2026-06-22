@@ -269,7 +269,7 @@ Campaign : Users API — smoke tests
 - [x] Create / delete collections from the TUI (`n`, `d`)
 - [x] Create folders within a collection (`f`) — cursor follows automatically
 - [x] Add / delete requests from the TUI (`a`, `d`)
-- [ ] Collections panel: select a request to load it into the Request tab
+- [x] Select a request from Collections to load into the Request tab (`Enter`)
 - [ ] Edit an existing request (name, method, URL, headers, body)
 
 ### v0.4 — Environment & History

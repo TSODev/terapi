@@ -43,6 +43,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `examples/crud_demo.toml` — full CRUD on JSONPlaceholder (POST → extract id → GET → PUT → PATCH → DELETE)
   - `examples/auth_flow.toml` — ReqRes auth flow (login → extract token → GET user → PUT update)
   - `examples/debug_toolbox.toml` — httpbin.io edge cases (status codes, headers, bearer auth)
+- **Load request from Collections** — press `Enter` on a request node to load it into the Request tab:
+  - Method, URL, headers, and body are all restored
+  - App switches automatically to the Request tab
+  - Response area is cleared; status bar shows the loaded request name
+  - Folders still expand/collapse as before
 - **Body editor** — multi-line raw JSON editor in the Body sub-tab powered by `tui-textarea`:
   - `i` — enter body edit mode (green border, cursor visible)
   - `Esc` — exit body edit mode

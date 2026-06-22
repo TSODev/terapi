@@ -200,6 +200,8 @@ The request is added to:
 - the collection root, if a collection or root request is selected
 - the folder, if a folder or folder request is selected
 
+**Loading a request (`Enter` on a request node)** — pressing `Enter` on a non-folder item loads the request into the Request tab and switches to it. Method, URL, headers, and body are all restored. The response area is cleared and the status bar confirms the load.
+
 **Deleting (`d`)** — a confirmation modal shows the item name. Press `y` or `Enter` to confirm, `n` or `Esc` to cancel.
 
 Method badges are colour-coded:
@@ -272,7 +274,8 @@ Placeholder — will show recent requests in v0.4.
 | `-` | Request panel | Shrink Key column |
 | `=` | Request panel | Grow Key column |
 | `↑` / `↓` | Collections panel | Move cursor |
-| `Enter` | Collections panel | Expand / collapse folder |
+| `Enter` | Collections panel (folder) | Expand / collapse folder |
+| `Enter` | Collections panel (request) | Load request into Request tab |
 | `n` | Collections panel | New collection |
 | `f` | Collections panel | New folder in selected collection |
 | `a` | Collections panel | Add request to selected collection / folder |

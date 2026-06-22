@@ -19,6 +19,7 @@ pub type HttpOutcome = anyhow::Result<HttpResult, String>;
 pub enum RequestFocus {
     Url,
     Body,
+    Description,
     Response,
 }
 
@@ -335,15 +336,6 @@ pub enum ModalState {
         active_field: InputField,
         collection_idx: usize,
         folder_idx: Option<usize>,
-    },
-    EditRequest {
-        name: String,
-        method_idx: usize,
-        url: String,
-        active_field: InputField,
-        collection_idx: usize,
-        folder_idx: Option<usize>,
-        request_idx: usize,
     },
     NewEnv {
         input: String,

@@ -46,8 +46,10 @@ pub struct App {
     pub body_textarea: TextArea<'static>,
     pub body_json_pairs: Vec<(String, String)>,
     pub body_json_cursor: usize,
+    pub description_textarea: TextArea<'static>,
     pub request_focus: RequestFocus,
     pub request_loading: bool,
+    pub editing_request_origin: Option<(usize, Option<usize>, usize)>,
     // Auth
     pub auth_config: AuthConfig,
     pub auth_field_cursor: usize,
@@ -109,8 +111,10 @@ impl App {
             body_textarea: TextArea::default(),
             body_json_pairs: Vec::new(),
             body_json_cursor: 0,
+            description_textarea: TextArea::default(),
             request_focus: RequestFocus::Response,
             request_loading: false,
+            editing_request_origin: None,
             auth_config: AuthConfig::default(),
             auth_field_cursor: 0,
             skip_tls_verify: false,
@@ -144,6 +148,17 @@ impl App {
         // Body editor intercepts all keys when focused
         if self.active_tab == Tab::Request && self.request_focus == RequestFocus::Body {
             return self.handle_body_key(key);
+        }
+
+        // Description editor intercepts all keys when focused
+        if self.active_tab == Tab::Request && self.request_focus == RequestFocus::Description {
+            if key.code == KeyCode::Esc {
+                self.request_focus = RequestFocus::Response;
+                self.update_request_status_hint();
+            } else {
+                self.description_textarea.input(tui_textarea::Input::from(key));
+            }
+            return Ok(());
         }
 
         match key.code {
@@ -234,7 +249,9 @@ impl App {
                 self.new_request();
             }
             KeyCode::Char('S') if self.active_tab == Tab::Request => {
-                if self.stored_collections.is_empty() {
+                if let Some((ci, fi, ri)) = self.editing_request_origin {
+                    self.overwrite_request(ci, fi, ri)?;
+                } else if self.stored_collections.is_empty() {
                     self.status_message = "No collections — create one first in the Collections tab".into();
                 } else {
                     self.modal = Some(ModalState::SaveRequest {
@@ -258,6 +275,13 @@ impl App {
                     BodyMode::Text => "Body [Text]: editing  Esc: exit editor".into(),
                     BodyMode::Json => "Body [JSON]: ↑↓: navigate  a: add  d: delete  Enter: edit  Esc: exit".into(),
                 };
+            }
+            KeyCode::Char('i')
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::Description =>
+            {
+                self.request_focus = RequestFocus::Description;
+                self.status_message = "Description: editing  Esc: exit editor".into();
             }
             KeyCode::Char('t')
                 if self.active_tab == Tab::Request
@@ -526,21 +550,13 @@ impl App {
                             NodeAddress::FolderRequest(ci, fi, ri) => (*ci, Some(*fi), *ri),
                             _ => return Ok(()),
                         };
-                        let req = if let Some(fi) = fi {
-                            &self.stored_collections[ci].folders[fi].requests[ri]
-                        } else {
-                            &self.stored_collections[ci].requests[ri]
-                        };
-                        let method_idx = METHODS.iter().position(|&m| m == req.method).unwrap_or(0);
-                        self.modal = Some(ModalState::EditRequest {
-                            name: req.name.clone(),
-                            method_idx,
-                            url: req.url.clone(),
-                            active_field: InputField::Name,
-                            collection_idx: ci,
-                            folder_idx: fi,
-                            request_idx: ri,
-                        });
+                        let address = node.address.clone();
+                        self.load_collection_request(&address);
+                        self.editing_request_origin = Some((ci, fi, ri));
+                        self.active_request_tab = RequestTab::Description;
+                        self.status_message = format!(
+                            "Editing — i: description  ←/→: section  S: save  s: send  n: new request  q: quit"
+                        );
                     }
                 }
             }
@@ -703,41 +719,6 @@ impl App {
                     self.modal = Some(ModalState::NewRequest { name, method_idx, url, active_field, collection_idx, folder_idx });
                 }
                 _ => { self.modal = Some(ModalState::NewRequest { name, method_idx, url, active_field, collection_idx, folder_idx }); }
-            },
-
-            Some(ModalState::EditRequest {
-                mut name, mut method_idx, mut url, mut active_field,
-                collection_idx, folder_idx, request_idx,
-            }) => match key.code {
-                KeyCode::Esc => {}
-                KeyCode::Enter if !name.trim().is_empty() && !url.trim().is_empty() => {
-                    self.edit_request(name.trim().to_string(), method_idx, url.trim().to_string(), collection_idx, folder_idx, request_idx)?;
-                    self.status_message = "Request updated.  e: edit  Enter: load  d: delete  q: quit".into();
-                }
-                KeyCode::Tab => {
-                    active_field = match active_field {
-                        InputField::Name => InputField::Url,
-                        InputField::Url => InputField::Name,
-                    };
-                    self.modal = Some(ModalState::EditRequest { name, method_idx, url, active_field, collection_idx, folder_idx, request_idx });
-                }
-                KeyCode::Left => {
-                    method_idx = if method_idx == 0 { METHODS.len() - 1 } else { method_idx - 1 };
-                    self.modal = Some(ModalState::EditRequest { name, method_idx, url, active_field, collection_idx, folder_idx, request_idx });
-                }
-                KeyCode::Right => {
-                    method_idx = (method_idx + 1) % METHODS.len();
-                    self.modal = Some(ModalState::EditRequest { name, method_idx, url, active_field, collection_idx, folder_idx, request_idx });
-                }
-                KeyCode::Char(c) => {
-                    match active_field { InputField::Name => name.push(c), InputField::Url => url.push(c) }
-                    self.modal = Some(ModalState::EditRequest { name, method_idx, url, active_field, collection_idx, folder_idx, request_idx });
-                }
-                KeyCode::Backspace => {
-                    match active_field { InputField::Name => { name.pop(); } InputField::Url => { url.pop(); } }
-                    self.modal = Some(ModalState::EditRequest { name, method_idx, url, active_field, collection_idx, folder_idx, request_idx });
-                }
-                _ => { self.modal = Some(ModalState::EditRequest { name, method_idx, url, active_field, collection_idx, folder_idx, request_idx }); }
             },
 
             Some(ModalState::NewEnv { mut input }) => match key.code {

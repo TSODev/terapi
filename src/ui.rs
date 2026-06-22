@@ -75,7 +75,7 @@ fn render_request_panel(frame: &mut Frame, app: &App, area: Rect) {
             Constraint::Length(3),
             Constraint::Length(3),
             Constraint::Fill(1),
-            Constraint::Fill(1),
+            Constraint::Fill(2),
         ])
         .split(area);
 
@@ -171,17 +171,26 @@ fn render_request_content(frame: &mut Frame, app: &App, area: Rect) {
         return;
     }
 
-    let content = Paragraph::new("Add a description for this request.")
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(" Description ")
-                .border_style(Style::default().fg(Color::Yellow)),
-        )
-        .style(Style::default().fg(Color::Gray))
-        .alignment(Alignment::Center);
-
-    frame.render_widget(content, area);
+    let editing = app.request_focus == RequestFocus::Description;
+    let border_style = if editing {
+        Style::default().fg(Color::Green)
+    } else {
+        Style::default().fg(Color::Yellow)
+    };
+    let title = if editing { " Description — editing (Esc: done) " } else { " Description — i: edit " };
+    let mut textarea = app.description_textarea.clone();
+    textarea.set_block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(title)
+            .border_style(border_style),
+    );
+    textarea.set_style(Style::default().fg(Color::White));
+    textarea.set_cursor_line_style(Style::default());
+    if !editing {
+        textarea.set_cursor_style(Style::default());
+    }
+    frame.render_widget(&textarea, area);
 }
 
 fn render_options_editor(frame: &mut Frame, app: &App, area: Rect) {
@@ -1147,49 +1156,6 @@ fn render_modal(frame: &mut Frame, app: &App) {
             );
         }
 
-        Some(ModalState::EditRequest { name, method_idx, url, active_field, .. }) => {
-            let area = centered_rect(60, 11, frame.area());
-            frame.render_widget(Clear, area);
-
-            let name_style = if *active_field == InputField::Name { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
-            let url_style  = if *active_field == InputField::Url  { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
-            let name_cursor = if *active_field == InputField::Name { "_" } else { "" };
-            let url_cursor  = if *active_field == InputField::Url  { "_" } else { "" };
-
-            let method = METHODS[*method_idx];
-            let max_url = 44usize;
-            let url_display = if url.len() > max_url {
-                format!("…{}", &url[url.len() - max_url..])
-            } else {
-                url.clone()
-            };
-
-            let text = vec![
-                Line::from(""),
-                Line::from(vec![Span::raw("  Name:   "), Span::styled(format!("{}{}", name, name_cursor), name_style)]),
-                Line::from(""),
-                Line::from(vec![
-                    Span::raw("  Method: "),
-                    Span::styled("◀ ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(method, Style::default().fg(method_color(method)).add_modifier(Modifier::BOLD)),
-                    Span::styled(" ▶", Style::default().fg(Color::DarkGray)),
-                    Span::styled("  (←/→ to change)", Style::default().fg(Color::Gray)),
-                ]),
-                Line::from(""),
-                Line::from(vec![Span::raw("  URL:    "), Span::styled(format!("{}{}", url_display, url_cursor), url_style)]),
-                Line::from(""),
-                Line::from(Span::styled("  Tab: next field   Enter: save   Esc: cancel", Style::default().fg(Color::Gray))),
-            ];
-            frame.render_widget(
-                Paragraph::new(text).block(
-                    Block::default().borders(Borders::ALL)
-                        .title(" Edit Request ").title_alignment(Alignment::Center)
-                        .border_style(Style::default().fg(Color::Cyan)),
-                ),
-                area,
-            );
-        }
-
         Some(ModalState::NewEnv { input }) => {
             let area = centered_rect(52, 7, frame.area());
             frame.render_widget(Clear, area);
@@ -1575,7 +1541,7 @@ fn context_breadcrumb(app: &App) -> String {
             };
             let focus_suffix = match app.request_focus {
                 RequestFocus::Url => "  ›  URL edit",
-                RequestFocus::Body => "  ›  editing",
+                RequestFocus::Body | RequestFocus::Description => "  ›  editing",
                 RequestFocus::Response => "",
             };
             format!("Request  ›  {}{}{}", sub, mode_suffix, focus_suffix)

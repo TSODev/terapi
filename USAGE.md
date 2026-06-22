@@ -139,7 +139,7 @@ The response block title shows the **status code** (color-coded green/yellow/red
 
 | Sub-tab | Purpose |
 |---------|---------|
-| Description | Free-text note about the request |
+| Description | Free-text note about the request — `i` to edit, `Esc` to exit, persisted in collection TOML |
 | Headers | Request headers — common header picker + custom entry |
 | URL Params | Query string parameters |
 | Body | Raw JSON body editor |
@@ -435,7 +435,7 @@ The request is added to:
 
 **Loading a request (`Enter` on a request node)** — pressing `Enter` on a non-folder item loads the request into the Request tab and switches to it. Method, URL, headers, and body are all restored. The response area is cleared and the status bar confirms the load.
 
-**Editing a request (`e`)** — pressing `e` on a request node opens the **Edit Request** modal (cyan border) pre-filled with the current name, method, and URL. Use `Tab` to switch between Name and URL fields, `←` / `→` to change the method. Press `Enter` to save in place (headers and body are preserved unchanged) or `Esc` to cancel.
+**Editing a request (`e`)** — pressing `e` on a request node loads the request fully into the **Request tab** and switches to it. All fields are editable: URL (press `e` to enter URL mode), method (`m` or `↑`/`↓` in URL mode), headers, URL params, body, auth, and description (`i` to edit). Press `S` to save all changes back to the same collection slot (direct overwrite — no modal). Press `n` to discard and start a new blank request instead.
 
 **Deleting (`d`)** — a confirmation modal shows the item name. Press `y` or `Enter` to confirm, `n` or `Esc` to cancel.
 

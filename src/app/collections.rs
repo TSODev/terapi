@@ -91,6 +91,12 @@ impl App {
             self.body_mode = BodyMode::Text;
             self.body_json_pairs = Vec::new();
             self.body_json_cursor = 0;
+            self.description_textarea = if let Some(desc) = &req.description {
+                let lines: Vec<String> = desc.lines().map(|l| l.to_string()).collect();
+                TextArea::from(lines)
+            } else {
+                TextArea::default()
+            };
             self.header_cursor = 0;
             self.auth_config = AuthConfig {
                 auth_type: AuthType::from_str(&req.auth.auth_type),
@@ -102,6 +108,7 @@ impl App {
                 api_key_location: ApiKeyLocation::from_str(&req.auth.api_key_location),
             };
             self.auth_field_cursor = 0;
+            self.editing_request_origin = None;
             self.request_focus = RequestFocus::Response;
             self.response_body = None;
             self.response_status = None;
@@ -170,24 +177,51 @@ impl App {
         Ok(())
     }
 
-    pub(super) fn edit_request(
-        &mut self,
-        name: String,
-        method_idx: usize,
-        url: String,
-        ci: usize,
-        fi: Option<usize>,
-        ri: usize,
-    ) -> Result<()> {
+    pub(super) fn overwrite_request(&mut self, ci: usize, fi: Option<usize>, ri: usize) -> Result<()> {
+        use std::collections::HashMap as HMap;
+        // Compute all values from self before taking a mutable borrow on stored_collections
+        let url = if self.request_url_params.is_empty() {
+            self.request_url.clone()
+        } else {
+            let sep = if self.request_url.contains('?') { '&' } else { '?' };
+            let query = self.request_url_params.iter()
+                .filter(|(k, _)| !k.is_empty())
+                .map(|(k, v)| format!("{}={}", k, v))
+                .collect::<Vec<_>>()
+                .join("&");
+            format!("{}{}{}", self.request_url, sep, query)
+        };
+        let desc_text = self.description_textarea.lines().join("\n");
+        let description = if desc_text.trim().is_empty() { None } else { Some(desc_text) };
+        let method = METHODS[self.request_method_idx].to_string();
+        let headers: HMap<String, String> = self.request_headers.iter().cloned().collect();
+        let body = self.body_string();
+        let auth = crate::storage::StoredAuth {
+            auth_type: self.auth_config.auth_type.as_str().to_string(),
+            bearer_token: self.auth_config.bearer_token.clone(),
+            basic_username: self.auth_config.basic_username.clone(),
+            basic_password: self.auth_config.basic_password.clone(),
+            api_key_name: self.auth_config.api_key_name.clone(),
+            api_key_value: self.auth_config.api_key_value.clone(),
+            api_key_location: self.auth_config.api_key_location.as_str().to_string(),
+        };
+
         let req = if let Some(fi) = fi {
             &mut self.stored_collections[ci].folders[fi].requests[ri]
         } else {
             &mut self.stored_collections[ci].requests[ri]
         };
-        req.name = name;
-        req.method = METHODS[method_idx].to_string();
+        req.method = method;
         req.url = url;
+        req.headers = headers;
+        req.body = body;
+        req.description = description;
+        req.auth = auth;
+        let name = req.name.clone();
+
         crate::storage::save_collection(&self.stored_collections[ci])?;
+        self.editing_request_origin = None;
+        self.status_message = format!("Saved: \"{}\"  —  s: send  S: save again  q: quit", name);
         Ok(())
     }
 

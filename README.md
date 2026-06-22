@@ -87,7 +87,7 @@ terapi --help
 | `n` | New request — clear all fields |
 | `s` | Send request |
 | `S` | Save current request to a collection |
-| `i` | Edit body (Body sub-tab — enter editor) |
+| `i` | Edit description (Description sub-tab — enter editor) / Edit body (Body sub-tab — enter editor) |
 | `a` / `d` | URL Params sub-tab — add / delete param |
 | `t` | Toggle body mode: Text ↔ JSON (Body sub-tab, outside editor) |
 | `←` / `→` | Navigate sub-tabs (also exits URL mode) |
@@ -112,7 +112,7 @@ terapi --help
 | `n` | New collection |
 | `f` | New folder in selected collection |
 | `a` | Add request to selected collection / folder |
-| `e` | Edit selected request (name, method, URL) |
+| `e` | Edit selected request — loads into Request tab with all fields editable (URL, headers, body, auth, description); `S` to save back in place |
 | `d` | Delete selected item |
 | `q` / `Esc` | Quit |
 
@@ -317,7 +317,7 @@ Campaign : Users API — smoke tests
 - [x] Create folders within a collection (`f`) — cursor follows automatically
 - [x] Add / delete requests from the TUI (`a`, `d`)
 - [x] Select a request from Collections to load into the Request tab (`Enter`)
-- [x] Edit an existing request — `e` opens a pre-filled modal (name, method, URL); headers and body preserved
+- [x] Edit an existing request — `e` loads the request into the Request tab (all fields editable including description); `S` saves back in place
 
 ### v0.4 — Environment & History *(complete)*
 - [x] Environment tab — create / manage multiple environments (test, staging, prod…)

@@ -137,9 +137,11 @@ impl App {
         self.body_textarea = TextArea::default();
         self.body_json_pairs = Vec::new();
         self.body_json_cursor = 0;
+        self.description_textarea = TextArea::default();
         self.request_focus = RequestFocus::Response;
         self.auth_config = AuthConfig::default();
         self.auth_field_cursor = 0;
+        self.editing_request_origin = None;
         self.last_request_raw = None;
         self.response_body = None;
         self.response_status = None;
@@ -183,13 +185,14 @@ impl App {
                 .join("&");
             format!("{}{}{}", self.request_url, sep, query)
         };
+        let desc_text = self.description_textarea.lines().join("\n");
         let req = StoredRequest {
             name,
             method: METHODS[self.request_method_idx].to_string(),
             url,
             headers: self.request_headers.iter().cloned().collect::<HMap<_, _>>(),
             body: self.body_string(),
-            description: None,
+            description: if desc_text.trim().is_empty() { None } else { Some(desc_text) },
             auth: StoredAuth {
                 auth_type: self.auth_config.auth_type.as_str().to_string(),
                 bearer_token: self.auth_config.bearer_token.clone(),
@@ -307,15 +310,15 @@ impl App {
 
     pub fn update_request_status_hint(&mut self) {
         self.status_message = match self.active_request_tab {
-            RequestTab::UrlParams => "Tab: panels  a: add  d: delete  Enter: edit  ↑/↓: navigate  ←/→: section  s: send  q: quit".into(),
-            RequestTab::Headers => "Tab: panels  a: add  d: delete  ↑/↓: navigate  ←/→: section  e: edit URL  s: send  q: quit".into(),
+            RequestTab::UrlParams => "Tab: panels  a: add  d: delete  Enter: edit  ↑/↓: navigate  ←/→: section  s: send  S: save  q: quit".into(),
+            RequestTab::Headers => "Tab: panels  a: add  d: delete  ↑/↓: navigate  ←/→: section  e: edit URL  s: send  S: save  q: quit".into(),
             RequestTab::Body => match self.body_mode {
-                BodyMode::Text => "Tab: panels  i: edit body  t: JSON mode  ←/→: section  s: send  q: quit".into(),
-                BodyMode::Json => "Tab: panels  i: edit fields  t: text mode  ←/→: section  s: send  q: quit".into(),
+                BodyMode::Text => "Tab: panels  i: edit body  t: JSON mode  ←/→: section  s: send  S: save  q: quit".into(),
+                BodyMode::Json => "Tab: panels  i: edit fields  t: text mode  ←/→: section  s: send  S: save  q: quit".into(),
             },
-            RequestTab::Options => "Tab: panels  Space/Enter: toggle option  ←/→: section  s: send  q: quit".into(),
-            RequestTab::Auth => "Tab: panels  ↑/↓: field  Space/Enter: cycle type or edit  ←/→: section  s: send  q: quit".into(),
-            _ => "Tab: panels  e: edit URL  s: send  S: save  n: new  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into(),
+            RequestTab::Options => "Tab: panels  Space/Enter: toggle option  ←/→: section  s: send  S: save  q: quit".into(),
+            RequestTab::Auth => "Tab: panels  ↑/↓: field  Space/Enter: cycle type or edit  ←/→: section  s: send  S: save  q: quit".into(),
+            RequestTab::Description => "Tab: panels  i: edit description  ←/→: section  s: send  S: save  q: quit".into(),
         };
     }
 

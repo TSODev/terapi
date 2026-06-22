@@ -127,10 +127,22 @@ Displays the full collection tree loaded from disk. Collections can contain fold
 | Key | Action |
 |-----|--------|
 | `n` | Create a new collection |
+| `f` | Create a new folder inside the selected collection |
 | `a` | Add a request to the selected collection or folder |
 | `d` | Delete the selected item (collection, folder, or request) |
 
 **Creating a collection (`n`)** — a modal prompts for a name. Press `Enter` to save or `Esc` to cancel. The collection is immediately written to disk.
+
+**Creating a folder (`f`)** — a modal prompts for a name. The folder is added to the collection that contains the currently selected item. After creation, the cursor moves automatically to the new folder, so you can press `a` right away to add a request into it.
+
+Typical workflow:
+```
+n   → new collection       (cursor on the collection)
+f   → new folder Auth      (cursor moves to Auth)
+a   → add request Login    (added inside Auth)
+f   → new folder Users     (cursor moves to Users)
+a   → add request List     (added inside Users)
+```
 
 **Adding a request (`a`)** — a modal with three fields:
 - **Name** — displayed in the tree
@@ -174,6 +186,7 @@ Placeholder — will show recent requests in v0.4.
 | `↑` / `↓` | Collections panel | Move cursor |
 | `Enter` | Collections panel | Expand / collapse folder |
 | `n` | Collections panel | New collection |
+| `f` | Collections panel | New folder in selected collection |
 | `a` | Collections panel | Add request to selected collection / folder |
 | `d` | Collections panel | Delete selected item |
 | `Tab` | Modal | Cycle input fields (Name ↔ URL) |

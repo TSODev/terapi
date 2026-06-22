@@ -94,6 +94,7 @@ terapi --help
 | `↑` / `↓` | Move cursor |
 | `Enter` | Expand / collapse folder |
 | `n` | New collection |
+| `f` | New folder in selected collection |
 | `a` | Add request to selected collection / folder |
 | `d` | Delete selected item |
 | `q` / `Esc` | Quit |
@@ -237,6 +238,7 @@ Campaign : Users API — smoke tests
 - [x] TOML-based collection format (one file per collection)
 - [x] Load collections from disk at startup
 - [x] Create / delete collections from the TUI (`n`, `d`)
+- [x] Create folders within a collection (`f`) — cursor follows automatically
 - [x] Add / delete requests from the TUI (`a`, `d`)
 - [ ] Collections panel: select a request to load it into the Request tab
 - [ ] Edit an existing request (name, method, URL, headers, body)

@@ -48,6 +48,9 @@ pub struct App {
     pub body_json_cursor: usize,
     pub request_focus: RequestFocus,
     pub request_loading: bool,
+    // Auth
+    pub auth_config: AuthConfig,
+    pub auth_field_cursor: usize,
     // Response
     pub skip_tls_verify: bool,
     pub last_request_raw: Option<RawRequest>,
@@ -108,6 +111,8 @@ impl App {
             body_json_cursor: 0,
             request_focus: RequestFocus::Response,
             request_loading: false,
+            auth_config: AuthConfig::default(),
+            auth_field_cursor: 0,
             skip_tls_verify: false,
             last_request_raw: None,
             response_body,
@@ -324,6 +329,68 @@ impl App {
                 self.skip_tls_verify = !self.skip_tls_verify;
                 let state = if self.skip_tls_verify { "enabled" } else { "disabled" };
                 self.status_message = format!("Skip TLS verify: {}  —  Space/Enter: toggle  ←/→: section  s: send  q: quit", state);
+            }
+            KeyCode::Up
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::Auth =>
+            {
+                if self.auth_field_cursor > 0 {
+                    self.auth_field_cursor -= 1;
+                }
+            }
+            KeyCode::Down
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::Auth =>
+            {
+                if self.auth_field_cursor + 1 < self.auth_config.field_count() {
+                    self.auth_field_cursor += 1;
+                }
+            }
+            KeyCode::Char(' ') | KeyCode::Enter
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::Auth =>
+            {
+                if self.auth_field_cursor == 0 {
+                    self.auth_config.auth_type = self.auth_config.auth_type.next();
+                    self.auth_field_cursor = 0;
+                } else {
+                    match (&self.auth_config.auth_type, self.auth_field_cursor) {
+                        (AuthType::Bearer, 1) => {
+                            self.modal = Some(ModalState::EditAuthField {
+                                kind: AuthFieldKind::BearerToken,
+                                value: self.auth_config.bearer_token.clone(),
+                            });
+                        }
+                        (AuthType::Basic, 1) => {
+                            self.modal = Some(ModalState::EditAuthField {
+                                kind: AuthFieldKind::BasicUsername,
+                                value: self.auth_config.basic_username.clone(),
+                            });
+                        }
+                        (AuthType::Basic, 2) => {
+                            self.modal = Some(ModalState::EditAuthField {
+                                kind: AuthFieldKind::BasicPassword,
+                                value: self.auth_config.basic_password.clone(),
+                            });
+                        }
+                        (AuthType::ApiKey, 1) => {
+                            self.modal = Some(ModalState::EditAuthField {
+                                kind: AuthFieldKind::ApiKeyName,
+                                value: self.auth_config.api_key_name.clone(),
+                            });
+                        }
+                        (AuthType::ApiKey, 2) => {
+                            self.modal = Some(ModalState::EditAuthField {
+                                kind: AuthFieldKind::ApiKeyValue,
+                                value: self.auth_config.api_key_value.clone(),
+                            });
+                        }
+                        (AuthType::ApiKey, 3) => {
+                            self.auth_config.api_key_location = self.auth_config.api_key_location.toggle();
+                        }
+                        _ => {}
+                    }
+                }
             }
             KeyCode::Char('a')
                 if self.active_tab == Tab::Request
@@ -914,6 +981,28 @@ impl App {
                 }
                 KeyCode::Char('n') | KeyCode::Esc => {}
                 _ => { self.modal = Some(ModalState::ConfirmDelete { label, address }); }
+            },
+
+            Some(ModalState::EditAuthField { kind, mut value }) => match key.code {
+                KeyCode::Esc => {}
+                KeyCode::Enter => {
+                    match kind {
+                        AuthFieldKind::BearerToken   => self.auth_config.bearer_token   = value,
+                        AuthFieldKind::BasicUsername => self.auth_config.basic_username = value,
+                        AuthFieldKind::BasicPassword => self.auth_config.basic_password = value,
+                        AuthFieldKind::ApiKeyName    => self.auth_config.api_key_name   = value,
+                        AuthFieldKind::ApiKeyValue   => self.auth_config.api_key_value  = value,
+                    }
+                }
+                KeyCode::Char(c) => {
+                    value.push(c);
+                    self.modal = Some(ModalState::EditAuthField { kind, value });
+                }
+                KeyCode::Backspace => {
+                    value.pop();
+                    self.modal = Some(ModalState::EditAuthField { kind, value });
+                }
+                _ => { self.modal = Some(ModalState::EditAuthField { kind, value }); }
             },
 
             None => {}

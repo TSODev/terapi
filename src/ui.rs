@@ -166,18 +166,16 @@ fn render_request_content(frame: &mut Frame, app: &App, area: Rect) {
         render_options_editor(frame, app, area);
         return;
     }
+    if app.active_request_tab == RequestTab::Auth {
+        render_auth_editor(frame, app, area);
+        return;
+    }
 
-    let (title, msg) = match app.active_request_tab {
-        RequestTab::Description => ("Description", "Add a description for this request."),
-        RequestTab::Headers | RequestTab::Body | RequestTab::UrlParams | RequestTab::Options => unreachable!(),
-        RequestTab::Auth => ("Auth", "Configure authentication (Bearer, API Key, OAuth2…)."),
-    };
-
-    let content = Paragraph::new(msg)
+    let content = Paragraph::new("Add a description for this request.")
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title(format!(" {title} "))
+                .title(" Description ")
                 .border_style(Style::default().fg(Color::Yellow)),
         )
         .style(Style::default().fg(Color::Gray))
@@ -220,6 +218,150 @@ fn render_options_editor(frame: &mut Frame, app: &App, area: Rect) {
 
     let text = vec![Line::from(""), line, Line::from(""), hint];
     frame.render_widget(Paragraph::new(text), inner);
+}
+
+fn render_auth_editor(frame: &mut Frame, app: &App, area: Rect) {
+    use crate::app::{AuthType, ApiKeyLocation};
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(" Auth ")
+        .border_style(Style::default().fg(Color::Yellow));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let auth = &app.auth_config;
+    let cursor = app.auth_field_cursor;
+
+    // ── Row 0: type selector ─────────────────────────────────────────────────
+    let types = [AuthType::None, AuthType::Bearer, AuthType::Basic, AuthType::ApiKey];
+    let type_spans: Vec<Span> = types.iter().enumerate().flat_map(|(i, t)| {
+        let active = &auth.auth_type == t;
+        let label = format!(" {} ", t.label());
+        let style = if active {
+            Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::Indexed(244))
+        };
+        let mut spans = vec![Span::styled(label, style)];
+        if i < types.len() - 1 {
+            spans.push(Span::styled("  ", Style::default()));
+        }
+        spans
+    }).collect();
+
+    let row0_bg = if cursor == 0 {
+        Style::default().bg(Color::Indexed(237))
+    } else {
+        Style::default()
+    };
+    let mut type_line_spans = vec![Span::styled(" Type   ", Style::default().fg(Color::Indexed(244)))];
+    type_line_spans.extend(type_spans);
+    let type_line = Line::from(type_line_spans).style(row0_bg);
+
+    // ── Field rows ──────────────────────────────────────────────────────────
+    let field_rows: Vec<Line> = match &auth.auth_type {
+        AuthType::None => vec![
+            Line::from(Span::styled(
+                " No authentication header will be sent.",
+                Style::default().fg(Color::Indexed(238)),
+            )),
+        ],
+        AuthType::Bearer => {
+            let row_style = if cursor == 1 { Style::default().bg(Color::Indexed(237)) } else { Style::default() };
+            let value = if auth.bearer_token.is_empty() {
+                Span::styled(" <enter token>", Style::default().fg(Color::Indexed(238)))
+            } else {
+                Span::styled(format!(" {}", &auth.bearer_token), Style::default().fg(Color::Green))
+            };
+            vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled(" Token   ", Style::default().fg(Color::Indexed(244))),
+                    value,
+                ]).style(row_style),
+            ]
+        }
+        AuthType::Basic => {
+            let user_style = if cursor == 1 { Style::default().bg(Color::Indexed(237)) } else { Style::default() };
+            let pass_style = if cursor == 2 { Style::default().bg(Color::Indexed(237)) } else { Style::default() };
+            let user_val = if auth.basic_username.is_empty() {
+                Span::styled(" <enter username>", Style::default().fg(Color::Indexed(238)))
+            } else {
+                Span::styled(format!(" {}", &auth.basic_username), Style::default().fg(Color::Green))
+            };
+            let pass_val = if auth.basic_password.is_empty() {
+                Span::styled(" <enter password>", Style::default().fg(Color::Indexed(238)))
+            } else {
+                Span::styled(format!(" {}", "•".repeat(auth.basic_password.len())), Style::default().fg(Color::Yellow))
+            };
+            vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled(" Username", Style::default().fg(Color::Indexed(244))),
+                    user_val,
+                ]).style(user_style),
+                Line::from(vec![
+                    Span::styled(" Password", Style::default().fg(Color::Indexed(244))),
+                    pass_val,
+                ]).style(pass_style),
+            ]
+        }
+        AuthType::ApiKey => {
+            let name_style  = if cursor == 1 { Style::default().bg(Color::Indexed(237)) } else { Style::default() };
+            let value_style = if cursor == 2 { Style::default().bg(Color::Indexed(237)) } else { Style::default() };
+            let loc_style   = if cursor == 3 { Style::default().bg(Color::Indexed(237)) } else { Style::default() };
+            let name_val = if auth.api_key_name.is_empty() {
+                Span::styled(" <enter key name>", Style::default().fg(Color::Indexed(238)))
+            } else {
+                Span::styled(format!(" {}", &auth.api_key_name), Style::default().fg(Color::Cyan))
+            };
+            let key_val = if auth.api_key_value.is_empty() {
+                Span::styled(" <enter key value>", Style::default().fg(Color::Indexed(238)))
+            } else {
+                Span::styled(format!(" {}", &auth.api_key_value), Style::default().fg(Color::Green))
+            };
+            let (hdr_style, qp_style) = match auth.api_key_location {
+                ApiKeyLocation::Header => (
+                    Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD),
+                    Style::default().fg(Color::Indexed(244)),
+                ),
+                ApiKeyLocation::QueryParam => (
+                    Style::default().fg(Color::Indexed(244)),
+                    Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD),
+                ),
+            };
+            vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled(" Key Name", Style::default().fg(Color::Indexed(244))),
+                    name_val,
+                ]).style(name_style),
+                Line::from(vec![
+                    Span::styled(" Key Value", Style::default().fg(Color::Indexed(244))),
+                    key_val,
+                ]).style(value_style),
+                Line::from(vec![
+                    Span::styled(" Location ", Style::default().fg(Color::Indexed(244))),
+                    Span::styled(" Header ", hdr_style),
+                    Span::styled("  ", Style::default()),
+                    Span::styled(" Query Param ", qp_style),
+                ]).style(loc_style),
+            ]
+        }
+    };
+
+    let hint = Line::from(Span::styled(
+        " ↑/↓: navigate  Space/Enter: cycle type or edit field",
+        Style::default().fg(Color::Indexed(238)),
+    ));
+
+    let mut lines = vec![Line::from(""), type_line, Line::from("")];
+    lines.extend(field_rows);
+    lines.push(Line::from(""));
+    lines.push(hint);
+
+    frame.render_widget(Paragraph::new(lines), inner);
 }
 
 fn render_url_params_editor(frame: &mut Frame, app: &App, area: Rect) {
@@ -1276,6 +1418,35 @@ fn render_modal(frame: &mut Frame, app: &App) {
                     Block::default().borders(Borders::ALL)
                         .title(" Delete ").title_alignment(Alignment::Center)
                         .border_style(Style::default().fg(Color::Red)),
+                ),
+                area,
+            );
+        }
+
+        Some(ModalState::EditAuthField { kind, value }) => {
+            let area = centered_rect(60, 7, frame.area());
+            frame.render_widget(Clear, area);
+            let label = kind.label();
+            let display = if kind == &crate::app::AuthFieldKind::BasicPassword && !value.is_empty() {
+                "•".repeat(value.len())
+            } else {
+                value.clone()
+            };
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled(format!("  {}:  ", label), Style::default().fg(Color::Gray)),
+                    Span::styled(&display, Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                    Span::styled("█", Style::default().fg(Color::Yellow)),
+                ]),
+                Line::from(""),
+                Line::from(Span::styled("  Enter: confirm   Esc: cancel", Style::default().fg(Color::Gray))),
+            ];
+            frame.render_widget(
+                Paragraph::new(text).block(
+                    Block::default().borders(Borders::ALL)
+                        .title(format!(" Edit {} ", label)).title_alignment(Alignment::Center)
+                        .border_style(Style::default().fg(Color::Cyan)),
                 ),
                 area,
             );

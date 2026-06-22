@@ -92,6 +92,16 @@ impl App {
             self.body_json_pairs = Vec::new();
             self.body_json_cursor = 0;
             self.header_cursor = 0;
+            self.auth_config = AuthConfig {
+                auth_type: AuthType::from_str(&req.auth.auth_type),
+                bearer_token: req.auth.bearer_token.clone(),
+                basic_username: req.auth.basic_username.clone(),
+                basic_password: req.auth.basic_password.clone(),
+                api_key_name: req.auth.api_key_name.clone(),
+                api_key_value: req.auth.api_key_value.clone(),
+                api_key_location: ApiKeyLocation::from_str(&req.auth.api_key_location),
+            };
+            self.auth_field_cursor = 0;
             self.request_focus = RequestFocus::Response;
             self.response_body = None;
             self.response_status = None;

@@ -26,6 +26,24 @@ pub struct StoredFolder {
     pub requests: Vec<StoredRequest>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct StoredAuth {
+    #[serde(default)]
+    pub auth_type: String,
+    #[serde(default)]
+    pub bearer_token: String,
+    #[serde(default)]
+    pub basic_username: String,
+    #[serde(default)]
+    pub basic_password: String,
+    #[serde(default)]
+    pub api_key_name: String,
+    #[serde(default)]
+    pub api_key_value: String,
+    #[serde(default)]
+    pub api_key_location: String,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StoredRequest {
     pub name: String,
@@ -37,6 +55,8 @@ pub struct StoredRequest {
     pub body: Option<String>,
     #[serde(default)]
     pub description: Option<String>,
+    #[serde(default)]
+    pub auth: StoredAuth,
 }
 
 impl StoredRequest {
@@ -48,6 +68,7 @@ impl StoredRequest {
             headers: HashMap::new(),
             body: None,
             description: None,
+            auth: StoredAuth::default(),
         }
     }
 }

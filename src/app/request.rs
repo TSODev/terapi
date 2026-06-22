@@ -5,7 +5,25 @@ use tui_textarea::TextArea;
 
 use super::*;
 use super::http::{execute_http, serialize_body_json};
-use crate::storage::StoredRequest;
+use crate::storage::{StoredAuth, StoredRequest};
+
+fn base64_encode(input: &str) -> String {
+    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let bytes = input.as_bytes();
+    let mut out = String::new();
+    let mut i = 0;
+    while i < bytes.len() {
+        let b0 = bytes[i] as u32;
+        let b1 = if i + 1 < bytes.len() { bytes[i + 1] as u32 } else { 0 };
+        let b2 = if i + 2 < bytes.len() { bytes[i + 2] as u32 } else { 0 };
+        out.push(CHARS[((b0 >> 2) & 0x3f) as usize] as char);
+        out.push(CHARS[(((b0 << 4) | (b1 >> 4)) & 0x3f) as usize] as char);
+        out.push(if i + 1 < bytes.len() { CHARS[(((b1 << 2) | (b2 >> 6)) & 0x3f) as usize] as char } else { '=' });
+        out.push(if i + 2 < bytes.len() { CHARS[(b2 & 0x3f) as usize] as char } else { '=' });
+        i += 3;
+    }
+    out
+}
 
 impl App {
     pub(super) fn send_request(&mut self) {
@@ -36,12 +54,53 @@ impl App {
         };
         let resolved_url = crate::storage::resolve_vars(&url_with_params, &env_vars);
 
-        let resolved_headers: Vec<(String, String)> = self.request_headers.iter()
+        let mut resolved_headers: Vec<(String, String)> = self.request_headers.iter()
             .map(|(k, v)| (
                 crate::storage::resolve_vars(k, &env_vars),
                 crate::storage::resolve_vars(v, &env_vars),
             ))
             .collect();
+
+        // Apply auth config
+        let resolved_url = match &self.auth_config.auth_type {
+            AuthType::ApiKey if self.auth_config.api_key_location == ApiKeyLocation::QueryParam => {
+                let name = crate::storage::resolve_vars(&self.auth_config.api_key_name, &env_vars);
+                let val  = crate::storage::resolve_vars(&self.auth_config.api_key_value, &env_vars);
+                if !name.is_empty() {
+                    let sep = if resolved_url.contains('?') { '&' } else { '?' };
+                    format!("{}{}{}={}", resolved_url, sep, name, val)
+                } else {
+                    resolved_url
+                }
+            }
+            _ => resolved_url,
+        };
+        match &self.auth_config.auth_type {
+            AuthType::None => {}
+            AuthType::Bearer => {
+                let token = crate::storage::resolve_vars(&self.auth_config.bearer_token, &env_vars);
+                if !token.is_empty() {
+                    resolved_headers.push(("Authorization".to_string(), format!("Bearer {}", token)));
+                }
+            }
+            AuthType::Basic => {
+                let user = crate::storage::resolve_vars(&self.auth_config.basic_username, &env_vars);
+                let pass = crate::storage::resolve_vars(&self.auth_config.basic_password, &env_vars);
+                if !user.is_empty() {
+                    let encoded = base64_encode(&format!("{}:{}", user, pass));
+                    resolved_headers.push(("Authorization".to_string(), format!("Basic {}", encoded)));
+                }
+            }
+            AuthType::ApiKey => {
+                if self.auth_config.api_key_location == ApiKeyLocation::Header {
+                    let name = crate::storage::resolve_vars(&self.auth_config.api_key_name, &env_vars);
+                    let val  = crate::storage::resolve_vars(&self.auth_config.api_key_value, &env_vars);
+                    if !name.is_empty() {
+                        resolved_headers.push((name, val));
+                    }
+                }
+            }
+        }
 
         let method = METHODS[self.request_method_idx].to_string();
         let tx = self.response_tx.clone();
@@ -79,6 +138,8 @@ impl App {
         self.body_json_pairs = Vec::new();
         self.body_json_cursor = 0;
         self.request_focus = RequestFocus::Response;
+        self.auth_config = AuthConfig::default();
+        self.auth_field_cursor = 0;
         self.last_request_raw = None;
         self.response_body = None;
         self.response_status = None;
@@ -129,6 +190,15 @@ impl App {
             headers: self.request_headers.iter().cloned().collect::<HMap<_, _>>(),
             body: self.body_string(),
             description: None,
+            auth: StoredAuth {
+                auth_type: self.auth_config.auth_type.as_str().to_string(),
+                bearer_token: self.auth_config.bearer_token.clone(),
+                basic_username: self.auth_config.basic_username.clone(),
+                basic_password: self.auth_config.basic_password.clone(),
+                api_key_name: self.auth_config.api_key_name.clone(),
+                api_key_value: self.auth_config.api_key_value.clone(),
+                api_key_location: self.auth_config.api_key_location.as_str().to_string(),
+            },
         };
         let col_name = self.stored_collections[collection_idx].collection.name.clone();
         if let Some(fi) = folder_idx {
@@ -244,6 +314,7 @@ impl App {
                 BodyMode::Json => "Tab: panels  i: edit fields  t: text mode  ←/→: section  s: send  q: quit".into(),
             },
             RequestTab::Options => "Tab: panels  Space/Enter: toggle option  ←/→: section  s: send  q: quit".into(),
+            RequestTab::Auth => "Tab: panels  ↑/↓: field  Space/Enter: cycle type or edit  ←/→: section  s: send  q: quit".into(),
             _ => "Tab: panels  e: edit URL  s: send  S: save  n: new  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into(),
         };
     }

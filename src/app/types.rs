@@ -181,6 +181,132 @@ pub enum SaveField {
     Folder,
 }
 
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum AuthType {
+    #[default]
+    None,
+    Bearer,
+    Basic,
+    ApiKey,
+}
+
+impl AuthType {
+    pub fn label(&self) -> &'static str {
+        match self {
+            AuthType::None    => "No Auth",
+            AuthType::Bearer  => "Bearer",
+            AuthType::Basic   => "Basic",
+            AuthType::ApiKey  => "API Key",
+        }
+    }
+
+    pub fn next(&self) -> AuthType {
+        match self {
+            AuthType::None   => AuthType::Bearer,
+            AuthType::Bearer => AuthType::Basic,
+            AuthType::Basic  => AuthType::ApiKey,
+            AuthType::ApiKey => AuthType::None,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AuthType::None   => "none",
+            AuthType::Bearer => "bearer",
+            AuthType::Basic  => "basic",
+            AuthType::ApiKey => "apikey",
+        }
+    }
+
+    pub fn from_str(s: &str) -> AuthType {
+        match s {
+            "bearer" => AuthType::Bearer,
+            "basic"  => AuthType::Basic,
+            "apikey" => AuthType::ApiKey,
+            _        => AuthType::None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum ApiKeyLocation {
+    #[default]
+    Header,
+    QueryParam,
+}
+
+impl ApiKeyLocation {
+    pub fn toggle(&self) -> ApiKeyLocation {
+        match self {
+            ApiKeyLocation::Header    => ApiKeyLocation::QueryParam,
+            ApiKeyLocation::QueryParam => ApiKeyLocation::Header,
+        }
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            ApiKeyLocation::Header    => "Header",
+            ApiKeyLocation::QueryParam => "Query Param",
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ApiKeyLocation::Header    => "header",
+            ApiKeyLocation::QueryParam => "queryparam",
+        }
+    }
+
+    pub fn from_str(s: &str) -> ApiKeyLocation {
+        if s == "queryparam" { ApiKeyLocation::QueryParam } else { ApiKeyLocation::Header }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct AuthConfig {
+    pub auth_type: AuthType,
+    pub bearer_token: String,
+    pub basic_username: String,
+    pub basic_password: String,
+    pub api_key_name: String,
+    pub api_key_value: String,
+    pub api_key_location: ApiKeyLocation,
+}
+
+impl AuthConfig {
+    pub fn field_count(&self) -> usize {
+        match self.auth_type {
+            AuthType::None   => 1,
+            AuthType::Bearer => 2,
+            AuthType::Basic  => 3,
+            AuthType::ApiKey => 4,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum AuthFieldKind {
+    BearerToken,
+    BasicUsername,
+    BasicPassword,
+    ApiKeyName,
+    ApiKeyValue,
+}
+
+impl AuthFieldKind {
+    pub fn label(&self) -> &'static str {
+        match self {
+            AuthFieldKind::BearerToken   => "Token",
+            AuthFieldKind::BasicUsername => "Username",
+            AuthFieldKind::BasicPassword => "Password",
+            AuthFieldKind::ApiKeyName    => "Key Name",
+            AuthFieldKind::ApiKeyValue   => "Key Value",
+        }
+    }
+}
+
 // ── Collections tree ──────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
@@ -260,6 +386,10 @@ pub enum ModalState {
     ConfirmDelete {
         label: String,
         address: NodeAddress,
+    },
+    EditAuthField {
+        kind: AuthFieldKind,
+        value: String,
     },
 }
 

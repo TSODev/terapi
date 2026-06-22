@@ -1,0 +1,554 @@
+[collection]
+name        = "Rick & Morty — GraphQL"
+description = "Rick and Morty API — personnages, épisodes, lieux, filtres et introspection"
+
+# Endpoint public, sans auth, très stable.
+# https://rickandmortyapi.com/graphql
+# Docs : https://rickandmortyapi.com/documentation/#graphql
+#
+# Pagination : toutes les listes retournent info { count pages next prev }
+# Statuts personnages : Alive / Dead / unknown
+# Genres : Female / Male / Genderless / unknown
+
+# ── Personnages ───────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Personnages"
+
+[[folders.requests]]
+name         = "Tous les personnages (page 1)"
+method       = "POST"
+url          = "https://rickandmortyapi.com/graphql"
+description  = "20 premiers personnages avec pagination — nom, statut, espèce, lieu."
+graphql      = true
+graphql_query = """
+{
+  characters {
+    info {
+      count
+      pages
+      next
+      prev
+    }
+    results {
+      id
+      name
+      status
+      species
+      gender
+      origin {
+        name
+      }
+      location {
+        name
+      }
+      image
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Personnage par ID (variable)"
+method       = "POST"
+url          = "https://rickandmortyapi.com/graphql"
+description  = "Profil complet d'un personnage — Rick Sanchez (ID 1) par défaut."
+graphql      = true
+graphql_query = """
+query CharacterDetail($id: ID!) {
+  character(id: $id) {
+    id
+    name
+    status
+    species
+    type
+    gender
+    image
+    created
+    origin {
+      id
+      name
+      type
+      dimension
+    }
+    location {
+      id
+      name
+      type
+      dimension
+    }
+    episode {
+      id
+      name
+      episode
+      air_date
+    }
+  }
+}
+"""
+graphql_variables = {id = "1"}
+
+[[folders.requests]]
+name         = "Plusieurs personnages par IDs"
+method       = "POST"
+url          = "https://rickandmortyapi.com/graphql"
+description  = "Requête multi-IDs : Rick, Morty et Beth en une seule requête."
+graphql      = true
+graphql_query = """
+{
+  charactersByIds(ids: [1, 2, 4]) {
+    id
+    name
+    status
+    species
+    gender
+    image
+    location {
+      name
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Personnages — alias Rick et Morty"
+method       = "POST"
+url          = "https://rickandmortyapi.com/graphql"
+description  = "Alias GraphQL : deux profils complets au même niveau sans conflit de nom."
+graphql      = true
+graphql_query = """
+{
+  rick: character(id: 1) {
+    name
+    status
+    species
+    location { name }
+    episode { name episode }
+  }
+  morty: character(id: 2) {
+    name
+    status
+    species
+    location { name }
+    episode { name episode }
+  }
+}
+"""
+
+# ── Épisodes ──────────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Épisodes"
+
+[[folders.requests]]
+name         = "Tous les épisodes (page 1)"
+method       = "POST"
+url          = "https://rickandmortyapi.com/graphql"
+description  = "20 premiers épisodes avec code (S01E01) et date de diffusion."
+graphql      = true
+graphql_query = """
+{
+  episodes {
+    info {
+      count
+      pages
+      next
+    }
+    results {
+      id
+      name
+      air_date
+      episode
+      characters {
+        id
+        name
+      }
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Épisode par ID (variable)"
+method       = "POST"
+url          = "https://rickandmortyapi.com/graphql"
+description  = "Détail d'un épisode avec liste de personnages — Pilot (ID 1) par défaut."
+graphql      = true
+graphql_query = """
+query EpisodeDetail($id: ID!) {
+  episode(id: $id) {
+    id
+    name
+    air_date
+    episode
+    created
+    characters {
+      id
+      name
+      status
+      species
+      image
+    }
+  }
+}
+"""
+graphql_variables = {id = "1"}
+
+[[folders.requests]]
+name         = "Saison 1 complète"
+method       = "POST"
+url          = "https://rickandmortyapi.com/graphql"
+description  = "Filtre épisodes par nom partiel — tous les épisodes S01."
+graphql      = true
+graphql_query = """
+{
+  episodes(filter: {episode: "S01"}) {
+    info {
+      count
+    }
+    results {
+      id
+      name
+      episode
+      air_date
+    }
+  }
+}
+"""
+
+# ── Lieux ─────────────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Lieux"
+
+[[folders.requests]]
+name         = "Tous les lieux (page 1)"
+method       = "POST"
+url          = "https://rickandmortyapi.com/graphql"
+description  = "20 premiers lieux avec type et dimension."
+graphql      = true
+graphql_query = """
+{
+  locations {
+    info {
+      count
+      pages
+      next
+    }
+    results {
+      id
+      name
+      type
+      dimension
+      residents {
+        name
+        status
+      }
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Lieu par ID (variable)"
+method       = "POST"
+url          = "https://rickandmortyapi.com/graphql"
+description  = "Détail d'un lieu avec ses résidents — Earth (ID 1) par défaut."
+graphql      = true
+graphql_query = """
+query LocationDetail($id: ID!) {
+  location(id: $id) {
+    id
+    name
+    type
+    dimension
+    created
+    residents {
+      id
+      name
+      status
+      species
+      gender
+      image
+    }
+  }
+}
+"""
+graphql_variables = {id = "1"}
+
+[[folders.requests]]
+name         = "Lieux — planètes seulement"
+method       = "POST"
+url          = "https://rickandmortyapi.com/graphql"
+description  = "Filtre par type Planet — montre les opérateurs de filtre string."
+graphql      = true
+graphql_query = """
+{
+  locations(filter: {type: "Planet"}) {
+    info {
+      count
+    }
+    results {
+      id
+      name
+      type
+      dimension
+    }
+  }
+}
+"""
+
+# ── Filtres & Recherche ───────────────────────────────────────────────────────
+
+[[folders]]
+name = "Filtres & Recherche"
+
+[[folders.requests]]
+name         = "Personnages vivants (filtre status)"
+method       = "POST"
+url          = "https://rickandmortyapi.com/graphql"
+description  = "Filtre status Alive — les personnages encore en vie."
+graphql      = true
+graphql_query = """
+{
+  characters(filter: {status: "Alive"}) {
+    info {
+      count
+    }
+    results {
+      name
+      species
+      gender
+      location {
+        name
+      }
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Recherche par nom (variable)"
+method       = "POST"
+url          = "https://rickandmortyapi.com/graphql"
+description  = "Filtre name — recherche partielle, insensible à la casse. 'Rick' par défaut."
+graphql      = true
+graphql_query = """
+query SearchByName($name: String) {
+  characters(filter: {name: $name}) {
+    info {
+      count
+    }
+    results {
+      id
+      name
+      status
+      species
+      gender
+      image
+    }
+  }
+}
+"""
+graphql_variables = {name = "Rick"}
+
+[[folders.requests]]
+name         = "Filtre combiné (variable)"
+method       = "POST"
+url          = "https://rickandmortyapi.com/graphql"
+description  = "Filtre multi-critères : statut + espèce — Alien vivants par défaut."
+graphql      = true
+graphql_query = """
+query FilterCharacters($status: String, $species: String) {
+  characters(filter: {status: $status, species: $species}) {
+    info {
+      count
+    }
+    results {
+      id
+      name
+      status
+      species
+      gender
+      location { name }
+    }
+  }
+}
+"""
+graphql_variables = {status = "Alive", species = "Alien"}
+
+[[folders.requests]]
+name         = "Épisodes — recherche par nom (variable)"
+method       = "POST"
+url          = "https://rickandmortyapi.com/graphql"
+description  = "Filtre name partiel sur les épisodes — 'Rick' par défaut."
+graphql      = true
+graphql_query = """
+query SearchEpisodes($name: String) {
+  episodes(filter: {name: $name}) {
+    info {
+      count
+    }
+    results {
+      id
+      name
+      episode
+      air_date
+    }
+  }
+}
+"""
+graphql_variables = {name = "Rick"}
+
+# ── Pagination ────────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Pagination"
+
+[[folders.requests]]
+name         = "Page 1 de personnages"
+method       = "POST"
+url          = "https://rickandmortyapi.com/graphql"
+description  = "Pagination standard : page 1 avec info { next } pour la page suivante."
+graphql      = true
+graphql_query = """
+query PaginatedCharacters($page: Int) {
+  characters(page: $page) {
+    info {
+      count
+      pages
+      next
+      prev
+    }
+    results {
+      id
+      name
+      status
+      species
+    }
+  }
+}
+"""
+graphql_variables = {page = "1"}
+
+[[folders.requests]]
+name         = "Page 2 de personnages"
+method       = "POST"
+url          = "https://rickandmortyapi.com/graphql"
+description  = "Suite de la page 1 — même requête, page = 2."
+graphql      = true
+graphql_query = """
+query PaginatedCharacters($page: Int) {
+  characters(page: $page) {
+    info {
+      count
+      pages
+      next
+      prev
+    }
+    results {
+      id
+      name
+      status
+      species
+    }
+  }
+}
+"""
+graphql_variables = {page = "2"}
+
+# ── Introspection ─────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Introspection"
+
+[[folders.requests]]
+name         = "Types du schéma"
+method       = "POST"
+url          = "https://rickandmortyapi.com/graphql"
+description  = "Vue d'ensemble du schéma : tous les types (OBJECT, INPUT_OBJECT, SCALAR, ENUM)."
+graphql      = true
+graphql_query = """
+{
+  __schema {
+    types {
+      name
+      kind
+      description
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Champs racine (Query)"
+method       = "POST"
+url          = "https://rickandmortyapi.com/graphql"
+description  = "Champs disponibles à la racine avec leurs arguments et types de retour."
+graphql      = true
+graphql_query = """
+{
+  __schema {
+    queryType {
+      name
+      fields {
+        name
+        description
+        type {
+          name
+          kind
+          ofType {
+            name
+            kind
+          }
+        }
+        args {
+          name
+          description
+          type {
+            name
+            kind
+            ofType {
+              name
+              kind
+            }
+          }
+        }
+      }
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Type Character — champs détaillés"
+method       = "POST"
+url          = "https://rickandmortyapi.com/graphql"
+description  = "Introspection du type Character : champs, types et nullable/non-null."
+graphql      = true
+graphql_query = """
+query TypeDetail($typeName: String!) {
+  __type(name: $typeName) {
+    name
+    kind
+    description
+    fields {
+      name
+      description
+      type {
+        name
+        kind
+        ofType {
+          name
+          kind
+          ofType {
+            name
+            kind
+          }
+        }
+      }
+    }
+  }
+}
+"""
+graphql_variables = {typeName = "Character"}

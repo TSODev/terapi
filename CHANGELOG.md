@@ -23,7 +23,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Collections tree** — GraphQL requests display a magenta `GQL` badge instead of the HTTP method
 - **Breadcrumb** — `GraphQL › Query` (etc.) shown in the context bar when GraphQL mode is active
 - **`g` to return to REST** — pressing `g` in GraphQL mode switches back to REST without clearing the URL or headers
-- **New example collections** — `examples/collections/swapi-graphql.toml` (5 folders, 16 requests; Star Wars API — variables, Relay pagination, aliases, introspection) and `examples/collections/countries-graphql.toml` (5 folders, 19 requests; Countries API — filters, glob, inline fragments, introspection)
+- **New example collections** — `examples/collections/rick-morty-graphql.toml` (6 folders, 17 requests; Rick & Morty API — variables, pagination, multi-ID, aliases, filters, introspection) and `examples/collections/countries-graphql.toml` (5 folders, 19 requests; Countries API — filters, glob, inline fragments, introspection)
 
 ---
 

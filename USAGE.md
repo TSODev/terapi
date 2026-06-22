@@ -747,7 +747,7 @@ Des collections prêtes à l'emploi sont disponibles dans `examples/collections/
 |---------|---------|----------|----------|------|
 | `public-rest.toml` | JSONPlaceholder, ReqRes, httpbin, PokeAPI, CoinGecko | 5 | ~30 | Aucune |
 | `graphql.toml` | Countries API, Rick & Morty (POST GraphQL) | 2 | ~10 | Aucune |
-| `swapi-graphql.toml` | Star Wars API (SWAPI) — films, personnages, planètes, pagination, introspection | 5 | 16 | Aucune |
+| `rick-morty-graphql.toml` | Rick & Morty API — personnages, épisodes, lieux, filtres, pagination, introspection | 6 | 17 | Aucune |
 | `countries-graphql.toml` | Countries API — pays, continents, langues, filtres, introspection | 5 | 19 | Aucune |
 | `sncf.toml` | SNCF — gares, horaires, itinéraires, perturbations | 6 | 20 | Basic `{{SNCF_TOKEN}}` |
 | `france-geo.toml` | API Géo + IGN — communes, départements, régions, géocodage | 4 | 19 | Aucune |

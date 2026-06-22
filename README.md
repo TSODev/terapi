@@ -196,7 +196,7 @@ Ready-to-use collections in `examples/collections/` — copy them to your terapi
 |------|---------|------|
 | `public-rest.toml` | JSONPlaceholder, ReqRes, httpbin, PokeAPI, CoinGecko | Aucune |
 | `graphql.toml` | Countries API, Rick & Morty API (POST GraphQL) | Aucune |
-| `swapi-graphql.toml` | Star Wars API (SWAPI) — films, personnages, planètes, pagination Relay, introspection | Aucune |
+| `rick-morty-graphql.toml` | Rick & Morty API — personnages, épisodes, lieux, filtres, pagination, introspection | Aucune |
 | `countries-graphql.toml` | Countries API — pays, continents, langues, filtres, introspection | Aucune |
 | `sncf.toml` | API SNCF — gares, horaires, itinéraires, perturbations | Basic `{{SNCF_TOKEN}}` |
 | `france-geo.toml` | API Géo + API Adresse IGN — communes, départements, régions, géocodage | Aucune |
@@ -327,7 +327,7 @@ Press `g` on the Request tab to switch to GraphQL mode. The URL bar shows a mage
 Save to a collection with `S` — `graphql = true`, the query, and variables are all preserved in TOML. Press `g` again to return to REST mode.
 
 **Example GraphQL collections** in `examples/collections/`:
-- `swapi-graphql.toml` — Star Wars API — 5 folders, 16 requests: variables, Relay pagination, aliases, introspection
+- `rick-morty-graphql.toml` — Rick & Morty API — 6 folders, 17 requests: variables, pagination, multi-ID, aliases, filters, introspection
 - `countries-graphql.toml` — Countries API — 5 folders, 19 requests: filters, glob, inline fragments, introspection
 
 ---

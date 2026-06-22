@@ -25,6 +25,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `examples/collection.toml` — annotated template documenting the collection TOML format
 - `dirs` crate dependency for cross-platform config directory resolution
 - Empty Collections panel now shows a hint: "No collections — press n to create one"
+- New **Env** top-level tab (Request | Collections | **Env** | History):
+  - Two-panel layout: environment list (left, 30%) | key=value variables (right, 70%)
+  - `●` indicator on the active environment
+  - `n` — create a new environment
+  - `a` — add a variable to the selected environment (Key + Value modal, `Tab` cycles fields)
+  - `d` — delete the selected environment or variable (depends on focus)
+  - `Enter` — activate the selected environment (focus on env list)
+  - `←` / `→` — switch focus between the two panels
+  - Variables displayed sorted alphabetically
+- New storage functions: `load_envs`, `save_env`, `delete_env` — one TOML file per env in `<terapi_dir>/envs/`
 
 ### Changed
 - `App` state: `Vec<CollectionNode>` replaced by `Vec<StoredCollection>` (source of truth) + `HashSet<String>` for expand/collapse state (`"c0"`, `"c0f1"`, …)

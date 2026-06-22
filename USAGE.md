@@ -57,6 +57,7 @@ The interface is divided into three top-level panels, navigated with `Tab`:
 |-------|-------------|
 | **Request** | Build and send HTTP requests, view responses |
 | **Collections** | Browse saved collections and requests |
+| **Env** | Create and manage environment variables across multiple environments |
 | **History** | Recent requests *(coming in v0.4)* |
 
 ### Request panel
@@ -167,6 +168,41 @@ Method badges are colour-coded:
 | Magenta | PATCH |
 | Red | DELETE |
 
+### Env panel
+
+Manage environment variables across multiple environments (Test, Staging, Production…).
+
+The panel is split into two columns:
+
+```
+┌─ Environments ──────────┐  ┌─ Test — Variables ──────────────────────┐
+│ ● Test                  │  │  API_URL              = https://test      │
+│   Production            │  │  TOKEN                = secret-xxx        │
+│   Staging               │  │  DEBUG                = true              │
+└─────────────────────────┘  └─────────────────────────────────────────┘
+```
+
+`●` marks the **active environment** — the one whose variables will be injected into requests.
+
+**Navigation:**
+- `←` / `→` — switch focus between Environments (left) and Variables (right)
+- `↑` / `↓` — navigate within the focused panel
+
+**Editing:**
+
+| Key | Action |
+|-----|--------|
+| `n` | Create a new environment |
+| `a` | Add a variable to the selected environment |
+| `d` | Delete the selected environment (focus left) or variable (focus right) |
+| `Enter` | Activate the selected environment (focus left) |
+
+**Creating an environment (`n`)** — prompts for a name. Saved to `<terapi_dir>/envs/<name>.toml`.
+
+**Adding a variable (`a`)** — modal with two fields: Key and Value. Use `Tab` to switch between them. The variable is added to the currently selected environment. Variables are displayed sorted alphabetically.
+
+**Activating an environment** — press `Enter` on an environment in the left panel. The `●` indicator moves to it. Its variables will be used as `{{VAR}}` substitutions in requests (injection into the TUI request editor is coming in a future version).
+
 ### History panel
 
 Placeholder — will show recent requests in v0.4.
@@ -189,7 +225,13 @@ Placeholder — will show recent requests in v0.4.
 | `f` | Collections panel | New folder in selected collection |
 | `a` | Collections panel | Add request to selected collection / folder |
 | `d` | Collections panel | Delete selected item |
-| `Tab` | Modal | Cycle input fields (Name ↔ URL) |
+| `←` / `→` | Env panel | Switch focus: Environments ↔ Variables |
+| `↑` / `↓` | Env panel | Navigate within focused panel |
+| `Enter` | Env panel (left) | Activate selected environment |
+| `n` | Env panel | New environment |
+| `a` | Env panel | Add variable to selected environment |
+| `d` | Env panel | Delete selected environment or variable |
+| `Tab` | Modal | Cycle input fields (Name ↔ URL, Key ↔ Value) |
 | `←` / `→` | Modal (New Request) | Cycle HTTP method |
 | `Enter` | Modal | Confirm |
 | `Esc` | Modal | Cancel |

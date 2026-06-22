@@ -4,7 +4,7 @@
 
 ```
 ┌─────────────────────────── terapi ────────────────────────────┐
-│  Request  |  Collections  |  History                           │
+│  Request  |  Collections  |  Env  |  History                   │
 ├────────────────────────────────────────────────────────────────┤
 │ ┌─ URL ──────────────────────────────────────────────────────┐ │
 │ │ GET  https://api.example.com/users                         │ │
@@ -97,6 +97,19 @@ terapi --help
 | `f` | New folder in selected collection |
 | `a` | Add request to selected collection / folder |
 | `d` | Delete selected item |
+| `q` / `Esc` | Quit |
+
+**Env panel**
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Switch panel |
+| `←` / `→` | Switch focus: Environments ↔ Variables |
+| `↑` / `↓` | Navigate within focused panel |
+| `Enter` | Activate selected environment |
+| `n` | New environment |
+| `a` | Add variable to selected environment |
+| `d` | Delete selected environment or variable |
 | `q` / `Esc` | Quit |
 
 ---
@@ -244,7 +257,10 @@ Campaign : Users API — smoke tests
 - [ ] Edit an existing request (name, method, URL, headers, body)
 
 ### v0.4 — Environment & History
-- [ ] Environment variables (dev / staging / prod)
+- [x] Environment tab — create / manage multiple environments (test, staging, prod…)
+- [x] Add variables per environment (`KEY = value`), activate with `Enter`
+- [x] Storage: one TOML file per environment in `<terapi_dir>/envs/`
+- [ ] Inject active environment variables into requests (`{{VAR}}` substitution in the TUI)
 - [ ] Request history (persistent, TOML)
 
 ### v0.5 — GraphQL

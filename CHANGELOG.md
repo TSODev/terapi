@@ -8,6 +8,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Changed
+- **Tab order** — Collections is now the first tab (Collections → Request → Env → History) and the default landing tab on startup. The most common workflow is to browse collections and load a request, which auto-switches to Request; starting on Collections saves one `Tab` press on every launch.
+- **Unresolved `{{VAR}}` warning** — when the current request contains `{{VAR}}` placeholders but no environment is active, the top-right indicator switches from `○ no active env` to `⚠ {{VAR}} not resolved` (yellow). At send time the status bar also prefixes `⚠ unresolved {{VAR}} —` to the sending message. Scans URL, headers, URL params, body (text and JSON), and all auth fields.
 - **Edit request from Collections** — pressing `e` on a request node now loads the request fully into the Request tab (instead of opening a limited modal). All fields are editable: URL, method, headers, URL params, body, auth, and **description**. Press `S` to open the **Update Request** modal pre-filled with the original name and location:
   - Keep location → saves in place (rename supported: just edit the Name field)
   - Change collection or folder → saves as a new entry at the new location (original preserved)

@@ -55,8 +55,8 @@ The interface is divided into three top-level panels, navigated with `Tab`:
 
 | Panel | Description |
 |-------|-------------|
+| **Collections** | Browse saved collections and requests — default landing tab |
 | **Request** | Build and send HTTP requests, view responses |
-| **Collections** | Browse saved collections and requests |
 | **Env** | Create and manage environment variables across multiple environments |
 | **History** | Persistent log of all sent requests and their responses |
 
@@ -538,7 +538,8 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 
 - **Top line** — breadcrumb of the current context (tab › sub-tab › mode › focus) on the left; active environment indicator on the right:
   - `● env: <name>` in green when an environment is active
-  - `○ no active env` in dim grey when none is selected
+  - `⚠ {{VAR}} not resolved` in yellow when on the Request tab, no env is active, and the request contains `{{VAR}}` placeholders — a reminder that variables will be sent literally
+  - `○ no active env` in dim grey when none is selected and no unresolved variables are present
 - **Bottom line** — contextual keybinding hints (change with every mode/tab switch)
 
 ### Keybindings

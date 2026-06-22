@@ -347,6 +347,36 @@ fn render_modal(frame: &mut Frame, app: &App) {
             frame.render_widget(modal, area);
         }
 
+        Some(ModalState::NewFolder { input, .. }) => {
+            let area = centered_rect(52, 7, frame.area());
+            frame.render_widget(Clear, area);
+
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("  Name: "),
+                    Span::styled(
+                        format!("{}_", input),
+                        Style::default().fg(Color::Cyan),
+                    ),
+                ]),
+                Line::from(""),
+                Line::from(Span::styled(
+                    "  Enter: save   Esc: cancel",
+                    Style::default().fg(Color::DarkGray),
+                )),
+            ];
+
+            let modal = Paragraph::new(text).block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(" New Folder ")
+                    .title_alignment(Alignment::Center)
+                    .border_style(Style::default().fg(Color::Cyan)),
+            );
+            frame.render_widget(modal, area);
+        }
+
         Some(ModalState::NewRequest { name, method_idx, url, active_field, .. }) => {
             let area = centered_rect(60, 11, frame.area());
             frame.render_widget(Clear, area);

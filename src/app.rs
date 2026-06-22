@@ -98,6 +98,10 @@ pub enum ModalState {
     NewCollection {
         input: String,
     },
+    NewFolder {
+        input: String,
+        collection_idx: usize,
+    },
     NewRequest {
         name: String,
         method_idx: usize,
@@ -268,7 +272,7 @@ impl App {
                 };
                 self.status_message = match self.active_tab {
                     Tab::Request => "Tab: switch panel  ←/→: switch section  q: quit".into(),
-                    Tab::Collections => "Tab: switch panel  ↑/↓: navigate  Enter: expand  n: new collection  a: add request  d: delete  q: quit".into(),
+                    Tab::Collections => "Tab: switch panel  ↑/↓: navigate  Enter: expand  n: new collection  f: new folder  a: add request  d: delete  q: quit".into(),
                     Tab::History => "Tab: switch panel  q: quit".into(),
                 };
             }
@@ -339,6 +343,16 @@ impl App {
             KeyCode::Char('n') if self.active_tab == Tab::Collections => {
                 self.modal = Some(ModalState::NewCollection { input: String::new() });
             }
+            KeyCode::Char('f') if self.active_tab == Tab::Collections => {
+                if let Some((ci, _)) = self.cursor_insertion_context() {
+                    self.modal = Some(ModalState::NewFolder {
+                        input: String::new(),
+                        collection_idx: ci,
+                    });
+                } else {
+                    self.status_message = "No collection selected — press n to create one first.".into();
+                }
+            }
             KeyCode::Char('a') if self.active_tab == Tab::Collections => {
                 if let Some((ci, fi)) = self.cursor_insertion_context() {
                     self.modal = Some(ModalState::NewRequest {
@@ -378,6 +392,24 @@ impl App {
                 KeyCode::Esc => {}
                 _ => {
                     self.modal = Some(ModalState::NewCollection { input });
+                }
+            },
+
+            Some(ModalState::NewFolder { mut input, collection_idx }) => match key.code {
+                KeyCode::Char(c) => {
+                    input.push(c);
+                    self.modal = Some(ModalState::NewFolder { input, collection_idx });
+                }
+                KeyCode::Backspace => {
+                    input.pop();
+                    self.modal = Some(ModalState::NewFolder { input, collection_idx });
+                }
+                KeyCode::Enter if !input.trim().is_empty() => {
+                    self.create_folder(input.trim().to_string(), collection_idx)?;
+                }
+                KeyCode::Esc => {}
+                _ => {
+                    self.modal = Some(ModalState::NewFolder { input, collection_idx });
                 }
             },
 
@@ -493,6 +525,17 @@ impl App {
         self.expanded_nodes.insert(format!("c{}", ci));
         let flat = flatten_stored(&self.stored_collections, &self.expanded_nodes);
         self.collection_cursor = flat.len().saturating_sub(1);
+        Ok(())
+    }
+
+    fn create_folder(&mut self, name: String, ci: usize) -> Result<()> {
+        let fi = self.stored_collections[ci].folders.len();
+        self.stored_collections[ci].folders.push(StoredFolder {
+            name,
+            requests: vec![],
+        });
+        crate::storage::save_collection(&self.stored_collections[ci])?;
+        self.expanded_nodes.insert(format!("c{}f{}", ci, fi));
         Ok(())
     }
 

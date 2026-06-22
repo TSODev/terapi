@@ -82,10 +82,11 @@ terapi --help
 | `e` | Edit URL (enter URL mode) |
 | `m` | Cycle HTTP method |
 | `s` | Send request |
-| `i` | Edit body (Body sub-tab, enter editor mode) |
+| `i` | Edit body (Body sub-tab — enter editor) |
+| `t` | Toggle body mode: Text ↔ JSON (Body sub-tab, outside editor) |
 | `←` / `→` | Navigate sub-tabs (or cycle method in URL mode) |
-| `↑` / `↓` | Move response cursor (JSON) / scroll (Raw) |
-| `Enter` | Send request (URL mode) / fold-unfold JSON node |
+| `↑` / `↓` | Move response cursor (JSON) / scroll (Raw) / navigate JSON body fields |
+| `Enter` | Send request (URL mode) / fold-unfold JSON node / edit body field (JSON mode) |
 | `Esc` | Exit URL mode / exit body editor |
 | `r` | Toggle JSON ↔ Raw response view |
 | `-` / `=` | Resize Key column |
@@ -261,7 +262,7 @@ Campaign : Users API — smoke tests
 - [x] Send request — async via tokio, `{{VAR}}` resolved from active env
 - [x] Response viewer: status code (color-coded) + elapsed time in title
 - [x] Headers editor — `a`/`d`/`↑↓` in Headers sub-tab, `{{VAR}}` resolved before send
-- [x] Body editor — multi-line raw JSON via `tui-textarea`, `i` to edit, `Esc` to exit
+- [x] Body editor — dual mode: Text (`tui-textarea`) and JSON key/value table; `t` to toggle, `i` to edit
 
 ### v0.3 — Collections
 - [x] TOML-based collection format (one file per collection)

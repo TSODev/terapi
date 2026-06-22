@@ -120,22 +120,55 @@ The response block title shows the **status code** (color-coded green/yellow/red
 
 #### Body editor
 
-Switch to the Body sub-tab (`←`/`→`), then press `i` to enter edit mode. The border turns green and a cursor appears:
+The body editor has two modes, toggled with `t` (when the Body sub-tab is active and outside edit mode).
+
+**Text mode** (default)
 
 ```
-┌─ Body  [editing — Esc to exit] ─────────────────────────────────┐
-│ {                                                                  │
-│   "email": "admin@example.com",                                   │
-│   "password": "{{PASSWORD}}"                                      │
-│ }                                                                  │
-└────────────────────────────────────────────────────────────────── ┘
+┌─ Body  [Text]  (4 lines)  i: edit  t: JSON mode ───────────────┐
+│ {                                                                 │
+│   "email": "admin@example.com",                                  │
+│   "password": "{{PASSWORD}}"                                     │
+│ }                                                                 │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-- Full text editing: arrows, Home/End, Backspace/Delete, multi-line
-- `Esc` — exit editor (border returns to yellow)
-- Body is sent with the request as-is; `{{VAR}}` placeholders are **not** yet resolved in the TUI body (coming soon — use the campaign runner for variable substitution in bodies)
-- When the editor has content the title shows the line count: ` Body  (4 lines)  [i: edit] `
-- An empty body sends no request body
+Press `i` to enter edit mode (border turns green). Full multi-line editing: arrows, Home/End, Backspace/Delete. Press `Esc` to exit.
+
+**JSON mode** (structured key/value)
+
+```
+┌─ Body  [JSON]  (2 fields)  i: edit  t: text mode ──────────────┐
+│  Key                Value                                         │
+│  email              "admin@example.com"                          │
+│▶ password           "{{PASSWORD}}"                               │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+Press `i` to enter the field editor (border turns green), then:
+
+| Key | Action |
+|-----|--------|
+| `a` | Add a new field (Key + Value modal) |
+| `d` | Delete the selected field |
+| `Enter` / `e` | Edit the selected field |
+| `↑` / `↓` | Navigate fields |
+| `Esc` | Exit field editor |
+
+Values are **auto-typed** when the request is sent:
+
+| Value | Serialized as |
+|-------|---------------|
+| `42`, `-3`, `1.5` | JSON number |
+| `true` / `false` | JSON boolean |
+| `null` | JSON null |
+| anything else | JSON string (with quotes) |
+
+**Switching modes** — pressing `t` converts content between modes:
+- **Text → JSON**: the textarea is parsed as a JSON object; if valid, fields are extracted into the table
+- **JSON → Text**: fields are serialized back to pretty-printed JSON in the textarea
+
+An empty body (no text / no fields) sends no request body.
 
 **Response viewer** (bottom half of the Request panel):
 
@@ -263,11 +296,16 @@ Placeholder — will show recent requests in v0.4.
 | `m` | Request panel | Cycle HTTP method (GET → POST → PUT → PATCH → DELETE) |
 | `s` | Request panel | Send current request |
 | `i` | Request panel (Body sub-tab) | Enter body editor mode |
+| `t` | Request panel (Body sub-tab, outside editor) | Toggle body mode: Text ↔ JSON |
+| `a` | Body editor (JSON mode) | Add field |
+| `d` | Body editor (JSON mode) | Delete selected field |
+| `Enter` / `e` | Body editor (JSON mode) | Edit selected field |
+| `↑` / `↓` | Body editor (JSON mode) | Navigate fields |
 | `←` / `→` | Request panel (response mode) | Navigate request sub-tabs |
 | `←` / `→` | Request panel (URL mode) | Cycle HTTP method |
 | `Enter` | Request panel (URL mode) | Send request |
 | `Esc` | Request panel (URL mode) | Cancel URL edit |
-| `Esc` | Request panel (body editor) | Exit body editor |
+| `Esc` | Request panel (body editor, Text or JSON) | Exit body editor |
 | `↑` / `↓` | Request panel | Move response cursor (JSON) / scroll (Raw) |
 | `Enter` | Request panel (response mode) | Fold / unfold selected JSON node |
 | `r` | Request panel | Toggle JSON ↔ Raw response view |

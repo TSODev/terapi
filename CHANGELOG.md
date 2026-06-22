@@ -48,12 +48,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - App switches automatically to the Request tab
   - Response area is cleared; status bar shows the loaded request name
   - Folders still expand/collapse as before
-- **Body editor** — multi-line raw JSON editor in the Body sub-tab powered by `tui-textarea`:
-  - `i` — enter body edit mode (green border, cursor visible)
-  - `Esc` — exit body edit mode
-  - Full text editing: arrows, Backspace/Delete, multi-line input
-  - Body is resolved and sent with the request; empty body sends no body
-  - Title shows line count when body has content (`(N lines)`)
+- **Body editor — dual mode** (Text + JSON key/value):
+  - `t` — toggle between Text and JSON modes (when Body sub-tab is active, outside edit mode)
+  - Switching syncs content: Text → JSON parses the textarea as a JSON object and populates the field list; JSON → Text serializes pairs back to pretty-printed JSON in the textarea
+  - **Text mode** (`tui-textarea`): `i` to enter, full multi-line editing, `Esc` to exit
+  - **JSON mode** (key/value table): `i` to enter the field editor, then `a` add, `d` delete, `Enter`/`e` edit selected, `↑`/`↓` navigate, `Esc` exit
+  - On send: JSON mode auto-types values — integers, floats, `true`/`false`, `null` are inferred; anything else serialized as a JSON string
+  - Empty body (no text / no fields) sends no request body
   - `tui-textarea = "0.7"` added as dependency
 
 ### Changed

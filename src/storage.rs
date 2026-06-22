@@ -65,6 +65,13 @@ pub struct StoredRequest {
     pub skip_tls_verify: bool,
     #[serde(default)]
     pub cookie_jar: bool,
+    // GraphQL
+    #[serde(default)]
+    pub graphql: bool,
+    #[serde(default)]
+    pub graphql_query: Option<String>,
+    #[serde(default)]
+    pub graphql_variables: HashMap<String, String>,
 }
 
 fn default_timeout() -> u64 { 30 }
@@ -84,6 +91,9 @@ impl StoredRequest {
             follow_redirects: true,
             skip_tls_verify: false,
             cookie_jar: false,
+            graphql: false,
+            graphql_query: None,
+            graphql_variables: HashMap::new(),
         }
     }
 }

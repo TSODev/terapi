@@ -1,0 +1,474 @@
+[collection]
+name        = "Countries — GraphQL"
+description = "API Countries de Trevor Blades — pays, continents, langues, filtres et introspection"
+
+# Endpoint public, sans auth, très stable.
+# https://countries.trevorblades.com/graphql
+#
+# Filtres disponibles sur countries() :
+#   code      : {eq: "FR"}
+#   name      : {eq: "France"}
+#   currency  : {eq: "EUR"}
+#   continent : {eq: "EU"}   ← codes : AF AS EU NA OC SA AN
+
+# ── Pays ──────────────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Pays"
+
+[[folders.requests]]
+name         = "Tous les pays (résumé)"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+description  = "~250 pays avec code ISO, capitale et emoji — requête sans argument."
+graphql      = true
+graphql_query = """
+{
+  countries {
+    code
+    name
+    native
+    capital
+    emoji
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Détail d'un pays (variable)"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+description  = "Profil complet avec continent, devise, langues et états — FR par défaut."
+graphql      = true
+graphql_query = """
+query CountryDetail($code: ID!) {
+  country(code: $code) {
+    code
+    name
+    native
+    capital
+    currency
+    phone
+    emoji
+    continent {
+      name
+      code
+    }
+    languages {
+      name
+      native
+      code
+      rtl
+    }
+    states {
+      name
+      code
+    }
+  }
+}
+"""
+graphql_variables = {code = "FR"}
+
+[[folders.requests]]
+name         = "Comparer deux pays (alias)"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+description  = "Alias GraphQL : deux champs country au même niveau sans conflit de nom."
+graphql      = true
+graphql_query = """
+{
+  france: country(code: "FR") {
+    name
+    capital
+    currency
+    emoji
+    languages { name }
+  }
+  allemagne: country(code: "DE") {
+    name
+    capital
+    currency
+    emoji
+    languages { name }
+  }
+  japon: country(code: "JP") {
+    name
+    capital
+    currency
+    emoji
+    languages { name }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Pays — champs avec fragment inline"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+description  = "Utilise ... on Country (inline fragment) pour structurer les champs."
+graphql      = true
+graphql_query = """
+{
+  countries(filter: {continent: {eq: "EU"}}) {
+    ... on Country {
+      code
+      name
+      capital
+      currency
+      emoji
+    }
+  }
+}
+"""
+
+# ── Continents ────────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Continents"
+
+[[folders.requests]]
+name         = "Tous les continents"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+description  = "7 continents avec code et nom — vue d'ensemble de la hiérarchie."
+graphql      = true
+graphql_query = """
+{
+  continents {
+    code
+    name
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Continent avec ses pays"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+description  = "Objet imbriqué : continent + liste de pays — Europe par défaut."
+graphql      = true
+graphql_query = """
+query ContinentWithCountries($code: ID!) {
+  continent(code: $code) {
+    name
+    code
+    countries {
+      code
+      name
+      native
+      capital
+      currency
+      emoji
+    }
+  }
+}
+"""
+graphql_variables = {code = "EU"}
+
+[[folders.requests]]
+name         = "Tous les continents + pays"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+description  = "Réponse volumineuse — parfait pour tester le scroll JSON et le fold/unfold."
+graphql      = true
+graphql_query = """
+{
+  continents {
+    code
+    name
+    countries {
+      code
+      name
+      capital
+      emoji
+    }
+  }
+}
+"""
+
+# ── Langues ───────────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Langues"
+
+[[folders.requests]]
+name         = "Toutes les langues"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+description  = "Liste des langues avec nom natif et direction d'écriture (rtl)."
+graphql      = true
+graphql_query = """
+{
+  languages {
+    code
+    name
+    native
+    rtl
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Détail d'une langue (variable)"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+description  = "Langue par code ISO 639-1 — fr (français) par défaut."
+graphql      = true
+graphql_query = """
+query LanguageDetail($code: ID!) {
+  language(code: $code) {
+    code
+    name
+    native
+    rtl
+  }
+}
+"""
+graphql_variables = {code = "fr"}
+
+# ── Filtres & Recherche ───────────────────────────────────────────────────────
+
+[[folders]]
+name = "Filtres & Recherche"
+
+[[folders.requests]]
+name         = "Pays d'Asie"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+description  = "Filtre continent eq AS — argument inline sans variable."
+graphql      = true
+graphql_query = """
+{
+  countries(filter: {continent: {eq: "AS"}}) {
+    code
+    name
+    capital
+    currency
+    emoji
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Pays avec filtre continent (variable)"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+description  = "Variable $continent dans un filtre imbriqué — change AS en EU, AF, NA, OC, SA…"
+graphql      = true
+graphql_query = """
+query CountriesByContinent($continent: String) {
+  countries(filter: {continent: {eq: $continent}}) {
+    code
+    name
+    capital
+    currency
+    emoji
+    languages {
+      name
+    }
+  }
+}
+"""
+graphql_variables = {continent = "AS"}
+
+[[folders.requests]]
+name         = "Pays avec devise EUR"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+description  = "Filtre currency eq EUR — pays de la zone Euro."
+graphql      = true
+graphql_query = """
+{
+  countries(filter: {currency: {eq: "EUR"}}) {
+    code
+    name
+    capital
+    emoji
+    continent {
+      name
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Pays avec devise (variable)"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+description  = "Variable $currency — essaie USD, GBP, JPY, CHF…"
+graphql      = true
+graphql_query = """
+query CountriesByCurrency($currency: String) {
+  countries(filter: {currency: {eq: $currency}}) {
+    code
+    name
+    capital
+    emoji
+    continent {
+      name
+      code
+    }
+  }
+}
+"""
+graphql_variables = {currency = "USD"}
+
+[[folders.requests]]
+name         = "Recherche par nom (glob)"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+description  = "Filtre name avec glob — tous les pays dont le nom contient 'land'."
+graphql      = true
+graphql_query = """
+{
+  countries(filter: {name: {glob: "*land*"}}) {
+    code
+    name
+    capital
+    emoji
+    continent {
+      name
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Pays exclus (ne)"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+description  = "Opérateur ne (not equal) — tous les pays sauf France."
+graphql      = true
+graphql_query = """
+{
+  countries(filter: {code: {ne: "FR"}}) {
+    code
+    name
+    emoji
+  }
+}
+"""
+
+# ── Introspection ─────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Introspection"
+
+[[folders.requests]]
+name         = "Types du schéma"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+description  = "Vue d'ensemble du schéma : tous les types (OBJECT, INPUT_OBJECT, SCALAR, ENUM)."
+graphql      = true
+graphql_query = """
+{
+  __schema {
+    types {
+      name
+      kind
+      description
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Champs racine (Query)"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+description  = "Point d'entrée complet : champs disponibles, types de retour et arguments."
+graphql      = true
+graphql_query = """
+{
+  __schema {
+    queryType {
+      name
+      fields {
+        name
+        description
+        type {
+          name
+          kind
+          ofType {
+            name
+            kind
+          }
+        }
+        args {
+          name
+          description
+          type {
+            name
+            kind
+            ofType {
+              name
+              kind
+            }
+          }
+        }
+      }
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Type Country — champs détaillés"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+description  = "Introspection du type Country : champs, types de retour et types non-null/list."
+graphql      = true
+graphql_query = """
+query TypeDetail($typeName: String!) {
+  __type(name: $typeName) {
+    name
+    kind
+    description
+    fields {
+      name
+      description
+      type {
+        name
+        kind
+        ofType {
+          name
+          kind
+          ofType {
+            name
+            kind
+          }
+        }
+      }
+    }
+  }
+}
+"""
+graphql_variables = {typeName = "Country"}
+
+[[folders.requests]]
+name         = "Type CountryFilterInput"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+description  = "Introspection d'un INPUT_OBJECT — montre les filtres disponibles."
+graphql      = true
+graphql_query = """
+{
+  __type(name: "CountryFilterInput") {
+    name
+    kind
+    description
+    inputFields {
+      name
+      description
+      type {
+        name
+        kind
+        ofType {
+          name
+          kind
+        }
+      }
+    }
+  }
+}
+"""

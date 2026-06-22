@@ -84,6 +84,51 @@ pub struct VarPickerState {
     pub cursor: usize,
 }
 
+// ── GraphQL ───────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum GraphqlTab {
+    Query,
+    Variables,
+    Headers,
+    Schema,
+    Options,
+}
+
+impl GraphqlTab {
+    pub fn title(&self) -> &'static str {
+        match self {
+            GraphqlTab::Query     => "Query",
+            GraphqlTab::Variables => "Variables",
+            GraphqlTab::Headers   => "Headers",
+            GraphqlTab::Schema    => "Schema",
+            GraphqlTab::Options   => "Options",
+        }
+    }
+
+    pub fn all() -> Vec<GraphqlTab> {
+        vec![
+            GraphqlTab::Query,
+            GraphqlTab::Variables,
+            GraphqlTab::Headers,
+            GraphqlTab::Schema,
+            GraphqlTab::Options,
+        ]
+    }
+
+    pub fn next(&self) -> GraphqlTab {
+        let all = GraphqlTab::all();
+        let pos = all.iter().position(|t| t == self).unwrap_or(0);
+        all.into_iter().nth((pos + 1) % 5).unwrap_or(GraphqlTab::Query)
+    }
+
+    pub fn prev(&self) -> GraphqlTab {
+        let all = GraphqlTab::all();
+        let pos = all.iter().position(|t| t == self).unwrap_or(0);
+        all.into_iter().nth(if pos == 0 { 4 } else { pos - 1 }).unwrap_or(GraphqlTab::Options)
+    }
+}
+
 // ── Navigation ────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, PartialEq)]
@@ -426,7 +471,7 @@ pub fn flatten_stored(cols: &[StoredCollection], expanded: &HashSet<String>) -> 
                             name: req.name.clone(),
                             is_folder: false,
                             expanded: false,
-                            method: Some(req.method.clone()),
+                            method: Some(if req.graphql { "GQL".to_string() } else { req.method.clone() }),
                             address: NodeAddress::FolderRequest(ci, fi, ri),
                         });
                     }
@@ -438,7 +483,7 @@ pub fn flatten_stored(cols: &[StoredCollection], expanded: &HashSet<String>) -> 
                     name: req.name.clone(),
                     is_folder: false,
                     expanded: false,
-                    method: Some(req.method.clone()),
+                    method: Some(if req.graphql { "GQL".to_string() } else { req.method.clone() }),
                     address: NodeAddress::RootRequest(ci, ri),
                 });
             }

@@ -8,6 +8,7 @@
   - [Request panel](#request-panel)
   - [Collections panel](#collections-panel)
   - [History panel](#history-panel)
+  - [GraphQL mode](#graphql-mode)
   - [Keybindings](#keybindings)
 - [Collections](#collections)
   - [Directory resolution](#directory-resolution)
@@ -354,6 +355,45 @@ Values are **auto-typed** when the request is sent:
 
 An empty body (no text / no fields) sends no request body.
 
+#### GraphQL mode
+
+Press `g` on the Request tab to switch to **GraphQL mode**. The URL bar shows a magenta `GQL` badge instead of the method selector, and the sub-tabs switch to GraphQL-specific tabs.
+
+**GraphQL sub-tabs** (navigate with `←`/`→`):
+
+| Sub-tab | Purpose |
+|---------|---------|
+| Query | Multi-line query editor (tui-textarea) |
+| Variables | Key/value pairs serialised as the `variables` JSON object |
+| Headers | Same header picker as REST mode |
+| Schema | Placeholder — schema introspection coming in v0.5 |
+| Options | Same options as REST mode |
+
+**Writing a query** (Query tab):
+- Press `i` to enter the editor (magenta border)
+- Full multi-line editing: arrows, Home/End, Backspace, Enter for new line
+- `{{VAR}}` placeholders work here — type `{{` to open the variable picker
+- Press `Esc` to exit the editor
+
+**Managing variables** (Variables tab):
+
+| Key | Action |
+|-----|--------|
+| `a` | Add a variable (Key + Value modal) |
+| `d` | Delete the selected variable |
+| `Enter` | Edit the selected variable |
+| `↑` / `↓` | Navigate variables |
+
+Variables are serialised as a flat JSON object and merged into the request body at send time.
+
+**Sending** — press `s` or `Enter` in URL mode. Terapi builds `{"query": "...", "variables": {...}}` and posts it as JSON. `Content-Type: application/json` is added automatically if not present.
+
+**Saving** — `S` saves the full GraphQL request (query + variables + headers) in the collection TOML using `graphql = true`, `graphql_query`, and `graphql_variables` fields. Backward-compatible — existing REST collections are unaffected.
+
+**Loading from Collections** — pressing `Enter` on a request node with `graphql = true` restores the query, variables, and activates GraphQL mode automatically. The request shows a magenta `GQL` badge in the tree.
+
+Press `g` to return to REST mode (URL and headers are preserved).
+
 **Response viewer** (bottom half of the Request panel):
 
 The JSON view displays a 3-column table: **Key / Type / Value**.
@@ -596,6 +636,13 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `↑` / `↓` | History panel | Navigate entries |
 | `Enter` | History panel | Load entry into Request tab |
 | `d` | History panel | Delete selected entry |
+| `g` | Request panel | Toggle GraphQL mode (REST ↔ GraphQL) |
+| `i` | GraphQL Query tab | Enter query editor |
+| `Esc` | GraphQL Query editor | Exit editor |
+| `a` | GraphQL Variables tab | Add variable |
+| `d` | GraphQL Variables tab | Delete selected variable |
+| `Enter` | GraphQL Variables tab | Edit selected variable |
+| `←` / `→` | GraphQL mode | Navigate GraphQL sub-tabs |
 | `Tab` | Modal | Cycle input fields (Name ↔ URL, Key ↔ Value) |
 | `←` / `→` | Modal (New Request) | Cycle HTTP method |
 | `Enter` | Modal | Confirm |
@@ -700,6 +747,8 @@ Des collections prêtes à l'emploi sont disponibles dans `examples/collections/
 |---------|---------|----------|----------|------|
 | `public-rest.toml` | JSONPlaceholder, ReqRes, httpbin, PokeAPI, CoinGecko | 5 | ~30 | Aucune |
 | `graphql.toml` | Countries API, Rick & Morty (POST GraphQL) | 2 | ~10 | Aucune |
+| `swapi-graphql.toml` | Star Wars API (SWAPI) — films, personnages, planètes, pagination, introspection | 5 | 16 | Aucune |
+| `countries-graphql.toml` | Countries API — pays, continents, langues, filtres, introspection | 5 | 19 | Aucune |
 | `sncf.toml` | SNCF — gares, horaires, itinéraires, perturbations | 6 | 20 | Basic `{{SNCF_TOKEN}}` |
 | `france-geo.toml` | API Géo + IGN — communes, départements, régions, géocodage | 4 | 19 | Aucune |
 | `france-eau.toml` | Hub'Eau — hydrométrie, qualité rivières et nappes | 3 | 19 | Aucune |

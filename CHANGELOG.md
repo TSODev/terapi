@@ -13,6 +13,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 - **Quit behaviour** — `q` now requires a second press to exit: the first press shows `Press q again to quit` in yellow in the status bar; any other key cancels. `Esc` is no longer a quit shortcut — it only closes modals or exits edit modes; at the top level it does nothing.
 
+### Added
+- **GraphQL mode** — `g` on the Request tab toggles between REST and GraphQL mode; the URL bar shows a magenta `GQL` badge and the method selector is hidden
+- **GraphQL sub-tabs** — Query | Variables | Headers | Schema | Options replace the REST sub-tabs when GraphQL mode is active
+- **Query editor** — tui-textarea with magenta border; `i` to enter, `Esc` to exit; `{{VAR}}` auto-completion via var picker works in the query textarea
+- **Variables tab** — key/value list (`a` add, `d` delete, `Enter` edit); serialised as a flat JSON object and merged into the request body at send time
+- **Auto-inject Content-Type** — `Content-Type: application/json` added automatically if absent when sending a GraphQL request
+- **GraphQL TOML fields** — `graphql = true`, `graphql_query`, `graphql_variables` in the collection TOML format (`#[serde(default)]` keeps existing collections backward-compatible)
+- **Collections tree** — GraphQL requests display a magenta `GQL` badge instead of the HTTP method
+- **Breadcrumb** — `GraphQL › Query` (etc.) shown in the context bar when GraphQL mode is active
+- **`g` to return to REST** — pressing `g` in GraphQL mode switches back to REST without clearing the URL or headers
+- **New example collections** — `examples/collections/swapi-graphql.toml` (5 folders, 16 requests; Star Wars API — variables, Relay pagination, aliases, introspection) and `examples/collections/countries-graphql.toml` (5 folders, 19 requests; Countries API — filters, glob, inline fragments, introspection)
+
 ---
 
 ## [0.3.0] — 2026-06-22 — Collections, Environments & Polish

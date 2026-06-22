@@ -119,6 +119,21 @@ impl App {
             self.cookie_jar_store = std::sync::Arc::new(reqwest::cookie::Jar::default());
             self.rebuild_http_client();
             self.editing_request_origin = None;
+            // GraphQL
+            self.graphql_mode = req.graphql;
+            self.graphql_query_textarea = if let Some(q) = &req.graphql_query {
+                let lines: Vec<String> = q.lines().map(|l| l.to_string()).collect();
+                TextArea::from(lines)
+            } else {
+                TextArea::default()
+            };
+            let mut gql_vars: Vec<(String, String)> = req.graphql_variables.iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            gql_vars.sort_by(|a, b| a.0.cmp(&b.0));
+            self.graphql_vars = gql_vars;
+            self.graphql_vars_cursor = 0;
+            self.active_graphql_tab = GraphqlTab::Query;
             let req_name = req.name.clone();
             self.request_focus = RequestFocus::Response;
             self.response_body = None;
@@ -129,10 +144,11 @@ impl App {
             self.response_folds = HashSet::new();
             self.active_tab = Tab::Request;
             self.active_request_tab = RequestTab::Description;
-            self.status_message = format!(
-                "Loaded: {}  —  e: edit URL  s: send  q: quit",
-                req_name
-            );
+            self.status_message = if req.graphql {
+                format!("Loaded: {}  —  i: edit query  s: send  g: REST mode  q: quit", req_name)
+            } else {
+                format!("Loaded: {}  —  e: edit URL  s: send  q: quit", req_name)
+            };
         }
     }
 
@@ -222,17 +238,21 @@ impl App {
         } else {
             &mut self.stored_collections[ci].requests[ri]
         };
+        let gql_query_text = self.graphql_query_textarea.lines().join("\n");
         req.name = name.clone();
-        req.method = method;
+        req.method = if self.graphql_mode { "POST".to_string() } else { method };
         req.url = url;
         req.headers = headers;
-        req.body = body;
+        req.body = if self.graphql_mode { None } else { body };
         req.description = description;
         req.auth = auth;
         req.timeout_secs = self.request_timeout_secs;
         req.follow_redirects = self.follow_redirects;
         req.skip_tls_verify = self.skip_tls_verify;
         req.cookie_jar = self.cookie_jar;
+        req.graphql = self.graphql_mode;
+        req.graphql_query = if self.graphql_mode && !gql_query_text.trim().is_empty() { Some(gql_query_text) } else { None };
+        req.graphql_variables = if self.graphql_mode { self.graphql_vars.iter().cloned().collect() } else { std::collections::HashMap::new() };
 
         crate::storage::save_collection(&self.stored_collections[ci])?;
         self.editing_request_origin = None;

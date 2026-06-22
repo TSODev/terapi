@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 use crate::app::{
-    flatten_stored, sorted_vars, App, BodyMode, EnvFocus, InputField, ModalState,
+    flatten_stored, sorted_vars, App, BodyMode, EnvFocus, GraphqlTab, InputField, ModalState,
     RequestFocus, RequestTab, ResponseView, SaveField, Tab, VarField,
     COMMON_CONTENT_TYPES, COMMON_HEADERS, METHODS,
 };
@@ -86,17 +86,18 @@ fn render_request_panel(frame: &mut Frame, app: &App, area: Rect) {
     let url_title = format!(" URL{} ", env_badge);
 
     let editing = app.request_focus == RequestFocus::Url;
-    let method = app.active_method();
+    let method_label = if app.graphql_mode { "GQL" } else { app.active_method() };
+    let method_col = method_color(method_label);
     let url_cursor = if editing { "_" } else { "" };
     let url_text = Line::from(vec![
         Span::raw(" "),
-        if editing {
+        if editing && !app.graphql_mode {
             Span::styled("◀ ", Style::default().fg(Color::DarkGray))
         } else {
             Span::raw("  ")
         },
-        Span::styled(method, Style::default().fg(method_color(method)).add_modifier(Modifier::BOLD)),
-        if editing {
+        Span::styled(method_label, Style::default().fg(method_col).add_modifier(Modifier::BOLD)),
+        if editing && !app.graphql_mode {
             Span::styled(" ▶  ", Style::default().fg(Color::DarkGray))
         } else {
             Span::raw("  ")
@@ -136,20 +137,40 @@ fn render_request_panel(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_request_subtabs(frame: &mut Frame, app: &App, area: Rect) {
-    let tabs: Vec<Line> = RequestTab::all().into_iter().map(|t| Line::from(t.title())).collect();
-    let selected = RequestTab::all().into_iter().position(|t| t == app.active_request_tab).unwrap_or(0);
-
-    let sub_tabs = Tabs::new(tabs)
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Indexed(238))))
-        .select(selected)
-        .style(Style::default().fg(Color::Indexed(244)))
-        .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
-        .divider(Span::raw(" | "));
-
-    frame.render_widget(sub_tabs, area);
+    if app.graphql_mode {
+        let tabs: Vec<Line> = GraphqlTab::all().into_iter().map(|t| Line::from(t.title())).collect();
+        let selected = GraphqlTab::all().into_iter().position(|t| t == app.active_graphql_tab).unwrap_or(0);
+        let sub_tabs = Tabs::new(tabs)
+            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Magenta)))
+            .select(selected)
+            .style(Style::default().fg(Color::Indexed(244)))
+            .highlight_style(Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD))
+            .divider(Span::raw(" | "));
+        frame.render_widget(sub_tabs, area);
+    } else {
+        let tabs: Vec<Line> = RequestTab::all().into_iter().map(|t| Line::from(t.title())).collect();
+        let selected = RequestTab::all().into_iter().position(|t| t == app.active_request_tab).unwrap_or(0);
+        let sub_tabs = Tabs::new(tabs)
+            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Indexed(238))))
+            .select(selected)
+            .style(Style::default().fg(Color::Indexed(244)))
+            .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+            .divider(Span::raw(" | "));
+        frame.render_widget(sub_tabs, area);
+    }
 }
 
 fn render_request_content(frame: &mut Frame, app: &App, area: Rect) {
+    if app.graphql_mode {
+        match app.active_graphql_tab {
+            GraphqlTab::Query     => render_graphql_query_editor(frame, app, area),
+            GraphqlTab::Variables => render_graphql_vars_editor(frame, app, area),
+            GraphqlTab::Headers   => render_headers_editor(frame, app, area),
+            GraphqlTab::Schema    => render_graphql_schema_placeholder(frame, area),
+            GraphqlTab::Options   => render_options_editor(frame, app, area),
+        }
+        return;
+    }
     if app.active_request_tab == RequestTab::Headers {
         render_headers_editor(frame, app, area);
         return;
@@ -191,6 +212,113 @@ fn render_request_content(frame: &mut Frame, app: &App, area: Rect) {
         textarea.set_cursor_style(Style::default());
     }
     frame.render_widget(&textarea, area);
+}
+
+fn render_graphql_query_editor(frame: &mut Frame, app: &App, area: Rect) {
+    let editing = app.request_focus == RequestFocus::Body;
+    let border_style = if editing {
+        Style::default().fg(Color::Green)
+    } else {
+        Style::default().fg(Color::Magenta)
+    };
+    let title = if editing { " Query — editing (Esc: done) " } else { " Query — i: edit " };
+    let mut textarea = app.graphql_query_textarea.clone();
+    textarea.set_block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(title)
+            .border_style(border_style),
+    );
+    textarea.set_style(Style::default().fg(Color::White));
+    textarea.set_cursor_line_style(Style::default());
+    if !editing {
+        textarea.set_cursor_style(Style::default());
+    }
+    frame.render_widget(&textarea, area);
+}
+
+fn render_graphql_vars_editor(frame: &mut Frame, app: &App, area: Rect) {
+    let count = app.graphql_vars.len();
+    let title = if count == 0 {
+        " Variables ".to_string()
+    } else {
+        format!(" Variables ({}) ", count)
+    };
+
+    let items: Vec<ListItem> = if app.graphql_vars.is_empty() {
+        vec![ListItem::new(Line::from(Span::styled(
+            "  No variables — press a to add one",
+            Style::default().fg(Color::Indexed(238)),
+        )))]
+    } else {
+        app.graphql_vars.iter().enumerate().map(|(i, (k, v))| {
+            let selected = i == app.graphql_vars_cursor;
+            let cursor = if selected {
+                Span::styled("▶ ", Style::default().fg(Color::Cyan))
+            } else {
+                Span::raw("  ")
+            };
+            let key_style = if selected {
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::Cyan)
+            };
+            let val_style = if selected {
+                Style::default().fg(Color::White).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            ListItem::new(Line::from(vec![
+                cursor,
+                Span::styled(k.clone(), key_style),
+                Span::styled("  =  ", Style::default().fg(Color::Indexed(244))),
+                Span::styled(v.clone(), val_style),
+            ]))
+        }).collect()
+    };
+
+    let hint = Line::from(Span::styled(
+        "  a: add  d: delete  Enter: edit  ↑/↓: navigate",
+        Style::default().fg(Color::Indexed(238)),
+    ));
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(title)
+        .border_style(Style::default().fg(Color::Magenta));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(1), Constraint::Length(1)])
+        .split(inner);
+
+    frame.render_widget(List::new(items), chunks[0]);
+    frame.render_widget(Paragraph::new(hint), chunks[1]);
+}
+
+fn render_graphql_schema_placeholder(frame: &mut Frame, area: Rect) {
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(" Schema ")
+        .border_style(Style::default().fg(Color::Magenta));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let text = vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            "  No schema loaded.",
+            Style::default().fg(Color::Indexed(244)),
+        )),
+        Line::from(""),
+        Line::from(Span::styled(
+            "  Schema introspection coming in a future version.",
+            Style::default().fg(Color::Indexed(238)),
+        )),
+    ];
+    frame.render_widget(Paragraph::new(text), inner);
 }
 
 fn render_options_editor(frame: &mut Frame, app: &App, area: Rect) {
@@ -1575,21 +1703,31 @@ fn render_status(frame: &mut Frame, app: &App, area: Rect) {
 fn context_breadcrumb(app: &App) -> String {
     match &app.active_tab {
         Tab::Request => {
-            let sub = app.active_request_tab.title();
-            let mode_suffix = if app.active_request_tab == RequestTab::Body {
-                match app.body_mode {
-                    BodyMode::Text => "  ›  Text",
-                    BodyMode::Json => "  ›  JSON",
-                }
+            if app.graphql_mode {
+                let sub = app.active_graphql_tab.title();
+                let focus_suffix = match app.request_focus {
+                    RequestFocus::Url  => "  ›  URL edit",
+                    RequestFocus::Body => "  ›  editing",
+                    _                  => "",
+                };
+                format!("GraphQL  ›  {}{}", sub, focus_suffix)
             } else {
-                ""
-            };
-            let focus_suffix = match app.request_focus {
-                RequestFocus::Url => "  ›  URL edit",
-                RequestFocus::Body | RequestFocus::Description => "  ›  editing",
-                RequestFocus::Response => "",
-            };
-            format!("Request  ›  {}{}{}", sub, mode_suffix, focus_suffix)
+                let sub = app.active_request_tab.title();
+                let mode_suffix = if app.active_request_tab == RequestTab::Body {
+                    match app.body_mode {
+                        BodyMode::Text => "  ›  Text",
+                        BodyMode::Json => "  ›  JSON",
+                    }
+                } else {
+                    ""
+                };
+                let focus_suffix = match app.request_focus {
+                    RequestFocus::Url => "  ›  URL edit",
+                    RequestFocus::Body | RequestFocus::Description => "  ›  editing",
+                    RequestFocus::Response => "",
+                };
+                format!("Request  ›  {}{}{}", sub, mode_suffix, focus_suffix)
+            }
         }
         Tab::Collections => "Collections".to_string(),
         Tab::Env => match app.env_focus {
@@ -1696,6 +1834,7 @@ fn method_color(method: &str) -> Color {
         "PUT"    => Color::Yellow,
         "PATCH"  => Color::Magenta,
         "DELETE" => Color::Red,
+        "GQL"    => Color::Magenta,
         _        => Color::White,
     }
 }

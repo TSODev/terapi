@@ -102,10 +102,17 @@ impl App {
                 }
             }
             VarPickerTarget::BodyText => {
-                for _ in 0..remove_count {
-                    self.body_textarea.delete_char();
+                if self.graphql_mode {
+                    for _ in 0..remove_count {
+                        self.graphql_query_textarea.delete_char();
+                    }
+                    self.graphql_query_textarea.insert_str(&insert);
+                } else {
+                    for _ in 0..remove_count {
+                        self.body_textarea.delete_char();
+                    }
+                    self.body_textarea.insert_str(&insert);
                 }
-                self.body_textarea.insert_str(&insert);
             }
         }
     }
@@ -123,7 +130,13 @@ impl App {
                     }
                 }
             }
-            VarPickerTarget::BodyText => { self.body_textarea.insert_str(&c.to_string()); }
+            VarPickerTarget::BodyText => {
+                if self.graphql_mode {
+                    self.graphql_query_textarea.insert_str(&c.to_string());
+                } else {
+                    self.body_textarea.insert_str(&c.to_string());
+                }
+            }
         }
     }
 
@@ -140,7 +153,13 @@ impl App {
                     }
                 }
             }
-            VarPickerTarget::BodyText => { self.body_textarea.delete_char(); }
+            VarPickerTarget::BodyText => {
+                if self.graphql_mode {
+                    self.graphql_query_textarea.delete_char();
+                } else {
+                    self.body_textarea.delete_char();
+                }
+            }
         }
     }
 }

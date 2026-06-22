@@ -1,0 +1,451 @@
+[collection]
+name        = "SWAPI — Star Wars GraphQL"
+description = "Star Wars API — requêtes GraphQL complètes pour tester variables, pagination, objets imbriqués et introspection"
+
+# Endpoint public, sans auth, stable.
+# https://swapi-graphql.netlify.app/.netlify/functions/index
+#
+# IDs encodés en base64 (format Relay) :
+#   Film 1 — A New Hope        : ZmlsbXM6MQ==
+#   Film 2 — Empire Strikes Back: ZmlsbXM6Mg==
+#   Film 3 — Return of the Jedi : ZmlsbXM6Mw==
+#   Person 1 — Luke Skywalker  : cGVvcGxlOjE=
+#   Person 4 — Darth Vader     : cGVvcGxlOjQ=
+#   Planet 1 — Tatooine        : cGxhbmV0czox
+
+# ── Films ─────────────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Films"
+
+[[folders.requests]]
+name         = "Tous les films"
+method       = "POST"
+url          = "https://swapi-graphql.netlify.app/.netlify/functions/index"
+description  = "Liste complète des 6 films — requête sans variable ni arguments."
+graphql      = true
+graphql_query = """
+{
+  allFilms {
+    films {
+      title
+      episodeID
+      director
+      releaseDate
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Détail d'un film (variable)"
+method       = "POST"
+url          = "https://swapi-graphql.netlify.app/.netlify/functions/index"
+description  = "Requête nommée avec variable $filmID — montre l'onglet Variables."
+graphql      = true
+graphql_query = """
+query FilmDetail($filmID: ID) {
+  film(filmID: $filmID) {
+    title
+    episodeID
+    director
+    producers
+    releaseDate
+    openingCrawl
+  }
+}
+"""
+graphql_variables = {filmID = "ZmlsbXM6MQ=="}
+
+[[folders.requests]]
+name         = "Film + personnages imbriqués"
+method       = "POST"
+url          = "https://swapi-graphql.netlify.app/.netlify/functions/index"
+description  = "Objets imbriqués et connexion avec argument first — A New Hope + 5 personnages."
+graphql      = true
+graphql_query = """
+query FilmWithCharacters($filmID: ID, $first: Int) {
+  film(filmID: $filmID) {
+    title
+    releaseDate
+    characterConnection(first: $first) {
+      totalCount
+      characters {
+        name
+        gender
+        birthYear
+        homeworld {
+          name
+        }
+      }
+    }
+  }
+}
+"""
+graphql_variables = {filmID = "ZmlsbXM6MQ==", first = "5"}
+
+[[folders.requests]]
+name         = "Film + vaisseaux (alias)"
+method       = "POST"
+url          = "https://swapi-graphql.netlify.app/.netlify/functions/index"
+description  = "Alias GraphQL : renomme les champs dans la réponse (episode / cast / ships)."
+graphql      = true
+graphql_query = """
+query FilmWithAliases($filmID: ID) {
+  film(filmID: $filmID) {
+    episode: episodeID
+    titre: title
+    realisateur: director
+    ships: starshipConnection(first: 5) {
+      starships {
+        nom: name
+        modele: model
+        classe: starshipClass
+      }
+    }
+  }
+}
+"""
+graphql_variables = {filmID = "ZmlsbXM6MQ=="}
+
+# ── Personnages ───────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Personnages"
+
+[[folders.requests]]
+name         = "10 premiers personnages"
+method       = "POST"
+url          = "https://swapi-graphql.netlify.app/.netlify/functions/index"
+description  = "Liste paginée de personnages avec leur planète natale imbriquée."
+graphql      = true
+graphql_query = """
+{
+  allPeople(first: 10) {
+    people {
+      name
+      birthYear
+      gender
+      homeworld {
+        name
+        climate
+      }
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Profil complet d'un personnage"
+method       = "POST"
+url          = "https://swapi-graphql.netlify.app/.netlify/functions/index"
+description  = "Profil détaillé avec planète, films et espèce — Luke Skywalker par défaut."
+graphql      = true
+graphql_query = """
+query PersonDetail($personID: ID) {
+  person(personID: $personID) {
+    name
+    birthYear
+    eyeColor
+    gender
+    hairColor
+    height
+    mass
+    skinColor
+    homeworld {
+      name
+      climate
+      terrain
+      population
+    }
+    filmConnection {
+      totalCount
+      films {
+        title
+        releaseDate
+      }
+    }
+    speciesConnection {
+      species {
+        name
+        classification
+        language
+      }
+    }
+  }
+}
+"""
+graphql_variables = {personID = "cGVvcGxlOjE="}
+
+[[folders.requests]]
+name         = "Multi-query : Luke et Vader"
+method       = "POST"
+url          = "https://swapi-graphql.netlify.app/.netlify/functions/index"
+description  = "Deux champs au même niveau avec des variables différentes via alias."
+graphql      = true
+graphql_query = """
+{
+  hero: person(personID: "cGVvcGxlOjE=") {
+    name
+    birthYear
+    homeworld { name }
+  }
+  villain: person(personID: "cGVvcGxlOjQ=") {
+    name
+    birthYear
+    homeworld { name }
+  }
+}
+"""
+
+# ── Planètes & Vaisseaux ──────────────────────────────────────────────────────
+
+[[folders]]
+name = "Planètes & Vaisseaux"
+
+[[folders.requests]]
+name         = "10 premières planètes"
+method       = "POST"
+url          = "https://swapi-graphql.netlify.app/.netlify/functions/index"
+description  = "Planètes avec climat, terrain et population."
+graphql      = true
+graphql_query = """
+{
+  allPlanets(first: 10) {
+    planets {
+      name
+      climate
+      terrain
+      population
+      diameter
+      orbitalPeriod
+      gravity
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Détail d'une planète"
+method       = "POST"
+url          = "https://swapi-graphql.netlify.app/.netlify/functions/index"
+description  = "Planète avec ses résidents — Tatooine par défaut."
+graphql      = true
+graphql_query = """
+query PlanetDetail($planetID: ID) {
+  planet(planetID: $planetID) {
+    name
+    climate
+    terrain
+    population
+    diameter
+    residentConnection(first: 5) {
+      residents {
+        name
+        gender
+      }
+    }
+    filmConnection {
+      films {
+        title
+      }
+    }
+  }
+}
+"""
+graphql_variables = {planetID = "cGxhbmV0czox"}
+
+[[folders.requests]]
+name         = "10 premiers vaisseaux"
+method       = "POST"
+url          = "https://swapi-graphql.netlify.app/.netlify/functions/index"
+description  = "Vaisseaux avec specs techniques — montre des champs de types variés."
+graphql      = true
+graphql_query = """
+{
+  allStarships(first: 10) {
+    starships {
+      name
+      model
+      starshipClass
+      manufacturers
+      costInCredits
+      crew
+      passengers
+      maxAtmospheringSpeed
+      hyperdriveRating
+      MGLT
+    }
+  }
+}
+"""
+
+# ── Pagination ────────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Pagination"
+
+[[folders.requests]]
+name         = "Page 1 — films (first)"
+method       = "POST"
+url          = "https://swapi-graphql.netlify.app/.netlify/functions/index"
+description  = "Pagination Relay : first + pageInfo (hasNextPage, endCursor). Copie endCursor pour la page suivante."
+graphql      = true
+graphql_query = """
+query PaginatedFilms($first: Int, $after: String) {
+  allFilms(first: $first, after: $after) {
+    pageInfo {
+      hasNextPage
+      hasPreviousPage
+      startCursor
+      endCursor
+    }
+    totalCount
+    films {
+      title
+      releaseDate
+    }
+  }
+}
+"""
+graphql_variables = {first = "3"}
+
+[[folders.requests]]
+name         = "Page 2 — films (after cursor)"
+method       = "POST"
+url          = "https://swapi-graphql.netlify.app/.netlify/functions/index"
+description  = "Suite de la page 1 : colle le endCursor de la page précédente dans after."
+graphql      = true
+graphql_query = """
+query PaginatedFilms($first: Int, $after: String) {
+  allFilms(first: $first, after: $after) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    films {
+      title
+      releaseDate
+    }
+  }
+}
+"""
+graphql_variables = {first = "3", after = "YXJyYXljb25uZWN0aW9uLjI="}
+
+[[folders.requests]]
+name         = "Personnages — last 5"
+method       = "POST"
+url          = "https://swapi-graphql.netlify.app/.netlify/functions/index"
+description  = "Pagination inverse avec last — récupère les 5 derniers personnages."
+graphql      = true
+graphql_query = """
+query LastPeople($last: Int) {
+  allPeople(last: $last) {
+    pageInfo {
+      hasPreviousPage
+      startCursor
+    }
+    totalCount
+    people {
+      name
+      gender
+    }
+  }
+}
+"""
+graphql_variables = {last = "5"}
+
+# ── Introspection ─────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Introspection"
+
+[[folders.requests]]
+name         = "Tous les types du schéma"
+method       = "POST"
+url          = "https://swapi-graphql.netlify.app/.netlify/functions/index"
+description  = "Méta-requête : liste tous les types avec leur kind (OBJECT, SCALAR, ENUM…)."
+graphql      = true
+graphql_query = """
+{
+  __schema {
+    types {
+      name
+      kind
+      description
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Champs du type Query"
+method       = "POST"
+url          = "https://swapi-graphql.netlify.app/.netlify/functions/index"
+description  = "Introspection du point d'entrée : champs racine disponibles avec leurs arguments."
+graphql      = true
+graphql_query = """
+{
+  __schema {
+    queryType {
+      name
+      fields {
+        name
+        description
+        args {
+          name
+          description
+          type {
+            name
+            kind
+            ofType {
+              name
+              kind
+            }
+          }
+        }
+        type {
+          name
+          kind
+        }
+      }
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Détail d'un type (variable)"
+method       = "POST"
+url          = "https://swapi-graphql.netlify.app/.netlify/functions/index"
+description  = "Introspection d'un type spécifique — Film par défaut. Change typeName pour explorer."
+graphql      = true
+graphql_query = """
+query TypeDetail($typeName: String!) {
+  __type(name: $typeName) {
+    name
+    kind
+    description
+    fields {
+      name
+      description
+      type {
+        name
+        kind
+        ofType {
+          name
+          kind
+        }
+      }
+      args {
+        name
+        type {
+          name
+          kind
+        }
+      }
+    }
+  }
+}
+"""
+graphql_variables = {typeName = "Film"}

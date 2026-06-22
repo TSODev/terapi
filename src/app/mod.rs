@@ -79,6 +79,12 @@ pub struct App {
     // History
     pub history: Vec<HistoryEntry>,
     pub history_cursor: usize,
+    // GraphQL
+    pub graphql_mode: bool,
+    pub graphql_query_textarea: TextArea<'static>,
+    pub graphql_vars: Vec<(String, String)>,
+    pub graphql_vars_cursor: usize,
+    pub active_graphql_tab: GraphqlTab,
     // Async channel — receives HTTP results from spawned tasks
     pub(super) response_rx: mpsc::UnboundedReceiver<HttpOutcome>,
     pub(super) response_tx: mpsc::UnboundedSender<HttpOutcome>,
@@ -154,6 +160,11 @@ impl App {
             status_message: "Tab: panels  e: edit URL  s: send  S: save  n: new  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into(),
             history,
             history_cursor: 0,
+            graphql_mode: false,
+            graphql_query_textarea: TextArea::default(),
+            graphql_vars: Vec::new(),
+            graphql_vars_cursor: 0,
+            active_graphql_tab: GraphqlTab::Query,
             response_rx,
             response_tx,
         }
@@ -248,7 +259,8 @@ impl App {
             }
             KeyCode::Up
                 if self.active_tab == Tab::Request
-                    && self.request_focus == RequestFocus::Url =>
+                    && self.request_focus == RequestFocus::Url
+                    && !self.graphql_mode =>
             {
                 self.request_method_idx = if self.request_method_idx == 0 {
                     METHODS.len() - 1
@@ -258,7 +270,8 @@ impl App {
             }
             KeyCode::Down
                 if self.active_tab == Tab::Request
-                    && self.request_focus == RequestFocus::Url =>
+                    && self.request_focus == RequestFocus::Url
+                    && !self.graphql_mode =>
             {
                 self.request_method_idx = (self.request_method_idx + 1) % METHODS.len();
             }
@@ -294,6 +307,18 @@ impl App {
                 }
             }
 
+            // ── Request panel — GraphQL mode toggle ────────────────────────
+            KeyCode::Char('g') if self.active_tab == Tab::Request => {
+                self.graphql_mode = !self.graphql_mode;
+                self.request_focus = RequestFocus::Response;
+                if self.graphql_mode {
+                    self.active_graphql_tab = GraphqlTab::Query;
+                    self.status_message = "GraphQL — i: edit query  ←/→: section  s: send  S: save  g: REST mode  q: quit".into();
+                } else {
+                    self.update_request_status_hint();
+                }
+            }
+
             // ── Request panel — response navigation mode ───────────────────
             KeyCode::Char('n') if self.active_tab == Tab::Request => {
                 self.new_request();
@@ -322,6 +347,15 @@ impl App {
             }
             KeyCode::Char('i')
                 if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Query =>
+            {
+                self.request_focus = RequestFocus::Body;
+                self.status_message = "Query: editing  Esc: done".into();
+            }
+            KeyCode::Char('i')
+                if self.active_tab == Tab::Request
+                    && !self.graphql_mode
                     && self.active_request_tab == RequestTab::Body =>
             {
                 self.request_focus = RequestFocus::Body;
@@ -332,6 +366,7 @@ impl App {
             }
             KeyCode::Char('i')
                 if self.active_tab == Tab::Request
+                    && !self.graphql_mode
                     && self.active_request_tab == RequestTab::Description =>
             {
                 self.request_focus = RequestFocus::Description;
@@ -339,13 +374,72 @@ impl App {
             }
             KeyCode::Char('t')
                 if self.active_tab == Tab::Request
+                    && !self.graphql_mode
                     && self.active_request_tab == RequestTab::Body
                     && self.request_focus != RequestFocus::Body =>
             {
                 self.toggle_body_mode();
             }
-            KeyCode::Char('m') if self.active_tab == Tab::Request => {
+            KeyCode::Char('m')
+                if self.active_tab == Tab::Request && !self.graphql_mode =>
+            {
                 self.request_method_idx = (self.request_method_idx + 1) % METHODS.len();
+            }
+            // GraphQL Variables tab — add/delete/edit
+            KeyCode::Char('a')
+                if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Variables =>
+            {
+                self.modal = Some(ModalState::BodyPair {
+                    key: String::new(),
+                    value: String::new(),
+                    active_field: VarField::Key,
+                    edit_idx: None,
+                });
+            }
+            KeyCode::Char('d')
+                if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Variables
+                    && !self.graphql_vars.is_empty() =>
+            {
+                self.graphql_vars.remove(self.graphql_vars_cursor);
+                if self.graphql_vars_cursor > 0 && self.graphql_vars_cursor >= self.graphql_vars.len() {
+                    self.graphql_vars_cursor -= 1;
+                }
+            }
+            KeyCode::Enter
+                if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Variables
+                    && !self.graphql_vars.is_empty() =>
+            {
+                let (k, v) = self.graphql_vars[self.graphql_vars_cursor].clone();
+                self.modal = Some(ModalState::BodyPair {
+                    key: k,
+                    value: v,
+                    active_field: VarField::Key,
+                    edit_idx: Some(self.graphql_vars_cursor),
+                });
+            }
+            KeyCode::Up
+                if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Variables =>
+            {
+                if self.graphql_vars_cursor > 0 {
+                    self.graphql_vars_cursor -= 1;
+                }
+            }
+            KeyCode::Down
+                if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Variables =>
+            {
+                if self.graphql_vars_cursor + 1 < self.graphql_vars.len() {
+                    self.graphql_vars_cursor += 1;
+                }
             }
             KeyCode::Char('s') if self.active_tab == Tab::Request => {
                 self.send_request();
@@ -533,12 +627,22 @@ impl App {
                 }
             }
             KeyCode::Right if self.active_tab == Tab::Request => {
-                self.active_request_tab = self.active_request_tab.next();
-                self.update_request_status_hint();
+                if self.graphql_mode {
+                    self.active_graphql_tab = self.active_graphql_tab.next();
+                    self.update_graphql_status_hint();
+                } else {
+                    self.active_request_tab = self.active_request_tab.next();
+                    self.update_request_status_hint();
+                }
             }
             KeyCode::Left if self.active_tab == Tab::Request => {
-                self.active_request_tab = self.active_request_tab.prev();
-                self.update_request_status_hint();
+                if self.graphql_mode {
+                    self.active_graphql_tab = self.active_graphql_tab.prev();
+                    self.update_graphql_status_hint();
+                } else {
+                    self.active_request_tab = self.active_request_tab.prev();
+                    self.update_request_status_hint();
+                }
             }
             KeyCode::Char('r') if self.active_tab == Tab::Request => {
                 self.response_view = match self.response_view {
@@ -973,7 +1077,14 @@ impl App {
             Some(ModalState::BodyPair { key: mut bp_key, value: mut bp_val, mut active_field, edit_idx }) => match key.code {
                 KeyCode::Esc => {}
                 KeyCode::Enter if !bp_key.trim().is_empty() => {
-                    if let Some(idx) = edit_idx {
+                    if self.graphql_mode {
+                        if let Some(idx) = edit_idx {
+                            self.graphql_vars[idx] = (bp_key.trim().to_string(), bp_val.trim().to_string());
+                        } else {
+                            self.graphql_vars.push((bp_key.trim().to_string(), bp_val.trim().to_string()));
+                            self.graphql_vars_cursor = self.graphql_vars.len() - 1;
+                        }
+                    } else if let Some(idx) = edit_idx {
                         self.body_json_pairs[idx] = (bp_key.trim().to_string(), bp_val.trim().to_string());
                     } else {
                         self.body_json_pairs.push((bp_key.trim().to_string(), bp_val.trim().to_string()));

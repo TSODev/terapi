@@ -105,6 +105,7 @@ terapi --help
 | `↑` / `↓` | Options sub-tab — navigate between options |
 | `Space` / `Enter` | Options sub-tab — toggle (Skip TLS / Follow redirects / Cookie jar) or cycle timeout |
 | `r` | Cycle response view: JSON → Raw → HTTP exchange |
+| `g` | Toggle GraphQL mode (REST ↔ GraphQL) |
 | `-` / `=` | Resize Key column |
 | `q` `q` | Quit (press twice to confirm) |
 
@@ -195,6 +196,8 @@ Ready-to-use collections in `examples/collections/` — copy them to your terapi
 |------|---------|------|
 | `public-rest.toml` | JSONPlaceholder, ReqRes, httpbin, PokeAPI, CoinGecko | Aucune |
 | `graphql.toml` | Countries API, Rick & Morty API (POST GraphQL) | Aucune |
+| `swapi-graphql.toml` | Star Wars API (SWAPI) — films, personnages, planètes, pagination Relay, introspection | Aucune |
+| `countries-graphql.toml` | Countries API — pays, continents, langues, filtres, introspection | Aucune |
 | `sncf.toml` | API SNCF — gares, horaires, itinéraires, perturbations | Basic `{{SNCF_TOKEN}}` |
 | `france-geo.toml` | API Géo + API Adresse IGN — communes, départements, régions, géocodage | Aucune |
 | `france-eau.toml` | Hub'Eau — hydrométrie, qualité rivières et nappes | Aucune |
@@ -303,9 +306,29 @@ Campaign : Users API — smoke tests
 
 ---
 
-## Coming next
+## GraphQL mode
 
-Native **GraphQL support** is in active development — schema introspection, query editor with field autocompletion, variables panel, and mutations.
+Press `g` on the Request tab to switch to GraphQL mode. The URL bar shows a magenta `GQL` badge and the sub-tabs change:
+
+| Sub-tab | Purpose |
+|---------|---------|
+| Query | Multi-line query editor — `i` to edit, `Esc` to exit |
+| Variables | Key/value pairs sent as the `variables` JSON object |
+| Headers | Same header picker as REST mode |
+| Schema | Schema browser — placeholder (introspection coming in v0.5) |
+| Options | Same options as REST mode |
+
+**Sending a GraphQL request:**
+1. Press `e` to edit the endpoint URL (e.g. `https://countries.trevorblades.com/graphql`)
+2. Press `←`/`→` to switch to the **Query** sub-tab, then `i` to write the query
+3. Optionally switch to **Variables** and press `a` to add variables
+4. Press `s` to send — terapi posts `{"query": "...", "variables": {...}}` with `Content-Type: application/json` automatically
+
+Save to a collection with `S` — `graphql = true`, the query, and variables are all preserved in TOML. Press `g` again to return to REST mode.
+
+**Example GraphQL collections** in `examples/collections/`:
+- `swapi-graphql.toml` — Star Wars API — 5 folders, 16 requests: variables, Relay pagination, aliases, introspection
+- `countries-graphql.toml` — Countries API — 5 folders, 19 requests: filters, glob, inline fragments, introspection
 
 ---
 

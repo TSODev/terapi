@@ -31,8 +31,13 @@ impl App {
         has(&self.request_url)
             || self.request_headers.iter().any(|(_, v)| has(v))
             || self.request_url_params.iter().any(|(_, v)| has(v))
-            || self.body_textarea.lines().iter().any(|l| has(l.as_str()))
-            || self.body_json_pairs.iter().any(|(_, v)| has(v))
+            || if self.graphql_mode {
+                self.graphql_query_textarea.lines().iter().any(|l| has(l.as_str()))
+                    || self.graphql_vars.iter().any(|(_, v)| has(v))
+            } else {
+                self.body_textarea.lines().iter().any(|l| has(l.as_str()))
+                    || self.body_json_pairs.iter().any(|(_, v)| has(v))
+            }
             || has(&self.auth_config.bearer_token)
             || has(&self.auth_config.basic_username)
             || has(&self.auth_config.basic_password)
@@ -117,12 +122,37 @@ impl App {
             }
         }
 
-        let method = METHODS[self.request_method_idx].to_string();
+        let (method, body) = if self.graphql_mode {
+            let query_text = self.graphql_query_textarea.lines().join("\n");
+            let resolved_query = crate::storage::resolve_vars(&query_text, &env_vars);
+            let vars_map: serde_json::Map<String, serde_json::Value> = self.graphql_vars.iter()
+                .map(|(k, v)| {
+                    let rv = crate::storage::resolve_vars(v, &env_vars);
+                    let val = serde_json::from_str::<serde_json::Value>(&rv)
+                        .unwrap_or(serde_json::Value::String(rv));
+                    (k.clone(), val)
+                })
+                .collect();
+            let payload = serde_json::json!({
+                "query": resolved_query,
+                "variables": serde_json::Value::Object(vars_map)
+            });
+            let body_str = serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string());
+            ("POST".to_string(), Some(body_str))
+        } else {
+            let m = METHODS[self.request_method_idx].to_string();
+            let b = self.body_string().map(|b| crate::storage::resolve_vars(&b, &env_vars));
+            (m, b)
+        };
+
+        if self.graphql_mode
+            && !resolved_headers.iter().any(|(k, _)| k.eq_ignore_ascii_case("content-type"))
+        {
+            resolved_headers.push(("Content-Type".to_string(), "application/json".to_string()));
+        }
+
         let tx = self.response_tx.clone();
         let client = self.http_client.clone();
-
-        let body = self.body_string()
-            .map(|b| crate::storage::resolve_vars(&b, &env_vars));
 
         self.last_request_raw = Some(RawRequest {
             method: method.clone(),
@@ -169,6 +199,11 @@ impl App {
         self.rebuild_http_client();
         self.editing_request_origin = None;
         self.editing_request_name = String::new();
+        self.graphql_mode = false;
+        self.graphql_query_textarea = TextArea::default();
+        self.graphql_vars = Vec::new();
+        self.graphql_vars_cursor = 0;
+        self.active_graphql_tab = GraphqlTab::Query;
         self.last_request_raw = None;
         self.response_body = None;
         self.response_status = None;
@@ -213,12 +248,13 @@ impl App {
             format!("{}{}{}", self.request_url, sep, query)
         };
         let desc_text = self.description_textarea.lines().join("\n");
+        let gql_query_text = self.graphql_query_textarea.lines().join("\n");
         let req = StoredRequest {
             name,
-            method: METHODS[self.request_method_idx].to_string(),
+            method: if self.graphql_mode { "POST".to_string() } else { METHODS[self.request_method_idx].to_string() },
             url,
             headers: self.request_headers.iter().cloned().collect::<HMap<_, _>>(),
-            body: self.body_string(),
+            body: if self.graphql_mode { None } else { self.body_string() },
             description: if desc_text.trim().is_empty() { None } else { Some(desc_text) },
             timeout_secs: self.request_timeout_secs,
             follow_redirects: self.follow_redirects,
@@ -233,6 +269,9 @@ impl App {
                 api_key_value: self.auth_config.api_key_value.clone(),
                 api_key_location: self.auth_config.api_key_location.as_str().to_string(),
             },
+            graphql: self.graphql_mode,
+            graphql_query: if self.graphql_mode && !gql_query_text.trim().is_empty() { Some(gql_query_text) } else { None },
+            graphql_variables: if self.graphql_mode { self.graphql_vars.iter().cloned().collect() } else { HMap::new() },
         };
         let col_name = self.stored_collections[collection_idx].collection.name.clone();
         if let Some(fi) = folder_idx {
@@ -279,7 +318,21 @@ impl App {
     pub(super) fn handle_body_key(&mut self, key: KeyEvent) -> Result<()> {
         if key.code == KeyCode::Esc {
             self.request_focus = RequestFocus::Response;
-            self.update_request_status_hint();
+            if self.graphql_mode {
+                self.update_graphql_status_hint();
+            } else {
+                self.update_request_status_hint();
+            }
+            return Ok(());
+        }
+        if self.graphql_mode {
+            self.graphql_query_textarea.input(tui_textarea::Input::from(key));
+            if key.code == KeyCode::Char('{') {
+                let last = self.graphql_query_textarea.lines().last().cloned().unwrap_or_default();
+                if last.ends_with("{{") {
+                    self.open_var_picker(VarPickerTarget::BodyText);
+                }
+            }
             return Ok(());
         }
         match self.body_mode {
@@ -337,6 +390,16 @@ impl App {
             _ => {}
         }
         Ok(())
+    }
+
+    pub fn update_graphql_status_hint(&mut self) {
+        self.status_message = match self.active_graphql_tab {
+            GraphqlTab::Query     => "GraphQL — i: edit query  ←/→: section  s: send  S: save  g: REST mode  q: quit".into(),
+            GraphqlTab::Variables => "GraphQL — a: add var  d: delete  Enter: edit  ↑/↓: navigate  ←/→: section  s: send  g: REST mode  q: quit".into(),
+            GraphqlTab::Headers   => "GraphQL — a: add  d: delete  ↑/↓: navigate  ←/→: section  s: send  g: REST mode  q: quit".into(),
+            GraphqlTab::Schema    => "GraphQL — i: introspect endpoint  ←/→: section  s: send  g: REST mode  q: quit".into(),
+            GraphqlTab::Options   => "GraphQL — ↑/↓: navigate  Space/Enter: toggle/cycle  ←/→: section  s: send  g: REST mode  q: quit".into(),
+        };
     }
 
     pub fn update_request_status_hint(&mut self) {

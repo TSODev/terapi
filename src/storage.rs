@@ -3,8 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::app::CollectionNode;
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StoredCollection {
     pub collection: CollectionMeta,
@@ -41,6 +39,19 @@ pub struct StoredRequest {
     pub description: Option<String>,
 }
 
+impl StoredRequest {
+    pub fn new(name: impl Into<String>, method: impl Into<String>, url: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            method: method.into(),
+            url: url.into(),
+            headers: HashMap::new(),
+            body: None,
+            description: None,
+        }
+    }
+}
+
 /// Resolve the terapi data directory using the following priority:
 ///   1. `TERAPI_DIR` environment variable
 ///   2. `./.terapi/` if the directory exists in the current working dir
@@ -58,7 +69,7 @@ pub fn resolve_terapi_dir() -> PathBuf {
         .join("terapi")
 }
 
-pub fn load_collections() -> Result<Vec<CollectionNode>> {
+pub fn load_collections() -> Result<Vec<StoredCollection>> {
     let dir = resolve_terapi_dir().join("collections");
 
     if !dir.exists() {
@@ -76,13 +87,12 @@ pub fn load_collections() -> Result<Vec<CollectionNode>> {
     for entry in entries {
         let content = std::fs::read_to_string(entry.path())?;
         let stored: StoredCollection = toml::from_str(&content)?;
-        collections.push(stored_to_node(stored));
+        collections.push(stored);
     }
 
     Ok(collections)
 }
 
-#[allow(dead_code)]
 pub fn save_collection(col: &StoredCollection) -> Result<()> {
     let dir = resolve_terapi_dir().join("collections");
     std::fs::create_dir_all(&dir)?;
@@ -94,36 +104,16 @@ pub fn save_collection(col: &StoredCollection) -> Result<()> {
     Ok(())
 }
 
-fn stored_to_node(col: StoredCollection) -> CollectionNode {
-    let mut children: Vec<CollectionNode> = col
-        .folders
-        .into_iter()
-        .map(|folder| CollectionNode::Folder {
-            name: folder.name,
-            expanded: false,
-            children: folder.requests.into_iter().map(request_to_node).collect(),
-        })
-        .collect();
-
-    children.extend(col.requests.into_iter().map(request_to_node));
-
-    CollectionNode::Folder {
-        name: col.collection.name,
-        expanded: true,
-        children,
+pub fn delete_collection(name: &str) -> Result<()> {
+    let dir = resolve_terapi_dir().join("collections");
+    let path = dir.join(format!("{}.toml", sanitize_filename(name)));
+    if path.exists() {
+        std::fs::remove_file(path)?;
     }
+    Ok(())
 }
 
-fn request_to_node(req: StoredRequest) -> CollectionNode {
-    CollectionNode::Request {
-        name: req.name,
-        method: req.method,
-        url: req.url,
-    }
-}
-
-#[allow(dead_code)]
-fn sanitize_filename(name: &str) -> String {
+pub fn sanitize_filename(name: &str) -> String {
     name.chars()
         .map(|c| {
             if c.is_alphanumeric() || c == '-' || c == '_' {

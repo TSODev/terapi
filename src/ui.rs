@@ -2,11 +2,11 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Cell, List, ListItem, Paragraph, Row, Table, TableState, Tabs},
+    widgets::{Block, Borders, Cell, Clear, List, ListItem, Paragraph, Row, Table, TableState, Tabs},
     Frame,
 };
 
-use crate::app::{flatten_collections, App, RequestTab, ResponseView, Tab};
+use crate::app::{flatten_stored, App, InputField, ModalState, RequestTab, ResponseView, Tab, METHODS};
 use crate::json_highlight::{self, ValueType};
 
 pub fn render(frame: &mut Frame, app: &App) {
@@ -24,6 +24,10 @@ pub fn render(frame: &mut Frame, app: &App) {
     render_tabs(frame, app, chunks[0]);
     render_body(frame, app, chunks[1]);
     render_status(frame, app, chunks[2]);
+
+    if app.modal.is_some() {
+        render_modal(frame, app);
+    }
 }
 
 fn render_tabs(frame: &mut Frame, app: &App, area: Rect) {
@@ -254,53 +258,52 @@ fn render_response_raw(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_collections_panel(frame: &mut Frame, app: &App, area: Rect) {
-    let flat = flatten_collections(&app.collections);
+    let flat = flatten_stored(&app.stored_collections, &app.expanded_nodes);
 
-    let items: Vec<ListItem> = flat
-        .iter()
-        .enumerate()
-        .map(|(i, node)| {
-            let indent = "  ".repeat(node.depth);
-            let icon = if node.is_folder {
-                if node.expanded { "▼ " } else { "▶ " }
-            } else {
-                "  "
-            };
-
-            let line = if node.is_folder {
-                Line::from(vec![
-                    Span::raw(format!("{indent}{icon}")),
-                    Span::styled(
-                        node.name.clone(),
-                        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
-                    ),
-                ])
-            } else {
-                let method = node.method.as_deref().unwrap_or("GET");
-                let method_color = match method {
-                    "GET" => Color::Green,
-                    "POST" => Color::Blue,
-                    "PUT" => Color::Yellow,
-                    "PATCH" => Color::Magenta,
-                    "DELETE" => Color::Red,
-                    _ => Color::White,
+    let items: Vec<ListItem> = if flat.is_empty() {
+        vec![ListItem::new(Line::from(Span::styled(
+            "  No collections — press n to create one",
+            Style::default().fg(Color::DarkGray),
+        )))]
+    } else {
+        flat.iter()
+            .enumerate()
+            .map(|(i, node)| {
+                let indent = "  ".repeat(node.depth);
+                let icon = if node.is_folder {
+                    if node.expanded { "▼ " } else { "▶ " }
+                } else {
+                    "  "
                 };
-                Line::from(vec![
-                    Span::raw(format!("{indent}{icon}")),
-                    Span::styled(format!("{method:<7}"), Style::default().fg(method_color)),
-                    Span::styled(node.name.clone(), Style::default().fg(Color::White)),
-                ])
-            };
 
-            let style = if i == app.collection_cursor {
-                Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD)
-            } else {
-                Style::default()
-            };
+                let line = if node.is_folder {
+                    Line::from(vec![
+                        Span::raw(format!("{indent}{icon}")),
+                        Span::styled(
+                            node.name.clone(),
+                            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                        ),
+                    ])
+                } else {
+                    let method = node.method.as_deref().unwrap_or("GET");
+                    let method_color = method_color(method);
+                    Line::from(vec![
+                        Span::raw(format!("{indent}{icon}")),
+                        Span::styled(format!("{method:<7}"), Style::default().fg(method_color)),
+                        Span::styled(node.name.clone(), Style::default().fg(Color::White)),
+                    ])
+                };
 
-            ListItem::new(line).style(style)
-        })
-        .collect();
+                let style = if i == app.collection_cursor {
+                    Style::default().bg(Color::Indexed(237)).add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default()
+                };
+
+                ListItem::new(line).style(style)
+            })
+            .collect()
+    };
 
     let list = List::new(items).block(
         Block::default()
@@ -310,6 +313,136 @@ fn render_collections_panel(frame: &mut Frame, app: &App, area: Rect) {
     );
 
     frame.render_widget(list, area);
+}
+
+fn render_modal(frame: &mut Frame, app: &App) {
+    match &app.modal {
+        Some(ModalState::NewCollection { input }) => {
+            let area = centered_rect(52, 7, frame.area());
+            frame.render_widget(Clear, area);
+
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("  Name: "),
+                    Span::styled(
+                        format!("{}_", input),
+                        Style::default().fg(Color::Yellow),
+                    ),
+                ]),
+                Line::from(""),
+                Line::from(Span::styled(
+                    "  Enter: save   Esc: cancel",
+                    Style::default().fg(Color::DarkGray),
+                )),
+            ];
+
+            let modal = Paragraph::new(text).block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(" New Collection ")
+                    .title_alignment(Alignment::Center)
+                    .border_style(Style::default().fg(Color::Cyan)),
+            );
+            frame.render_widget(modal, area);
+        }
+
+        Some(ModalState::NewRequest { name, method_idx, url, active_field, .. }) => {
+            let area = centered_rect(60, 11, frame.area());
+            frame.render_widget(Clear, area);
+
+            let name_style = if *active_field == InputField::Name {
+                Style::default().fg(Color::Yellow)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            let url_style = if *active_field == InputField::Url {
+                Style::default().fg(Color::Yellow)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            let name_cursor = if *active_field == InputField::Name { "_" } else { "" };
+            let url_cursor  = if *active_field == InputField::Url  { "_" } else { "" };
+
+            let method = METHODS[*method_idx];
+            let method_color = method_color(method);
+
+            let max_url = 44usize;
+            let url_display = if url.len() > max_url {
+                format!("…{}", &url[url.len() - max_url..])
+            } else {
+                url.clone()
+            };
+
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("  Name:   "),
+                    Span::styled(format!("{}{}", name, name_cursor), name_style),
+                ]),
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("  Method: "),
+                    Span::styled("◀ ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(method, Style::default().fg(method_color).add_modifier(Modifier::BOLD)),
+                    Span::styled(" ▶", Style::default().fg(Color::DarkGray)),
+                    Span::styled("  (←/→ to change)", Style::default().fg(Color::DarkGray)),
+                ]),
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("  URL:    "),
+                    Span::styled(format!("{}{}", url_display, url_cursor), url_style),
+                ]),
+                Line::from(""),
+                Line::from(Span::styled(
+                    "  Tab: next field   Enter: save   Esc: cancel",
+                    Style::default().fg(Color::DarkGray),
+                )),
+            ];
+
+            let modal = Paragraph::new(text).block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(" New Request ")
+                    .title_alignment(Alignment::Center)
+                    .border_style(Style::default().fg(Color::Yellow)),
+            );
+            frame.render_widget(modal, area);
+        }
+
+        Some(ModalState::ConfirmDelete { label, .. }) => {
+            let area = centered_rect(52, 7, frame.area());
+            frame.render_widget(Clear, area);
+
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("  Delete "),
+                    Span::styled(
+                        format!("\"{}\"", label),
+                        Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::raw("?"),
+                ]),
+                Line::from(""),
+                Line::from(Span::styled(
+                    "  y / Enter: confirm   n / Esc: cancel",
+                    Style::default().fg(Color::DarkGray),
+                )),
+            ];
+
+            let modal = Paragraph::new(text).block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(" Delete ")
+                    .title_alignment(Alignment::Center)
+                    .border_style(Style::default().fg(Color::Red)),
+            );
+            frame.render_widget(modal, area);
+        }
+
+        None => {}
+    }
 }
 
 fn render_placeholder(frame: &mut Frame, area: Rect, title: &str, msg: &str) {
@@ -330,4 +463,26 @@ fn render_status(frame: &mut Frame, app: &App, area: Rect) {
     let status = Paragraph::new(app.status_message.as_str())
         .style(Style::default().fg(Color::DarkGray));
     frame.render_widget(status, area);
+}
+
+fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {
+    let x = area.x + (area.width.saturating_sub(width)) / 2;
+    let y = area.y + (area.height.saturating_sub(height)) / 2;
+    Rect {
+        x,
+        y,
+        width: width.min(area.width),
+        height: height.min(area.height),
+    }
+}
+
+fn method_color(method: &str) -> Color {
+    match method {
+        "GET"    => Color::Green,
+        "POST"   => Color::Blue,
+        "PUT"    => Color::Yellow,
+        "PATCH"  => Color::Magenta,
+        "DELETE" => Color::Red,
+        _        => Color::White,
+    }
 }

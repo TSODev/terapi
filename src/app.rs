@@ -2,6 +2,10 @@ use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use std::collections::HashSet;
 
+use crate::storage::{CollectionMeta, StoredCollection, StoredFolder, StoredRequest};
+
+pub const METHODS: &[&str] = &["GET", "POST", "PUT", "PATCH", "DELETE"];
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ResponseView {
     Json,
@@ -75,18 +79,36 @@ impl RequestTab {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum InputField {
+    Name,
+    Url,
+}
+
 #[derive(Debug, Clone)]
-pub enum CollectionNode {
-    Folder {
-        name: String,
-        children: Vec<CollectionNode>,
-        expanded: bool,
+pub enum NodeAddress {
+    Collection(usize),
+    Folder(usize, usize),
+    RootRequest(usize, usize),
+    FolderRequest(usize, usize, usize),
+}
+
+#[derive(Debug, Clone)]
+pub enum ModalState {
+    NewCollection {
+        input: String,
     },
-    Request {
+    NewRequest {
         name: String,
-        method: String,
-        #[allow(dead_code)]
+        method_idx: usize,
         url: String,
+        active_field: InputField,
+        collection_idx: usize,
+        folder_idx: Option<usize>,
+    },
+    ConfirmDelete {
+        label: String,
+        address: NodeAddress,
     },
 }
 
@@ -96,74 +118,72 @@ pub struct FlatNode {
     pub is_folder: bool,
     pub expanded: bool,
     pub method: Option<String>,
+    pub address: NodeAddress,
 }
 
-pub fn flatten_collections(nodes: &[CollectionNode]) -> Vec<FlatNode> {
+pub fn flatten_stored(cols: &[StoredCollection], expanded: &HashSet<String>) -> Vec<FlatNode> {
     let mut result = Vec::new();
-    flatten_recursive(nodes, 0, &mut result);
-    result
-}
-
-fn flatten_recursive(nodes: &[CollectionNode], depth: usize, result: &mut Vec<FlatNode>) {
-    for node in nodes {
-        match node {
-            CollectionNode::Folder { name, children, expanded } => {
+    for (ci, col) in cols.iter().enumerate() {
+        let col_key = format!("c{}", ci);
+        let col_expanded = expanded.contains(&col_key);
+        result.push(FlatNode {
+            depth: 0,
+            name: col.collection.name.clone(),
+            is_folder: true,
+            expanded: col_expanded,
+            method: None,
+            address: NodeAddress::Collection(ci),
+        });
+        if col_expanded {
+            for (fi, folder) in col.folders.iter().enumerate() {
+                let folder_key = format!("c{}f{}", ci, fi);
+                let folder_expanded = expanded.contains(&folder_key);
                 result.push(FlatNode {
-                    depth,
-                    name: name.clone(),
+                    depth: 1,
+                    name: folder.name.clone(),
                     is_folder: true,
-                    expanded: *expanded,
+                    expanded: folder_expanded,
                     method: None,
+                    address: NodeAddress::Folder(ci, fi),
                 });
-                if *expanded {
-                    flatten_recursive(children, depth + 1, result);
+                if folder_expanded {
+                    for (ri, req) in folder.requests.iter().enumerate() {
+                        result.push(FlatNode {
+                            depth: 2,
+                            name: req.name.clone(),
+                            is_folder: false,
+                            expanded: false,
+                            method: Some(req.method.clone()),
+                            address: NodeAddress::FolderRequest(ci, fi, ri),
+                        });
+                    }
                 }
             }
-            CollectionNode::Request { name, method, .. } => {
+            for (ri, req) in col.requests.iter().enumerate() {
                 result.push(FlatNode {
-                    depth,
-                    name: name.clone(),
+                    depth: 1,
+                    name: req.name.clone(),
                     is_folder: false,
                     expanded: false,
-                    method: Some(method.clone()),
+                    method: Some(req.method.clone()),
+                    address: NodeAddress::RootRequest(ci, ri),
                 });
             }
         }
     }
-}
-
-fn toggle_at_cursor(nodes: &mut [CollectionNode], cursor: usize) {
-    let mut count = 0;
-    toggle_recursive(nodes, cursor, &mut count);
-}
-
-fn toggle_recursive(nodes: &mut [CollectionNode], cursor: usize, count: &mut usize) -> bool {
-    for node in nodes.iter_mut() {
-        let current = *count;
-        *count += 1;
-
-        if current == cursor {
-            if let CollectionNode::Folder { expanded, .. } = node {
-                *expanded = !*expanded;
-            }
-            return true;
-        }
-
-        if let CollectionNode::Folder { children, expanded, .. } = node {
-            if *expanded && toggle_recursive(children, cursor, count) {
-                return true;
-            }
-        }
-    }
-    false
+    result
 }
 
 pub struct App {
     pub running: bool,
     pub active_tab: Tab,
     pub active_request_tab: RequestTab,
-    pub collections: Vec<CollectionNode>,
+    // Collections
+    pub stored_collections: Vec<StoredCollection>,
+    pub expanded_nodes: HashSet<String>,
     pub collection_cursor: usize,
+    pub modal: Option<ModalState>,
+    // Response
     pub response_body: Option<String>,
     pub response_view: ResponseView,
     pub response_cursor: usize,
@@ -175,85 +195,67 @@ pub struct App {
 
 impl App {
     pub fn new(response_body: Option<String>) -> Self {
-        let collections = match crate::storage::load_collections() {
+        let stored_collections = match crate::storage::load_collections() {
             Ok(cols) if !cols.is_empty() => cols,
-            _ => Self::sample_collections(),
+            _ => Self::sample_stored_collections(),
         };
+        let mut expanded_nodes = HashSet::new();
+        if !stored_collections.is_empty() {
+            expanded_nodes.insert("c0".to_string());
+        }
         Self {
             running: true,
             active_tab: Tab::Request,
             active_request_tab: RequestTab::Description,
-            collections,
+            stored_collections,
+            expanded_nodes,
             collection_cursor: 0,
+            modal: None,
             response_body,
             response_view: ResponseView::Json,
             response_cursor: 0,
             response_scroll: 0,
             response_folds: HashSet::new(),
             key_col_width: 22,
-            status_message: String::from("Tab: panels  ←/→: section  ↑/↓: cursor  Enter: fold  r: raw/json  -/=: resize  q: quit"),
+            status_message: "Tab: panels  ←/→: section  ↑/↓: cursor  Enter: fold  r: raw/json  -/=: resize  q: quit".into(),
         }
     }
 
-    fn sample_collections() -> Vec<CollectionNode> {
+    fn sample_stored_collections() -> Vec<StoredCollection> {
         vec![
-            CollectionNode::Folder {
-                name: "Public APIs".into(),
-                expanded: true,
-                children: vec![
-                    CollectionNode::Folder {
+            StoredCollection {
+                collection: CollectionMeta { name: "Public APIs".into(), description: String::new() },
+                folders: vec![
+                    StoredFolder {
                         name: "Auth".into(),
-                        expanded: false,
-                        children: vec![
-                            CollectionNode::Request {
-                                name: "Login".into(),
-                                method: "POST".into(),
-                                url: "https://api.example.com/auth/login".into(),
-                            },
-                            CollectionNode::Request {
-                                name: "Refresh token".into(),
-                                method: "POST".into(),
-                                url: "https://api.example.com/auth/refresh".into(),
-                            },
+                        requests: vec![
+                            StoredRequest::new("Login", "POST", "https://api.example.com/auth/login"),
+                            StoredRequest::new("Refresh token", "POST", "https://api.example.com/auth/refresh"),
                         ],
                     },
-                    CollectionNode::Request {
-                        name: "List users".into(),
-                        method: "GET".into(),
-                        url: "https://api.example.com/users".into(),
-                    },
-                    CollectionNode::Request {
-                        name: "Create user".into(),
-                        method: "POST".into(),
-                        url: "https://api.example.com/users".into(),
-                    },
-                    CollectionNode::Request {
-                        name: "Delete user".into(),
-                        method: "DELETE".into(),
-                        url: "https://api.example.com/users/{id}".into(),
-                    },
+                ],
+                requests: vec![
+                    StoredRequest::new("List users", "GET", "https://api.example.com/users"),
+                    StoredRequest::new("Create user", "POST", "https://api.example.com/users"),
+                    StoredRequest::new("Delete user", "DELETE", "https://api.example.com/users/{id}"),
                 ],
             },
-            CollectionNode::Folder {
-                name: "GraphQL".into(),
-                expanded: false,
-                children: vec![
-                    CollectionNode::Request {
-                        name: "Introspection".into(),
-                        method: "POST".into(),
-                        url: "https://api.example.com/graphql".into(),
-                    },
-                    CollectionNode::Request {
-                        name: "Get users".into(),
-                        method: "POST".into(),
-                        url: "https://api.example.com/graphql".into(),
-                    },
+            StoredCollection {
+                collection: CollectionMeta { name: "GraphQL".into(), description: String::new() },
+                folders: vec![],
+                requests: vec![
+                    StoredRequest::new("Introspection", "POST", "https://api.example.com/graphql"),
+                    StoredRequest::new("Get users", "POST", "https://api.example.com/graphql"),
                 ],
             },
         ]
     }
 
     pub fn handle_key(&mut self, key: KeyEvent) -> Result<()> {
+        if self.modal.is_some() {
+            return self.handle_modal_key(key);
+        }
+
         match key.code {
             KeyCode::Char('q') | KeyCode::Esc => {
                 self.running = false;
@@ -266,7 +268,7 @@ impl App {
                 };
                 self.status_message = match self.active_tab {
                     Tab::Request => "Tab: switch panel  ←/→: switch section  q: quit".into(),
-                    Tab::Collections => "Tab: switch panel  ↑/↓: navigate  Enter: expand/collapse  q: quit".into(),
+                    Tab::Collections => "Tab: switch panel  ↑/↓: navigate  Enter: expand  n: new collection  a: add request  d: delete  q: quit".into(),
                     Tab::History => "Tab: switch panel  q: quit".into(),
                 };
             }
@@ -326,17 +328,236 @@ impl App {
                 }
             }
             KeyCode::Down if self.active_tab == Tab::Collections => {
-                let flat = flatten_collections(&self.collections);
+                let flat = flatten_stored(&self.stored_collections, &self.expanded_nodes);
                 if self.collection_cursor + 1 < flat.len() {
                     self.collection_cursor += 1;
                 }
             }
             KeyCode::Enter if self.active_tab == Tab::Collections => {
-                toggle_at_cursor(&mut self.collections, self.collection_cursor);
+                self.toggle_collection_cursor();
+            }
+            KeyCode::Char('n') if self.active_tab == Tab::Collections => {
+                self.modal = Some(ModalState::NewCollection { input: String::new() });
+            }
+            KeyCode::Char('a') if self.active_tab == Tab::Collections => {
+                if let Some((ci, fi)) = self.cursor_insertion_context() {
+                    self.modal = Some(ModalState::NewRequest {
+                        name: String::new(),
+                        method_idx: 0,
+                        url: String::new(),
+                        active_field: InputField::Name,
+                        collection_idx: ci,
+                        folder_idx: fi,
+                    });
+                } else {
+                    self.status_message = "No collection selected — press n to create one first.".into();
+                }
+            }
+            KeyCode::Char('d') if self.active_tab == Tab::Collections => {
+                self.open_delete_modal();
             }
             _ => {}
         }
         Ok(())
+    }
+
+    fn handle_modal_key(&mut self, key: KeyEvent) -> Result<()> {
+        match self.modal.take() {
+            Some(ModalState::NewCollection { mut input }) => match key.code {
+                KeyCode::Char(c) => {
+                    input.push(c);
+                    self.modal = Some(ModalState::NewCollection { input });
+                }
+                KeyCode::Backspace => {
+                    input.pop();
+                    self.modal = Some(ModalState::NewCollection { input });
+                }
+                KeyCode::Enter if !input.trim().is_empty() => {
+                    self.create_collection(input.trim().to_string())?;
+                }
+                KeyCode::Esc => {}
+                _ => {
+                    self.modal = Some(ModalState::NewCollection { input });
+                }
+            },
+
+            Some(ModalState::NewRequest {
+                mut name,
+                mut method_idx,
+                mut url,
+                mut active_field,
+                collection_idx,
+                folder_idx,
+            }) => match key.code {
+                KeyCode::Esc => {}
+                KeyCode::Enter if !name.trim().is_empty() && !url.trim().is_empty() => {
+                    let req = StoredRequest::new(name.trim(), METHODS[method_idx], url.trim());
+                    self.add_request(req, collection_idx, folder_idx)?;
+                }
+                KeyCode::Tab => {
+                    active_field = match active_field {
+                        InputField::Name => InputField::Url,
+                        InputField::Url => InputField::Name,
+                    };
+                    self.modal = Some(ModalState::NewRequest { name, method_idx, url, active_field, collection_idx, folder_idx });
+                }
+                KeyCode::Left => {
+                    method_idx = if method_idx == 0 { METHODS.len() - 1 } else { method_idx - 1 };
+                    self.modal = Some(ModalState::NewRequest { name, method_idx, url, active_field, collection_idx, folder_idx });
+                }
+                KeyCode::Right => {
+                    method_idx = (method_idx + 1) % METHODS.len();
+                    self.modal = Some(ModalState::NewRequest { name, method_idx, url, active_field, collection_idx, folder_idx });
+                }
+                KeyCode::Char(c) => {
+                    match active_field {
+                        InputField::Name => name.push(c),
+                        InputField::Url => url.push(c),
+                    }
+                    self.modal = Some(ModalState::NewRequest { name, method_idx, url, active_field, collection_idx, folder_idx });
+                }
+                KeyCode::Backspace => {
+                    match active_field {
+                        InputField::Name => { name.pop(); }
+                        InputField::Url => { url.pop(); }
+                    }
+                    self.modal = Some(ModalState::NewRequest { name, method_idx, url, active_field, collection_idx, folder_idx });
+                }
+                _ => {
+                    self.modal = Some(ModalState::NewRequest { name, method_idx, url, active_field, collection_idx, folder_idx });
+                }
+            },
+
+            Some(ModalState::ConfirmDelete { label, address }) => match key.code {
+                KeyCode::Char('y') | KeyCode::Enter => {
+                    self.delete_node(address)?;
+                }
+                KeyCode::Char('n') | KeyCode::Esc => {}
+                _ => {
+                    self.modal = Some(ModalState::ConfirmDelete { label, address });
+                }
+            },
+
+            None => {}
+        }
+        Ok(())
+    }
+
+    fn toggle_collection_cursor(&mut self) {
+        let flat = flatten_stored(&self.stored_collections, &self.expanded_nodes);
+        if let Some(node) = flat.get(self.collection_cursor) {
+            if node.is_folder {
+                let key = match &node.address {
+                    NodeAddress::Collection(ci) => format!("c{}", ci),
+                    NodeAddress::Folder(ci, fi) => format!("c{}f{}", ci, fi),
+                    _ => return,
+                };
+                if !self.expanded_nodes.remove(&key) {
+                    self.expanded_nodes.insert(key);
+                }
+            }
+        }
+    }
+
+    fn cursor_insertion_context(&self) -> Option<(usize, Option<usize>)> {
+        let flat = flatten_stored(&self.stored_collections, &self.expanded_nodes);
+        let node = flat.get(self.collection_cursor)?;
+        let ctx = match &node.address {
+            NodeAddress::Collection(ci) => (*ci, None),
+            NodeAddress::Folder(ci, fi) => (*ci, Some(*fi)),
+            NodeAddress::RootRequest(ci, _) => (*ci, None),
+            NodeAddress::FolderRequest(ci, fi, _) => (*ci, Some(*fi)),
+        };
+        Some(ctx)
+    }
+
+    fn open_delete_modal(&mut self) {
+        let flat = flatten_stored(&self.stored_collections, &self.expanded_nodes);
+        if let Some(node) = flat.get(self.collection_cursor) {
+            self.modal = Some(ModalState::ConfirmDelete {
+                label: node.name.clone(),
+                address: node.address.clone(),
+            });
+        }
+    }
+
+    fn create_collection(&mut self, name: String) -> Result<()> {
+        let col = StoredCollection {
+            collection: CollectionMeta { name, description: String::new() },
+            folders: vec![],
+            requests: vec![],
+        };
+        crate::storage::save_collection(&col)?;
+        let ci = self.stored_collections.len();
+        self.stored_collections.push(col);
+        self.expanded_nodes.insert(format!("c{}", ci));
+        let flat = flatten_stored(&self.stored_collections, &self.expanded_nodes);
+        self.collection_cursor = flat.len().saturating_sub(1);
+        Ok(())
+    }
+
+    fn add_request(&mut self, req: StoredRequest, ci: usize, fi: Option<usize>) -> Result<()> {
+        if let Some(fi) = fi {
+            self.stored_collections[ci].folders[fi].requests.push(req);
+        } else {
+            self.stored_collections[ci].requests.push(req);
+        }
+        crate::storage::save_collection(&self.stored_collections[ci])?;
+        Ok(())
+    }
+
+    fn delete_node(&mut self, address: NodeAddress) -> Result<()> {
+        match address {
+            NodeAddress::Collection(ci) => {
+                let name = self.stored_collections[ci].collection.name.clone();
+                crate::storage::delete_collection(&name)?;
+                self.stored_collections.remove(ci);
+                self.expanded_nodes.clear();
+                if !self.stored_collections.is_empty() {
+                    self.expanded_nodes.insert("c0".to_string());
+                }
+            }
+            NodeAddress::Folder(ci, fi) => {
+                self.stored_collections[ci].folders.remove(fi);
+                crate::storage::save_collection(&self.stored_collections[ci])?;
+                self.rebuild_expanded_after_folder_remove(ci, fi);
+            }
+            NodeAddress::RootRequest(ci, ri) => {
+                self.stored_collections[ci].requests.remove(ri);
+                crate::storage::save_collection(&self.stored_collections[ci])?;
+            }
+            NodeAddress::FolderRequest(ci, fi, ri) => {
+                self.stored_collections[ci].folders[fi].requests.remove(ri);
+                crate::storage::save_collection(&self.stored_collections[ci])?;
+            }
+        }
+        let flat_len = flatten_stored(&self.stored_collections, &self.expanded_nodes).len();
+        if self.collection_cursor >= flat_len && flat_len > 0 {
+            self.collection_cursor = flat_len - 1;
+        }
+        Ok(())
+    }
+
+    fn rebuild_expanded_after_folder_remove(&mut self, ci: usize, removed_fi: usize) {
+        let old = std::mem::take(&mut self.expanded_nodes);
+        for key in old {
+            let prefix = format!("c{}", ci);
+            if let Some(rest) = key.strip_prefix(&prefix) {
+                if rest.is_empty() {
+                    self.expanded_nodes.insert(key);
+                } else if let Some(fi_str) = rest.strip_prefix('f') {
+                    if let Ok(fi) = fi_str.parse::<usize>() {
+                        if fi < removed_fi {
+                            self.expanded_nodes.insert(key);
+                        } else if fi > removed_fi {
+                            self.expanded_nodes.insert(format!("c{}f{}", ci, fi - 1));
+                        }
+                    }
+                }
+            } else {
+                self.expanded_nodes.insert(key);
+            }
+        }
     }
 
     pub fn tick(&mut self) {}

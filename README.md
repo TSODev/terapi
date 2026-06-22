@@ -106,7 +106,7 @@ terapi --help
 | `Space` / `Enter` | Options sub-tab — toggle (Skip TLS / Follow redirects / Cookie jar) or cycle timeout |
 | `r` | Cycle response view: JSON → Raw → HTTP exchange |
 | `-` / `=` | Resize Key column |
-| `q` / `Esc` | Quit |
+| `q` `q` | Quit (press twice to confirm) |
 
 **Collections panel**
 
@@ -120,7 +120,7 @@ terapi --help
 | `a` | Add request to selected collection / folder |
 | `e` | Edit selected request — loads into Request tab with all fields editable (URL, headers, body, auth, description); `S` opens Update Request modal (pre-filled name/location; change location to save as new) |
 | `d` | Delete selected item |
-| `q` / `Esc` | Quit |
+| `q` `q` | Quit (press twice to confirm) |
 
 **Env panel**
 
@@ -133,7 +133,7 @@ terapi --help
 | `n` | New environment |
 | `a` | Add variable to selected environment |
 | `d` | Delete selected environment or variable |
-| `q` / `Esc` | Quit |
+| `q` `q` | Quit (press twice to confirm) |
 
 **History panel**
 
@@ -143,7 +143,7 @@ terapi --help
 | `↑` / `↓` | Navigate entries |
 | `Enter` | Load request into Request tab |
 | `d` | Delete entry |
-| `q` / `Esc` | Quit |
+| `q` `q` | Quit (press twice to confirm) |
 
 ---
 

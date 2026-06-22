@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **Raw response view — word wrap** — long lines now wrap to the panel width instead of being clipped horizontally. `↑`/`↓` still scroll one visual (wrapped) line at a time.
+
+### Changed
+- **Quit behaviour** — `q` now requires a second press to exit: the first press shows `Press q again to quit` in yellow in the status bar; any other key cancels. `Esc` is no longer a quit shortcut — it only closes modals or exits edit modes; at the top level it does nothing.
+
+---
+
 ## [0.3.0] — 2026-06-22 — Collections, Environments & Polish
 
 ### Changed

@@ -547,7 +547,8 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | Key | Context | Action |
 |-----|---------|--------|
 | `Tab` | Global | Cycle panels: Request → Collections → History |
-| `q` / `Esc` | Global | Quit |
+| `q` | Global | Quit — press twice to confirm (status bar turns yellow on first press) |
+| `Esc` | Global | Close modal / exit edit mode — does **not** quit the app |
 | `n` | Request panel | New request — clear all fields |
 | `e` | Request panel | Enter URL edit mode |
 | `m` | Request panel | Cycle HTTP method (GET → POST → PUT → PATCH → DELETE) |

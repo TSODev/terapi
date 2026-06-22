@@ -41,9 +41,10 @@ method = "GET"
 url    = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/sites?size=10&format=json&pretty=true"
 
 [[folders.requests]]
-name   = "Observations temps réel — hauteur d'eau (H)"
-method = "GET"
-url    = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite=Y251002001&grandeur_hydro=H&size=20&fields=code_station,date_obs,resultat_obs&format=json&pretty=true"
+name        = "Observations temps réel — hauteur d'eau (H)"
+method      = "GET"
+url         = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite=Y251002001&grandeur_hydro=H&size=20&fields=code_station,date_obs,resultat_obs&format=json&pretty=true"
+description = "Hauteur en mètres — données rafraîchies toutes les 5 à 60 min selon la station."
 
 [[folders.requests]]
 name   = "Observations temps réel — débit (Q)"
@@ -81,9 +82,10 @@ method = "GET"
 url    = "https://hubeau.eaufrance.fr/api/v2/qualite_rivieres/station_pc?code_departement=33&size=20&format=geojson"
 
 [[folders.requests]]
-name   = "Analyses physico-chimiques (nitrates, pesticides…)"
-method = "GET"
-url    = "https://hubeau.eaufrance.fr/api/v2/qualite_rivieres/analyse_pc?code_departement=69&size=20&fields=code_station,libelle_station,code_parametre,libelle_parametre,resultat,symbole_unite,date_prelevement&format=json&pretty=true"
+name        = "Analyses physico-chimiques (nitrates, pesticides…)"
+method      = "GET"
+url         = "https://hubeau.eaufrance.fr/api/v2/qualite_rivieres/analyse_pc?code_departement=69&size=20&fields=code_station,libelle_station,code_parametre,libelle_parametre,resultat,symbole_unite,date_prelevement&format=json&pretty=true"
+description = "Mesures de qualité eau par paramètre chimique — remplacez code_departement par le vôtre."
 
 [[folders.requests]]
 name   = "Opérations de prélèvement"

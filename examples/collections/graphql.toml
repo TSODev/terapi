@@ -14,46 +14,51 @@ description = "Countries API and Rick & Morty API — public, no auth, good for 
 name = "Countries API"
 
 [[folders.requests]]
-name   = "List all countries"
-method = "POST"
-url    = "https://countries.trevorblades.com/graphql"
-body   = '{"query": "{ countries { name code capital emoji } }"}'
+name        = "List all countries"
+method      = "POST"
+url         = "https://countries.trevorblades.com/graphql"
+description = "Returns ~250 countries with name, ISO code, capital and flag emoji."
+body        = '{"query": "{ countries { name code capital emoji } }"}'
 
 [folders.requests.headers]
 Content-Type = "application/json"
 
 [[folders.requests]]
-name   = "Get France detail"
-method = "POST"
-url    = "https://countries.trevorblades.com/graphql"
-body   = '{"query": "{ country(code: \"FR\") { name capital currency emoji languages { name } } }"}'
+name        = "Get France detail"
+method      = "POST"
+url         = "https://countries.trevorblades.com/graphql"
+description = "Single country query — shows nested languages array."
+body        = '{"query": "{ country(code: \"FR\") { name capital currency emoji languages { name } } }"}'
 
 [folders.requests.headers]
 Content-Type = "application/json"
 
 [[folders.requests]]
-name   = "List continents"
-method = "POST"
-url    = "https://countries.trevorblades.com/graphql"
-body   = '{"query": "{ continents { name code countries { name } } }"}'
+name        = "List continents"
+method      = "POST"
+url         = "https://countries.trevorblades.com/graphql"
+description = "7 continents with their nested countries list — good for testing tree folding."
+body        = '{"query": "{ continents { name code countries { name } } }"}'
 
 [folders.requests.headers]
 Content-Type = "application/json"
 
 [[folders.requests]]
-name   = "Countries by continent (Europe)"
-method = "POST"
-url    = "https://countries.trevorblades.com/graphql"
-body   = '{"query": "{ continent(code: \"EU\") { name countries { name code capital } } }"}'
+name        = "Countries by continent (Europe)"
+method      = "POST"
+url         = "https://countries.trevorblades.com/graphql"
+description = "Filtered query — all European countries with code and capital."
+body        = '{"query": "{ continent(code: \"EU\") { name countries { name code capital } } }"}'
 
 [folders.requests.headers]
 Content-Type = "application/json"
 
 [[folders.requests]]
-name   = "Schema introspection"
-method = "POST"
-url    = "https://countries.trevorblades.com/graphql"
-body   = '{"query": "{ __schema { types { name kind } } }"}'
+name        = "Schema introspection"
+method      = "POST"
+url         = "https://countries.trevorblades.com/graphql"
+description = "Lists all types in the schema — the foundation of GraphQL tooling (autocomplete, validation)."
+body        = '{"query": "{ __schema { types { name kind } } }"}'
 
 [folders.requests.headers]
 Content-Type = "application/json"
@@ -66,46 +71,51 @@ Content-Type = "application/json"
 name = "Rick & Morty API"
 
 [[folders.requests]]
-name   = "List characters"
-method = "POST"
-url    = "https://rickandmortyapi.com/graphql"
-body   = '{"query": "{ characters { results { id name status species image } } }"}'
+name        = "List characters"
+method      = "POST"
+url         = "https://rickandmortyapi.com/graphql"
+description = "First page of characters — results array with id, name, status, species and image URL."
+body        = '{"query": "{ characters { results { id name status species image } } }"}'
 
 [folders.requests.headers]
 Content-Type = "application/json"
 
 [[folders.requests]]
-name   = "Get Rick Sanchez"
-method = "POST"
-url    = "https://rickandmortyapi.com/graphql"
-body   = '{"query": "{ character(id: 1) { id name status species type gender origin { name } location { name } image } }"}'
+name        = "Get Rick Sanchez"
+method      = "POST"
+url         = "https://rickandmortyapi.com/graphql"
+description = "Single character by ID — shows nested origin and location objects."
+body        = '{"query": "{ character(id: 1) { id name status species type gender origin { name } location { name } image } }"}'
 
 [folders.requests.headers]
 Content-Type = "application/json"
 
 [[folders.requests]]
-name   = "Filter alive humans"
-method = "POST"
-url    = "https://rickandmortyapi.com/graphql"
-body   = '{"query": "{ characters(filter: { status: \"alive\", species: \"Human\" }) { info { count pages } results { name origin { name } } } }"}'
+name        = "Filter alive humans"
+method      = "POST"
+url         = "https://rickandmortyapi.com/graphql"
+description = "Filtered query with multiple arguments — demonstrates GraphQL filter variables."
+body        = '{"query": "{ characters(filter: { status: \"alive\", species: \"Human\" }) { info { count pages } results { name origin { name } } } }"}'
 
 [folders.requests.headers]
 Content-Type = "application/json"
 
 [[folders.requests]]
-name   = "List episodes (page 1)"
-method = "POST"
-url    = "https://rickandmortyapi.com/graphql"
-body   = '{"query": "{ episodes { results { id name air_date episode } } }"}'
+name        = "List episodes (page 1)"
+method      = "POST"
+url         = "https://rickandmortyapi.com/graphql"
+description = "All episodes with air date and episode code (S01E01 format)."
+body        = '{"query": "{ episodes { results { id name air_date episode } } }"}'
 
 [folders.requests.headers]
 Content-Type = "application/json"
 
 [[folders.requests]]
-name   = "Schema introspection"
-method = "POST"
-url    = "https://rickandmortyapi.com/graphql"
-body   = '{"query": "{ __schema { queryType { name } types { name kind description } } }"}'
+name        = "Schema introspection"
+method      = "POST"
+url         = "https://rickandmortyapi.com/graphql"
+description = "Full schema listing with type names, kinds and descriptions — useful for exploring an unknown API."
+body        = '{"query": "{ __schema { queryType { name } types { name kind description } } }"}'
 
 [folders.requests.headers]
 Content-Type = "application/json"

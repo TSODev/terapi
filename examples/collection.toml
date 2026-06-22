@@ -1,59 +1,92 @@
-# Example terapi collection
+# Example terapi collection — annotated template
 # Place in: ~/.config/terapi/collections/  OR  .terapi/collections/  OR $TERAPI_DIR/collections/
 
 [collection]
-name = "My API"
-description = "Example collection — rename and adapt"
+name        = "My API"
+description = "Example collection — rename and adapt to your API"
 
-# --- Folders (optional grouping) ---
+# ─────────────────────────────────────────────────────────────────────────────
+# Folders group related requests (one level deep).
+# Each folder can contain any number of requests.
 
 [[folders]]
 name = "Auth"
 
 [[folders.requests]]
-name = "Login"
-method = "POST"
-url = "https://api.example.com/auth/login"
-description = "Obtain a JWT token"
+name        = "Login"
+method      = "POST"
+url         = "https://api.example.com/auth/login"
+description = "Obtain a JWT token. Activate the cookie jar to capture session cookies set by the server."
 body = '''
 {
   "email": "{{EMAIL}}",
   "password": "{{PASSWORD}}"
 }
 '''
+cookie_jar = true   # store Set-Cookie headers and re-send cookies on subsequent requests
 
 [folders.requests.headers]
 Content-Type = "application/json"
 
 [[folders.requests]]
-name = "Refresh token"
-method = "POST"
-url = "https://api.example.com/auth/refresh"
+name        = "Refresh token"
+method      = "POST"
+url         = "https://api.example.com/auth/refresh"
+description = "Exchange a refresh token for a new access token."
+timeout_secs = 10
 
 [folders.requests.headers]
-Authorization = "Bearer {{TOKEN}}"
+Authorization = "Bearer {{REFRESH_TOKEN}}"
 
-# --- Root-level requests (no folder) ---
-
-[[requests]]
-name = "List users"
-method = "GET"
-url = "https://api.example.com/users"
-
-[requests.headers]
-Authorization = "Bearer {{TOKEN}}"
+# ─────────────────────────────────────────────────────────────────────────────
+# Root-level requests (no folder).
 
 [[requests]]
-name = "Create user"
-method = "POST"
-url = "https://api.example.com/users"
-body = '''
-{
-  "name": "{{NAME}}",
-  "email": "{{EMAIL}}"
-}
-'''
+name        = "List users"
+method      = "GET"
+url         = "https://api.example.com/users"
+description = "Returns a paginated list of users. Requires a valid Bearer token."
+
+[requests.auth]
+auth_type    = "bearer"
+bearer_token = "{{TOKEN}}"
+
+[[requests]]
+name        = "Create user"
+method      = "POST"
+url         = "https://api.example.com/users"
+description = "Create a new user account."
+body        = '{"name": "{{NAME}}", "email": "{{EMAIL}}"}'
+
+[requests.auth]
+auth_type    = "bearer"
+bearer_token = "{{TOKEN}}"
 
 [requests.headers]
-Authorization = "Bearer {{TOKEN}}"
 Content-Type = "application/json"
+
+[[requests]]
+name            = "Internal API (self-signed cert)"
+method          = "GET"
+url             = "https://internal.example.com/status"
+description     = "Health check on an internal server with a self-signed TLS certificate."
+skip_tls_verify = true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Available per-request options (all optional — defaults shown):
+#
+#   description     = "Free text shown in the Description sub-tab"
+#   timeout_secs    = 30       # 5 / 10 / 15 / 20 / 30 / 45 / 60 / 90 / 120 / 300
+#   follow_redirects = true    # automatically follow 3xx responses (up to 10 hops)
+#   skip_tls_verify = false    # accept self-signed / hostname-mismatched certificates
+#   cookie_jar      = false    # store Set-Cookie and re-send cookies across requests
+#
+# Auth section (optional):
+#   [requests.auth]
+#   auth_type      = "none"    # none | bearer | basic | apikey
+#   bearer_token   = "..."
+#   basic_username = "..."
+#   basic_password = "..."
+#   api_key_name   = "X-API-Key"
+#   api_key_value  = "..."
+#   api_key_location = "header"  # header | queryparam

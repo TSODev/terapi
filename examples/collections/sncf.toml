@@ -28,9 +28,10 @@ description = "API horaires et itinéraires SNCF (Navitia). Requiert un token �
 name = "Couverture"
 
 [[folders.requests]]
-name   = "Racine de la couverture SNCF"
-method = "GET"
-url    = "https://api.sncf.com/v1/coverage/sncf/"
+name        = "Racine de la couverture SNCF"
+method      = "GET"
+url         = "https://api.sncf.com/v1/coverage/sncf/"
+description = "Point d'entrée de l'API — liste les collections disponibles (lines, stop_areas, journeys…)."
 
 [folders.requests.auth]
 auth_type     = "basic"
@@ -53,9 +54,10 @@ basic_password = ""
 name = "Gares"
 
 [[folders.requests]]
-name   = "Recherche de gare (autocomplétion)"
-method = "GET"
-url    = "https://api.sncf.com/v1/coverage/sncf/places?q=Lyon&type[]=stop_area&count=10"
+name        = "Recherche de gare (autocomplétion)"
+method      = "GET"
+url         = "https://api.sncf.com/v1/coverage/sncf/places?q=Lyon&type[]=stop_area&count=10"
+description = "Autocomplétion par nom — modifiez q= pour chercher n'importe quelle gare."
 
 [folders.requests.auth]
 auth_type     = "basic"
@@ -143,9 +145,11 @@ basic_password = ""
 name = "Itinéraires"
 
 [[folders.requests]]
-name   = "Paris Montparnasse → Bordeaux St-Jean"
-method = "GET"
-url    = "https://api.sncf.com/v1/coverage/sncf/journeys?from=stop_area:SNCF:87391003&to=stop_area:SNCF:87581009&datetime=20260701T090000&count=5"
+name         = "Paris Montparnasse → Bordeaux St-Jean"
+method       = "GET"
+url          = "https://api.sncf.com/v1/coverage/sncf/journeys?from=stop_area:SNCF:87391003&to=stop_area:SNCF:87581009&datetime=20260701T090000&count=5"
+description  = "Calcul d'itinéraire — modifiez datetime (format YYYYMMDDTHHMMSS) pour changer la date de départ."
+timeout_secs = 15
 
 [folders.requests.auth]
 auth_type     = "basic"
@@ -153,9 +157,11 @@ basic_username = "{{SNCF_TOKEN}}"
 basic_password = ""
 
 [[folders.requests]]
-name   = "Paris Gare de Lyon → Lyon Part-Dieu"
-method = "GET"
-url    = "https://api.sncf.com/v1/coverage/sncf/journeys?from=stop_area:SNCF:87686006&to=stop_area:SNCF:87723197&datetime=20260701T080000&count=5"
+name         = "Paris Gare de Lyon → Lyon Part-Dieu"
+method       = "GET"
+url          = "https://api.sncf.com/v1/coverage/sncf/journeys?from=stop_area:SNCF:87686006&to=stop_area:SNCF:87723197&datetime=20260701T080000&count=5"
+description  = "TGV Paris–Lyon (~2h — résultats incluent modes alternatifs si disponibles)."
+timeout_secs = 15
 
 [folders.requests.auth]
 auth_type     = "basic"
@@ -163,9 +169,11 @@ basic_username = "{{SNCF_TOKEN}}"
 basic_password = ""
 
 [[folders.requests]]
-name   = "Lyon Part-Dieu → Marseille St-Charles"
-method = "GET"
-url    = "https://api.sncf.com/v1/coverage/sncf/journeys?from=stop_area:SNCF:87723197&to=stop_area:SNCF:87751008&datetime=20260701T100000&count=5"
+name         = "Lyon Part-Dieu → Marseille St-Charles"
+method       = "GET"
+url          = "https://api.sncf.com/v1/coverage/sncf/journeys?from=stop_area:SNCF:87723197&to=stop_area:SNCF:87751008&datetime=20260701T100000&count=5"
+description  = "Axe TGV Lyon–Marseille (~1h40). Remplacez les stop_area par ceux de votre choix (voir IDs en tête de fichier)."
+timeout_secs = 15
 
 [folders.requests.auth]
 auth_type     = "basic"
@@ -173,9 +181,11 @@ basic_username = "{{SNCF_TOKEN}}"
 basic_password = ""
 
 [[folders.requests]]
-name   = "Itinéraire par coordonnées GPS"
-method = "GET"
-url    = "https://api.sncf.com/v1/coverage/sncf/journeys?from=2.3488;48.8534&to=4.8357;45.7640&datetime=20260701T090000&count=3"
+name         = "Itinéraire par coordonnées GPS"
+method       = "GET"
+url          = "https://api.sncf.com/v1/coverage/sncf/journeys?from=2.3488;48.8534&to=4.8357;45.7640&datetime=20260701T090000&count=3"
+description  = "Format lon;lat — l'API calcule l'accès piéton jusqu'à la gare la plus proche."
+timeout_secs = 15
 
 [folders.requests.auth]
 auth_type     = "basic"

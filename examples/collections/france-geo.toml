@@ -15,9 +15,10 @@ description = "API Géo (découpage administratif) + API Adresse IGN (géocodage
 name = "API Géo — Communes"
 
 [[folders.requests]]
-name   = "Rechercher une commune par nom"
-method = "GET"
-url    = "https://geo.api.gouv.fr/communes?nom=Lyon&fields=nom,code,codesPostaux,codeDepartement,codeRegion,population&boost=population&limit=5&format=json"
+name        = "Rechercher une commune par nom"
+method      = "GET"
+url         = "https://geo.api.gouv.fr/communes?nom=Lyon&fields=nom,code,codesPostaux,codeDepartement,codeRegion,population&boost=population&limit=5&format=json"
+description = "Modifiez nom= pour chercher n'importe quelle commune. boost=population classe par taille décroissante."
 
 [[folders.requests]]
 name   = "Commune par code INSEE"
@@ -99,9 +100,10 @@ url    = "https://geo.api.gouv.fr/regions/75/departements?fields=nom,code&format
 name = "API Adresse IGN — Géocodage"
 
 [[folders.requests]]
-name   = "Géocoder une adresse"
-method = "GET"
-url    = "https://data.geopf.fr/geocodage/search?q=10+Rue+de+la+Paix+Paris&limit=5"
+name        = "Géocoder une adresse"
+method      = "GET"
+url         = "https://data.geopf.fr/geocodage/search?q=10+Rue+de+la+Paix+Paris&limit=5"
+description = "Retourne des features GeoJSON avec coordonnées, score de confiance et adresse normalisée."
 
 [[folders.requests]]
 name   = "Géocoder avec code postal pour préciser"
@@ -119,9 +121,10 @@ method = "GET"
 url    = "https://data.geopf.fr/geocodage/search?q=Bordeaux&type=municipality&limit=5"
 
 [[folders.requests]]
-name   = "Géocodage inverse — coordonnées → adresse (Tour Eiffel)"
-method = "GET"
-url    = "https://data.geopf.fr/geocodage/reverse?lon=2.2945&lat=48.8584&limit=5"
+name        = "Géocodage inverse — coordonnées → adresse (Tour Eiffel)"
+method      = "GET"
+url         = "https://data.geopf.fr/geocodage/reverse?lon=2.2945&lat=48.8584&limit=5"
+description = "Coordonnées GPS → adresse postale la plus proche. Modifiez lon= et lat= pour n'importe quel point."
 
 [[folders.requests]]
 name   = "Géocodage inverse — Lyon Part-Dieu"

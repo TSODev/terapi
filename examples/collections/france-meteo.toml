@@ -26,9 +26,10 @@ description = "API Météo-France — Prévisions, observations et vigilance. To
 name = "Prévisions"
 
 [[folders.requests]]
-name   = "Prévisions horaires — Paris"
-method = "GET"
-url    = "https://webservice.meteofrance.com/forecast?lat=48.8534&lon=2.3488&lang=fr"
+name        = "Prévisions horaires — Paris"
+method      = "GET"
+url         = "https://webservice.meteofrance.com/forecast?lat=48.8534&lon=2.3488&lang=fr"
+description = "Prévisions sur ~15 jours, pas horaire. Modifiez lat/lon pour n'importe quelle ville (voir coordonnées en tête de fichier)."
 
 [folders.requests.auth]
 auth_type     = "bearer"
@@ -117,9 +118,10 @@ bearer_token  = "{{METEO_TOKEN}}"
 name = "Vigilance"
 
 [[folders.requests]]
-name   = "Phénomènes actuels — France entière"
-method = "GET"
-url    = "https://webservice.meteofrance.com/v3/warning/currentphenomenons?domain=france&depth=1&lang=fr"
+name        = "Phénomènes actuels — France entière"
+method      = "GET"
+url         = "https://webservice.meteofrance.com/v3/warning/currentphenomenons?domain=france&depth=1&lang=fr"
+description = "Vigilances actives sur toute la France — retourne une liste vide si aucun phénomène en cours."
 
 [folders.requests.auth]
 auth_type     = "bearer"

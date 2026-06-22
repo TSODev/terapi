@@ -10,114 +10,130 @@ description = "JSONPlaceholder, ReqRes, httpbin, PokeAPI — all public, no auth
 name = "JSONPlaceholder"
 
 [[folders.requests]]
-name   = "List posts"
-method = "GET"
-url    = "https://jsonplaceholder.typicode.com/posts"
+name        = "List posts"
+method      = "GET"
+url         = "https://jsonplaceholder.typicode.com/posts"
+description = "Returns 100 fake blog posts. Good for testing the JSON tree viewer."
 
 [[folders.requests]]
-name   = "Get post"
-method = "GET"
-url    = "https://jsonplaceholder.typicode.com/posts/1"
+name        = "Get post"
+method      = "GET"
+url         = "https://jsonplaceholder.typicode.com/posts/1"
+description = "Single post by ID."
 
 [[folders.requests]]
-name   = "Create post"
-method = "POST"
-url    = "https://jsonplaceholder.typicode.com/posts"
-body   = '{"title": "terapi test", "body": "Hello from terapi!", "userId": 1}'
+name        = "Create post"
+method      = "POST"
+url         = "https://jsonplaceholder.typicode.com/posts"
+description = "Creates a post (simulated — always returns 201 with id: 101)."
+body        = '{"title": "terapi test", "body": "Hello from terapi!", "userId": 1}'
 
 [folders.requests.headers]
 Content-Type = "application/json"
 
 [[folders.requests]]
-name   = "Update post"
-method = "PUT"
-url    = "https://jsonplaceholder.typicode.com/posts/1"
-body   = '{"id": 1, "title": "updated title", "body": "updated body", "userId": 1}'
+name        = "Update post"
+method      = "PUT"
+url         = "https://jsonplaceholder.typicode.com/posts/1"
+description = "Full replacement of a post (simulated)."
+body        = '{"id": 1, "title": "updated title", "body": "updated body", "userId": 1}'
 
 [folders.requests.headers]
 Content-Type = "application/json"
 
 [[folders.requests]]
-name   = "Delete post"
-method = "DELETE"
-url    = "https://jsonplaceholder.typicode.com/posts/1"
+name        = "Delete post"
+method      = "DELETE"
+url         = "https://jsonplaceholder.typicode.com/posts/1"
+description = "Delete a post (simulated — always returns 200 with empty body)."
 
 [[folders.requests]]
-name   = "List comments on post"
-method = "GET"
-url    = "https://jsonplaceholder.typicode.com/posts/1/comments"
+name        = "List comments on post"
+method      = "GET"
+url         = "https://jsonplaceholder.typicode.com/posts/1/comments"
+description = "Comments nested under a post — good example of a sub-resource URL."
 
 [[folders.requests]]
-name   = "List users"
-method = "GET"
-url    = "https://jsonplaceholder.typicode.com/users"
+name        = "List users"
+method      = "GET"
+url         = "https://jsonplaceholder.typicode.com/users"
+description = "10 fake users with rich nested address and company fields — great for the JSON tree."
 
 # ── ReqRes ────────────────────────────────────────────────────────────────────
 # Simulated auth (login/register), pagination, user management.
-# Returns real JWTs and tokens.
+# Returns real JWTs and tokens. Supports cookie-based sessions on login.
 
 [[folders]]
 name = "ReqRes"
 
 [[folders.requests]]
-name   = "Login (success)"
-method = "POST"
-url    = "https://reqres.in/api/login"
-body   = '{"email": "eve.holt@reqres.in", "password": "cityslicka"}'
+name        = "Login (success)"
+method      = "POST"
+url         = "https://reqres.in/api/login"
+description = "Returns a real token. Cookie jar enabled — any session cookie will be stored and re-sent automatically."
+body        = '{"email": "eve.holt@reqres.in", "password": "cityslicka"}'
+cookie_jar  = true
 
 [folders.requests.headers]
 Content-Type = "application/json"
 
 [[folders.requests]]
-name   = "Login (failure)"
-method = "POST"
-url    = "https://reqres.in/api/login"
-body   = '{"email": "peter@klaven.com"}'
+name        = "Login (failure)"
+method      = "POST"
+url         = "https://reqres.in/api/login"
+description = "Missing password — returns 400 with an error message."
+body        = '{"email": "peter@klaven.com"}'
 
 [folders.requests.headers]
 Content-Type = "application/json"
 
 [[folders.requests]]
-name   = "Register (success)"
-method = "POST"
-url    = "https://reqres.in/api/register"
-body   = '{"email": "eve.holt@reqres.in", "password": "pistol"}'
+name        = "Register (success)"
+method      = "POST"
+url         = "https://reqres.in/api/register"
+description = "Registers with known credentials — returns a token."
+body        = '{"email": "eve.holt@reqres.in", "password": "pistol"}'
 
 [folders.requests.headers]
 Content-Type = "application/json"
 
 [[folders.requests]]
-name   = "List users (page 2)"
-method = "GET"
-url    = "https://reqres.in/api/users?page=2"
+name        = "List users (page 2)"
+method      = "GET"
+url         = "https://reqres.in/api/users?page=2"
+description = "Paginated user list — response includes total_pages for client-side pagination."
 
 [[folders.requests]]
-name   = "Get user"
-method = "GET"
-url    = "https://reqres.in/api/users/2"
+name        = "Get user"
+method      = "GET"
+url         = "https://reqres.in/api/users/2"
+description = "Single user — returns 404 if ID does not exist (try /users/23)."
 
 [[folders.requests]]
-name   = "Create user"
-method = "POST"
-url    = "https://reqres.in/api/users"
-body   = '{"name": "morpheus", "job": "leader"}'
+name        = "Create user"
+method      = "POST"
+url         = "https://reqres.in/api/users"
+description = "Creates a user — returns 201 with the new resource including a server-generated id and createdAt timestamp."
+body        = '{"name": "morpheus", "job": "leader"}'
 
 [folders.requests.headers]
 Content-Type = "application/json"
 
 [[folders.requests]]
-name   = "Update user (PUT)"
-method = "PUT"
-url    = "https://reqres.in/api/users/2"
-body   = '{"name": "morpheus", "job": "zion resident"}'
+name        = "Update user (PUT)"
+method      = "PUT"
+url         = "https://reqres.in/api/users/2"
+description = "Full update — returns 200 with the updated resource and an updatedAt timestamp."
+body        = '{"name": "morpheus", "job": "zion resident"}'
 
 [folders.requests.headers]
 Content-Type = "application/json"
 
 [[folders.requests]]
-name   = "Delete user"
-method = "DELETE"
-url    = "https://reqres.in/api/users/2"
+name        = "Delete user"
+method      = "DELETE"
+url         = "https://reqres.in/api/users/2"
+description = "Returns 204 No Content — no response body."
 
 # ── httpbin ───────────────────────────────────────────────────────────────────
 # Debug / edge-case toolbox. Force any status code, inspect sent headers/body,
@@ -127,49 +143,58 @@ url    = "https://reqres.in/api/users/2"
 name = "httpbin — Debug"
 
 [[folders.requests]]
-name   = "Echo GET params"
-method = "GET"
-url    = "https://httpbin.org/get?foo=bar&env={{ENV}}"
+name        = "Echo GET params"
+method      = "GET"
+url         = "https://httpbin.org/get?foo=bar&source=terapi"
+description = "Echoes back URL params, headers and origin IP. Useful to inspect exactly what terapi sends."
 
 [[folders.requests]]
-name   = "Echo POST body"
-method = "POST"
-url    = "https://httpbin.org/post"
-body   = '{"message": "hello from terapi"}'
+name        = "Echo POST body"
+method      = "POST"
+url         = "https://httpbin.org/post"
+description = "Echoes back the request body as JSON — inspect the data field in the response."
+body        = '{"message": "hello from terapi"}'
 
 [folders.requests.headers]
 Content-Type = "application/json"
 
 [[folders.requests]]
-name   = "Echo request headers"
-method = "GET"
-url    = "https://httpbin.org/headers"
+name        = "Echo request headers"
+method      = "GET"
+url         = "https://httpbin.org/headers"
+description = "Returns all received headers, including the User-Agent set automatically by terapi."
 
 [folders.requests.headers]
 X-Terapi-Test = "true"
 
 [[folders.requests]]
-name   = "Force 404"
-method = "GET"
-url    = "https://httpbin.org/status/404"
+name        = "Force 404"
+method      = "GET"
+url         = "https://httpbin.org/status/404"
+description = "Always returns the requested status code — replace 404 with any HTTP status to test error handling."
 
 [[folders.requests]]
-name   = "Force 500"
-method = "GET"
-url    = "https://httpbin.org/status/500"
+name        = "Force 500"
+method      = "GET"
+url         = "https://httpbin.org/status/500"
+description = "Simulates a server error — useful to test how the client handles 5xx responses."
 
 [[folders.requests]]
-name   = "Delay 2s (timeout test)"
-method = "GET"
-url    = "https://httpbin.org/delay/2"
+name         = "Delay 2s (timeout test)"
+method       = "GET"
+url          = "https://httpbin.org/delay/2"
+description  = "Server waits 2 seconds before responding. Timeout set to 5 s — change it in Options to see the behaviour change."
+timeout_secs = 5
 
 [[folders.requests]]
-name   = "Bearer auth echo"
-method = "GET"
-url    = "https://httpbin.org/bearer"
+name        = "Bearer auth echo"
+method      = "GET"
+url         = "https://httpbin.org/bearer"
+description = "Returns 200 only if a valid Authorization: Bearer header is present. Use the Auth sub-tab to set your token."
 
-[folders.requests.headers]
-Authorization = "Bearer {{TOKEN}}"
+[folders.requests.auth]
+auth_type    = "bearer"
+bearer_token = "{{TOKEN}}"
 
 # ── PokeAPI ───────────────────────────────────────────────────────────────────
 # Complex nested JSON, ideal for the JSON viewer (fold/unfold, Key/Type/Value).
@@ -178,24 +203,28 @@ Authorization = "Bearer {{TOKEN}}"
 name = "PokeAPI"
 
 [[folders.requests]]
-name   = "Get Pikachu"
-method = "GET"
-url    = "https://pokeapi.co/api/v2/pokemon/pikachu"
+name        = "Get Pikachu"
+method      = "GET"
+url         = "https://pokeapi.co/api/v2/pokemon/pikachu"
+description = "Rich nested response — try folding/unfolding nodes in the JSON view with Enter."
 
 [[folders.requests]]
-name   = "Get Charizard"
-method = "GET"
-url    = "https://pokeapi.co/api/v2/pokemon/charizard"
+name        = "Get Charizard"
+method      = "GET"
+url         = "https://pokeapi.co/api/v2/pokemon/charizard"
+description = "Another deeply nested Pokémon — compare stats array structure with Pikachu."
 
 [[folders.requests]]
-name   = "List abilities (paginated)"
-method = "GET"
-url    = "https://pokeapi.co/api/v2/ability?limit=20&offset=0"
+name        = "List abilities (paginated)"
+method      = "GET"
+url         = "https://pokeapi.co/api/v2/ability?limit=20&offset=0"
+description = "Paginated list — increment offset by 20 to browse further pages."
 
 [[folders.requests]]
-name   = "Get Berry"
-method = "GET"
-url    = "https://pokeapi.co/api/v2/berry/1"
+name        = "Get Berry"
+method      = "GET"
+url         = "https://pokeapi.co/api/v2/berry/1"
+description = "Simple resource — good for a quick test of the raw / HTTP response views."
 
 # ── CoinGecko ─────────────────────────────────────────────────────────────────
 # Live crypto data, rate-limiting, financial JSON structures.
@@ -204,16 +233,19 @@ url    = "https://pokeapi.co/api/v2/berry/1"
 name = "CoinGecko"
 
 [[folders.requests]]
-name   = "Bitcoin price (USD)"
-method = "GET"
-url    = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,eur"
+name        = "Bitcoin price (USD)"
+method      = "GET"
+url         = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd,eur"
+description = "Minimal price response — fast, good for a quick connectivity check."
 
 [[folders.requests]]
-name   = "Top 10 coins by market cap"
-method = "GET"
-url    = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1"
+name        = "Top 10 coins by market cap"
+method      = "GET"
+url         = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1"
+description = "Returns an array of 10 coins — each item has 20+ fields, good for the JSON tree."
 
 [[folders.requests]]
-name   = "Ethereum detail"
-method = "GET"
-url    = "https://api.coingecko.com/api/v3/coins/ethereum"
+name        = "Ethereum detail"
+method      = "GET"
+url         = "https://api.coingecko.com/api/v3/coins/ethereum"
+description = "Very large nested response — try cycling response views (r) and folding top-level nodes."

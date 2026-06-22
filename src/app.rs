@@ -1,8 +1,10 @@
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-use crate::storage::{CollectionMeta, StoredCollection, StoredFolder, StoredRequest};
+use crate::storage::{
+    CollectionMeta, EnvMeta, StoredCollection, StoredEnv, StoredFolder, StoredRequest,
+};
 
 pub const METHODS: &[&str] = &["GET", "POST", "PUT", "PATCH", "DELETE"];
 
@@ -16,6 +18,7 @@ pub enum ResponseView {
 pub enum Tab {
     Request,
     Collections,
+    Env,
     History,
 }
 
@@ -24,12 +27,13 @@ impl Tab {
         match self {
             Tab::Request => "Request",
             Tab::Collections => "Collections",
+            Tab::Env => "Env",
             Tab::History => "History",
         }
     }
 
     pub fn all() -> Vec<Tab> {
-        vec![Tab::Request, Tab::Collections, Tab::History]
+        vec![Tab::Request, Tab::Collections, Tab::Env, Tab::History]
     }
 }
 
@@ -85,12 +89,28 @@ pub enum InputField {
     Url,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum VarField {
+    Key,
+    Value,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum EnvFocus {
+    Envs,
+    Vars,
+}
+
 #[derive(Debug, Clone)]
 pub enum NodeAddress {
+    // Collections
     Collection(usize),
     Folder(usize, usize),
     RootRequest(usize, usize),
     FolderRequest(usize, usize, usize),
+    // Environments
+    Env(usize),
+    EnvVar { env_idx: usize, key: String },
 }
 
 #[derive(Debug, Clone)]
@@ -109,6 +129,15 @@ pub enum ModalState {
         active_field: InputField,
         collection_idx: usize,
         folder_idx: Option<usize>,
+    },
+    NewEnv {
+        input: String,
+    },
+    NewVar {
+        key: String,
+        value: String,
+        active_field: VarField,
+        env_idx: usize,
     },
     ConfirmDelete {
         label: String,
@@ -178,6 +207,13 @@ pub fn flatten_stored(cols: &[StoredCollection], expanded: &HashSet<String>) -> 
     result
 }
 
+/// Returns the sorted list of (key, value) pairs for an environment.
+pub fn sorted_vars(env: &StoredEnv) -> Vec<(String, String)> {
+    let mut pairs: Vec<(String, String)> = env.vars.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+    pairs.sort_by(|a, b| a.0.cmp(&b.0));
+    pairs
+}
+
 pub struct App {
     pub running: bool,
     pub active_tab: Tab,
@@ -186,6 +222,13 @@ pub struct App {
     pub stored_collections: Vec<StoredCollection>,
     pub expanded_nodes: HashSet<String>,
     pub collection_cursor: usize,
+    // Environments
+    pub environments: Vec<StoredEnv>,
+    pub active_env_idx: Option<usize>,
+    pub env_cursor: usize,
+    pub env_var_cursor: usize,
+    pub env_focus: EnvFocus,
+    // Modal
     pub modal: Option<ModalState>,
     // Response
     pub response_body: Option<String>,
@@ -207,6 +250,7 @@ impl App {
         if !stored_collections.is_empty() {
             expanded_nodes.insert("c0".to_string());
         }
+        let environments = crate::storage::load_envs().unwrap_or_default();
         Self {
             running: true,
             active_tab: Tab::Request,
@@ -214,6 +258,11 @@ impl App {
             stored_collections,
             expanded_nodes,
             collection_cursor: 0,
+            environments,
+            active_env_idx: None,
+            env_cursor: 0,
+            env_var_cursor: 0,
+            env_focus: EnvFocus::Envs,
             modal: None,
             response_body,
             response_view: ResponseView::Json,
@@ -267,15 +316,19 @@ impl App {
             KeyCode::Tab => {
                 self.active_tab = match self.active_tab {
                     Tab::Request => Tab::Collections,
-                    Tab::Collections => Tab::History,
+                    Tab::Collections => Tab::Env,
+                    Tab::Env => Tab::History,
                     Tab::History => Tab::Request,
                 };
                 self.status_message = match self.active_tab {
-                    Tab::Request => "Tab: switch panel  ←/→: switch section  q: quit".into(),
+                    Tab::Request => "Tab: switch panel  ←/→: section  q: quit".into(),
                     Tab::Collections => "Tab: switch panel  ↑/↓: navigate  Enter: expand  n: new collection  f: new folder  a: add request  d: delete  q: quit".into(),
+                    Tab::Env => "Tab: switch panel  ←/→: switch focus  ↑/↓: navigate  Enter: activate  n: new env  a: add var  d: delete  q: quit".into(),
                     Tab::History => "Tab: switch panel  q: quit".into(),
                 };
             }
+
+            // ── Request panel ──────────────────────────────────────────────
             KeyCode::Right if self.active_tab == Tab::Request => {
                 self.active_request_tab = self.active_request_tab.next();
             }
@@ -326,6 +379,8 @@ impl App {
             KeyCode::Char('=') if self.active_tab == Tab::Request => {
                 self.key_col_width = (self.key_col_width + 2).min(50);
             }
+
+            // ── Collections panel ──────────────────────────────────────────
             KeyCode::Up if self.active_tab == Tab::Collections => {
                 if self.collection_cursor > 0 {
                     self.collection_cursor -= 1;
@@ -345,10 +400,7 @@ impl App {
             }
             KeyCode::Char('f') if self.active_tab == Tab::Collections => {
                 if let Some((ci, _)) = self.cursor_insertion_context() {
-                    self.modal = Some(ModalState::NewFolder {
-                        input: String::new(),
-                        collection_idx: ci,
-                    });
+                    self.modal = Some(ModalState::NewFolder { input: String::new(), collection_idx: ci });
                 } else {
                     self.status_message = "No collection selected — press n to create one first.".into();
                 }
@@ -370,6 +422,75 @@ impl App {
             KeyCode::Char('d') if self.active_tab == Tab::Collections => {
                 self.open_delete_modal();
             }
+
+            // ── Env panel ──────────────────────────────────────────────────
+            KeyCode::Left if self.active_tab == Tab::Env => {
+                self.env_focus = EnvFocus::Envs;
+            }
+            KeyCode::Right if self.active_tab == Tab::Env => {
+                self.env_focus = EnvFocus::Vars;
+            }
+            KeyCode::Up if self.active_tab == Tab::Env => {
+                match self.env_focus {
+                    EnvFocus::Envs => {
+                        if self.env_cursor > 0 {
+                            self.env_cursor -= 1;
+                            self.env_var_cursor = 0;
+                        }
+                    }
+                    EnvFocus::Vars => {
+                        if self.env_var_cursor > 0 {
+                            self.env_var_cursor -= 1;
+                        }
+                    }
+                }
+            }
+            KeyCode::Down if self.active_tab == Tab::Env => {
+                match self.env_focus {
+                    EnvFocus::Envs => {
+                        if self.env_cursor + 1 < self.environments.len() {
+                            self.env_cursor += 1;
+                            self.env_var_cursor = 0;
+                        }
+                    }
+                    EnvFocus::Vars => {
+                        let count = self.environments
+                            .get(self.env_cursor)
+                            .map_or(0, |e| e.vars.len());
+                        if self.env_var_cursor + 1 < count {
+                            self.env_var_cursor += 1;
+                        }
+                    }
+                }
+            }
+            KeyCode::Enter if self.active_tab == Tab::Env && self.env_focus == EnvFocus::Envs => {
+                if self.env_cursor < self.environments.len() {
+                    self.active_env_idx = Some(self.env_cursor);
+                    self.status_message = format!(
+                        "Active env: {}",
+                        self.environments[self.env_cursor].env.name
+                    );
+                }
+            }
+            KeyCode::Char('n') if self.active_tab == Tab::Env => {
+                self.modal = Some(ModalState::NewEnv { input: String::new() });
+            }
+            KeyCode::Char('a') if self.active_tab == Tab::Env => {
+                if !self.environments.is_empty() {
+                    self.modal = Some(ModalState::NewVar {
+                        key: String::new(),
+                        value: String::new(),
+                        active_field: VarField::Key,
+                        env_idx: self.env_cursor,
+                    });
+                } else {
+                    self.status_message = "No environment — press n to create one first.".into();
+                }
+            }
+            KeyCode::Char('d') if self.active_tab == Tab::Env => {
+                self.open_env_delete_modal();
+            }
+
             _ => {}
         }
         Ok(())
@@ -390,9 +511,7 @@ impl App {
                     self.create_collection(input.trim().to_string())?;
                 }
                 KeyCode::Esc => {}
-                _ => {
-                    self.modal = Some(ModalState::NewCollection { input });
-                }
+                _ => { self.modal = Some(ModalState::NewCollection { input }); }
             },
 
             Some(ModalState::NewFolder { mut input, collection_idx }) => match key.code {
@@ -408,18 +527,11 @@ impl App {
                     self.create_folder(input.trim().to_string(), collection_idx)?;
                 }
                 KeyCode::Esc => {}
-                _ => {
-                    self.modal = Some(ModalState::NewFolder { input, collection_idx });
-                }
+                _ => { self.modal = Some(ModalState::NewFolder { input, collection_idx }); }
             },
 
             Some(ModalState::NewRequest {
-                mut name,
-                mut method_idx,
-                mut url,
-                mut active_field,
-                collection_idx,
-                folder_idx,
+                mut name, mut method_idx, mut url, mut active_field, collection_idx, folder_idx,
             }) => match key.code {
                 KeyCode::Esc => {}
                 KeyCode::Enter if !name.trim().is_empty() && !url.trim().is_empty() => {
@@ -442,22 +554,53 @@ impl App {
                     self.modal = Some(ModalState::NewRequest { name, method_idx, url, active_field, collection_idx, folder_idx });
                 }
                 KeyCode::Char(c) => {
-                    match active_field {
-                        InputField::Name => name.push(c),
-                        InputField::Url => url.push(c),
-                    }
+                    match active_field { InputField::Name => name.push(c), InputField::Url => url.push(c) }
                     self.modal = Some(ModalState::NewRequest { name, method_idx, url, active_field, collection_idx, folder_idx });
                 }
                 KeyCode::Backspace => {
-                    match active_field {
-                        InputField::Name => { name.pop(); }
-                        InputField::Url => { url.pop(); }
-                    }
+                    match active_field { InputField::Name => { name.pop(); } InputField::Url => { url.pop(); } }
                     self.modal = Some(ModalState::NewRequest { name, method_idx, url, active_field, collection_idx, folder_idx });
                 }
-                _ => {
-                    self.modal = Some(ModalState::NewRequest { name, method_idx, url, active_field, collection_idx, folder_idx });
+                _ => { self.modal = Some(ModalState::NewRequest { name, method_idx, url, active_field, collection_idx, folder_idx }); }
+            },
+
+            Some(ModalState::NewEnv { mut input }) => match key.code {
+                KeyCode::Char(c) => {
+                    input.push(c);
+                    self.modal = Some(ModalState::NewEnv { input });
                 }
+                KeyCode::Backspace => {
+                    input.pop();
+                    self.modal = Some(ModalState::NewEnv { input });
+                }
+                KeyCode::Enter if !input.trim().is_empty() => {
+                    self.create_env(input.trim().to_string())?;
+                }
+                KeyCode::Esc => {}
+                _ => { self.modal = Some(ModalState::NewEnv { input }); }
+            },
+
+            Some(ModalState::NewVar { key: mut var_key, value: mut var_value, mut active_field, env_idx }) => match key.code {
+                KeyCode::Esc => {}
+                KeyCode::Enter if !var_key.trim().is_empty() => {
+                    self.add_var(var_key.trim().to_string(), var_value.trim().to_string(), env_idx)?;
+                }
+                KeyCode::Tab => {
+                    active_field = match active_field {
+                        VarField::Key => VarField::Value,
+                        VarField::Value => VarField::Key,
+                    };
+                    self.modal = Some(ModalState::NewVar { key: var_key, value: var_value, active_field, env_idx });
+                }
+                KeyCode::Char(c) => {
+                    match active_field { VarField::Key => var_key.push(c), VarField::Value => var_value.push(c) }
+                    self.modal = Some(ModalState::NewVar { key: var_key, value: var_value, active_field, env_idx });
+                }
+                KeyCode::Backspace => {
+                    match active_field { VarField::Key => { var_key.pop(); } VarField::Value => { var_value.pop(); } }
+                    self.modal = Some(ModalState::NewVar { key: var_key, value: var_value, active_field, env_idx });
+                }
+                _ => { self.modal = Some(ModalState::NewVar { key: var_key, value: var_value, active_field, env_idx }); }
             },
 
             Some(ModalState::ConfirmDelete { label, address }) => match key.code {
@@ -465,15 +608,15 @@ impl App {
                     self.delete_node(address)?;
                 }
                 KeyCode::Char('n') | KeyCode::Esc => {}
-                _ => {
-                    self.modal = Some(ModalState::ConfirmDelete { label, address });
-                }
+                _ => { self.modal = Some(ModalState::ConfirmDelete { label, address }); }
             },
 
             None => {}
         }
         Ok(())
     }
+
+    // ── Collections helpers ────────────────────────────────────────────────
 
     fn toggle_collection_cursor(&mut self) {
         let flat = flatten_stored(&self.stored_collections, &self.expanded_nodes);
@@ -499,6 +642,7 @@ impl App {
             NodeAddress::Folder(ci, fi) => (*ci, Some(*fi)),
             NodeAddress::RootRequest(ci, _) => (*ci, None),
             NodeAddress::FolderRequest(ci, fi, _) => (*ci, Some(*fi)),
+            _ => return None,
         };
         Some(ctx)
     }
@@ -530,10 +674,7 @@ impl App {
 
     fn create_folder(&mut self, name: String, ci: usize) -> Result<()> {
         let fi = self.stored_collections[ci].folders.len();
-        self.stored_collections[ci].folders.push(StoredFolder {
-            name,
-            requests: vec![],
-        });
+        self.stored_collections[ci].folders.push(StoredFolder { name, requests: vec![] });
         crate::storage::save_collection(&self.stored_collections[ci])?;
         self.expanded_nodes.insert(format!("c{}f{}", ci, fi));
         let flat = flatten_stored(&self.stored_collections, &self.expanded_nodes);
@@ -565,6 +706,7 @@ impl App {
                 if !self.stored_collections.is_empty() {
                     self.expanded_nodes.insert("c0".to_string());
                 }
+                self.collection_cursor = self.collection_cursor.saturating_sub(1);
             }
             NodeAddress::Folder(ci, fi) => {
                 self.stored_collections[ci].folders.remove(fi);
@@ -578,6 +720,29 @@ impl App {
             NodeAddress::FolderRequest(ci, fi, ri) => {
                 self.stored_collections[ci].folders[fi].requests.remove(ri);
                 crate::storage::save_collection(&self.stored_collections[ci])?;
+            }
+            NodeAddress::Env(ei) => {
+                let name = self.environments[ei].env.name.clone();
+                crate::storage::delete_env(&name)?;
+                self.environments.remove(ei);
+                if self.active_env_idx == Some(ei) {
+                    self.active_env_idx = None;
+                } else if let Some(active) = self.active_env_idx {
+                    if active > ei {
+                        self.active_env_idx = Some(active - 1);
+                    }
+                }
+                if self.env_cursor >= self.environments.len() && !self.environments.is_empty() {
+                    self.env_cursor = self.environments.len() - 1;
+                }
+            }
+            NodeAddress::EnvVar { env_idx, key } => {
+                self.environments[env_idx].vars.remove(&key);
+                crate::storage::save_env(&self.environments[env_idx])?;
+                let count = self.environments[env_idx].vars.len();
+                if self.env_var_cursor >= count && count > 0 {
+                    self.env_var_cursor = count - 1;
+                }
             }
         }
         let flat_len = flatten_stored(&self.stored_collections, &self.expanded_nodes).len();
@@ -608,6 +773,55 @@ impl App {
             }
         }
     }
+
+    // ── Env helpers ────────────────────────────────────────────────────────
+
+    fn create_env(&mut self, name: String) -> Result<()> {
+        let env = StoredEnv {
+            env: EnvMeta { name },
+            vars: HashMap::new(),
+        };
+        crate::storage::save_env(&env)?;
+        self.environments.push(env);
+        self.env_cursor = self.environments.len() - 1;
+        self.env_var_cursor = 0;
+        Ok(())
+    }
+
+    fn add_var(&mut self, key: String, value: String, env_idx: usize) -> Result<()> {
+        self.environments[env_idx].vars.insert(key, value);
+        crate::storage::save_env(&self.environments[env_idx])?;
+        Ok(())
+    }
+
+    fn open_env_delete_modal(&mut self) {
+        match self.env_focus {
+            EnvFocus::Envs => {
+                if let Some(env) = self.environments.get(self.env_cursor) {
+                    self.modal = Some(ModalState::ConfirmDelete {
+                        label: env.env.name.clone(),
+                        address: NodeAddress::Env(self.env_cursor),
+                    });
+                }
+            }
+            EnvFocus::Vars => {
+                if let Some(env) = self.environments.get(self.env_cursor) {
+                    let vars = sorted_vars(env);
+                    if let Some((key, _)) = vars.get(self.env_var_cursor) {
+                        self.modal = Some(ModalState::ConfirmDelete {
+                            label: key.clone(),
+                            address: NodeAddress::EnvVar {
+                                env_idx: self.env_cursor,
+                                key: key.clone(),
+                            },
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Response helpers ───────────────────────────────────────────────────
 
     pub fn tick(&mut self) {}
 

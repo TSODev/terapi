@@ -113,6 +113,66 @@ pub fn delete_collection(name: &str) -> Result<()> {
     Ok(())
 }
 
+// ── Environments ────────────────────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct StoredEnv {
+    pub env: EnvMeta,
+    #[serde(default)]
+    pub vars: HashMap<String, String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct EnvMeta {
+    pub name: String,
+}
+
+pub fn load_envs() -> Result<Vec<StoredEnv>> {
+    let dir = resolve_terapi_dir().join("envs");
+
+    if !dir.exists() {
+        return Ok(vec![]);
+    }
+
+    let mut entries: Vec<_> = std::fs::read_dir(&dir)?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().map_or(false, |ext| ext == "toml"))
+        .collect();
+
+    entries.sort_by_key(|e| e.file_name());
+
+    let mut envs = Vec::new();
+    for entry in entries {
+        let content = std::fs::read_to_string(entry.path())?;
+        let stored: StoredEnv = toml::from_str(&content)?;
+        envs.push(stored);
+    }
+
+    Ok(envs)
+}
+
+pub fn save_env(env: &StoredEnv) -> Result<()> {
+    let dir = resolve_terapi_dir().join("envs");
+    std::fs::create_dir_all(&dir)?;
+
+    let filename = sanitize_filename(&env.env.name);
+    let path = dir.join(format!("{}.toml", filename));
+    let content = toml::to_string_pretty(env)?;
+    std::fs::write(path, content)?;
+    Ok(())
+}
+
+pub fn delete_env(name: &str) -> Result<()> {
+    let dir = resolve_terapi_dir().join("envs");
+    let path = dir.join(format!("{}.toml", sanitize_filename(name)));
+    if path.exists() {
+        std::fs::remove_file(path)?;
+    }
+    Ok(())
+}
+
+// ── Shared ───────────────────────────────────────────────────────────────────
+
 pub fn sanitize_filename(name: &str) -> String {
     name.chars()
         .map(|c| {

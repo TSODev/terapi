@@ -6,7 +6,10 @@ use ratatui::{
     Frame,
 };
 
-use crate::app::{flatten_stored, App, InputField, ModalState, RequestTab, ResponseView, Tab, METHODS};
+use crate::app::{
+    flatten_stored, sorted_vars, App, EnvFocus, InputField, ModalState, RequestTab, ResponseView,
+    Tab, VarField, METHODS,
+};
 use crate::json_highlight::{self, ValueType};
 
 pub fn render(frame: &mut Frame, app: &App) {
@@ -31,15 +34,8 @@ pub fn render(frame: &mut Frame, app: &App) {
 }
 
 fn render_tabs(frame: &mut Frame, app: &App, area: Rect) {
-    let tabs: Vec<Line> = Tab::all()
-        .into_iter()
-        .map(|t| Line::from(t.title()))
-        .collect();
-
-    let selected = Tab::all()
-        .into_iter()
-        .position(|t| t == app.active_tab)
-        .unwrap_or(0);
+    let tabs: Vec<Line> = Tab::all().into_iter().map(|t| Line::from(t.title())).collect();
+    let selected = Tab::all().into_iter().position(|t| t == app.active_tab).unwrap_or(0);
 
     let tabs_widget = Tabs::new(tabs)
         .block(
@@ -61,9 +57,12 @@ fn render_body(frame: &mut Frame, app: &App, area: Rect) {
     match app.active_tab {
         Tab::Request => render_request_panel(frame, app, area),
         Tab::Collections => render_collections_panel(frame, app, area),
+        Tab::Env => render_env_panel(frame, app, area),
         Tab::History => render_placeholder(frame, area, "History", "Recent requests will appear here."),
     }
 }
+
+// ── Request panel ────────────────────────────────────────────────────────────
 
 fn render_request_panel(frame: &mut Frame, app: &App, area: Rect) {
     let chunks = Layout::default()
@@ -92,22 +91,11 @@ fn render_request_panel(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_request_subtabs(frame: &mut Frame, app: &App, area: Rect) {
-    let tabs: Vec<Line> = RequestTab::all()
-        .into_iter()
-        .map(|t| Line::from(t.title()))
-        .collect();
-
-    let selected = RequestTab::all()
-        .into_iter()
-        .position(|t| t == app.active_request_tab)
-        .unwrap_or(0);
+    let tabs: Vec<Line> = RequestTab::all().into_iter().map(|t| Line::from(t.title())).collect();
+    let selected = RequestTab::all().into_iter().position(|t| t == app.active_request_tab).unwrap_or(0);
 
     let sub_tabs = Tabs::new(tabs)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::DarkGray)),
-        )
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::DarkGray)))
         .select(selected)
         .style(Style::default().fg(Color::DarkGray))
         .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
@@ -171,7 +159,7 @@ fn render_response(frame: &mut Frame, app: &App, area: Rect) {
 
     match app.response_view {
         ResponseView::Json => render_response_json(frame, app, inner),
-        ResponseView::Raw  => render_response_raw(frame, app, inner),
+        ResponseView::Raw => render_response_raw(frame, app, inner),
     }
 }
 
@@ -188,17 +176,14 @@ fn render_response_json(frame: &mut Frame, app: &App, area: Rect) {
             Some(_) => "▼ ",
             None => "  ",
         };
-
         let key_color = match r.value_type {
             ValueType::Object | ValueType::Array => Color::Cyan,
             _ => Color::White,
         };
-
         let key_cell = Cell::from(Line::from(vec![
             Span::raw(format!("{}{}", indent, icon)),
             Span::styled(r.key.clone(), Style::default().fg(key_color)),
         ]));
-
         let (type_color, type_label) = match r.value_type {
             ValueType::Object  => (Color::Cyan,    "Object "),
             ValueType::Array   => (Color::Blue,    "Array  "),
@@ -207,7 +192,6 @@ fn render_response_json(frame: &mut Frame, app: &App, area: Rect) {
             ValueType::Boolean => (Color::Magenta, "Boolean"),
             ValueType::Null    => (Color::DarkGray,"Null   "),
         };
-
         let value_color = match r.value_type {
             ValueType::Object | ValueType::Array => Color::White,
             ValueType::Str     => Color::Green,
@@ -215,7 +199,6 @@ fn render_response_json(frame: &mut Frame, app: &App, area: Rect) {
             ValueType::Boolean => Color::Magenta,
             ValueType::Null    => Color::DarkGray,
         };
-
         Row::new(vec![
             key_cell,
             Cell::from(Span::styled(type_label, Style::default().fg(type_color))),
@@ -257,6 +240,8 @@ fn render_response_raw(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(para, area);
 }
 
+// ── Collections panel ────────────────────────────────────────────────────────
+
 fn render_collections_panel(frame: &mut Frame, app: &App, area: Rect) {
     let flat = flatten_stored(&app.stored_collections, &app.expanded_nodes);
 
@@ -266,43 +251,33 @@ fn render_collections_panel(frame: &mut Frame, app: &App, area: Rect) {
             Style::default().fg(Color::DarkGray),
         )))]
     } else {
-        flat.iter()
-            .enumerate()
-            .map(|(i, node)| {
-                let indent = "  ".repeat(node.depth);
-                let icon = if node.is_folder {
-                    if node.expanded { "▼ " } else { "▶ " }
-                } else {
-                    "  "
-                };
-
-                let line = if node.is_folder {
-                    Line::from(vec![
-                        Span::raw(format!("{indent}{icon}")),
-                        Span::styled(
-                            node.name.clone(),
-                            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
-                        ),
-                    ])
-                } else {
-                    let method = node.method.as_deref().unwrap_or("GET");
-                    let method_color = method_color(method);
-                    Line::from(vec![
-                        Span::raw(format!("{indent}{icon}")),
-                        Span::styled(format!("{method:<7}"), Style::default().fg(method_color)),
-                        Span::styled(node.name.clone(), Style::default().fg(Color::White)),
-                    ])
-                };
-
-                let style = if i == app.collection_cursor {
-                    Style::default().bg(Color::Indexed(237)).add_modifier(Modifier::BOLD)
-                } else {
-                    Style::default()
-                };
-
-                ListItem::new(line).style(style)
-            })
-            .collect()
+        flat.iter().enumerate().map(|(i, node)| {
+            let indent = "  ".repeat(node.depth);
+            let icon = if node.is_folder {
+                if node.expanded { "▼ " } else { "▶ " }
+            } else {
+                "  "
+            };
+            let line = if node.is_folder {
+                Line::from(vec![
+                    Span::raw(format!("{indent}{icon}")),
+                    Span::styled(node.name.clone(), Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                ])
+            } else {
+                let method = node.method.as_deref().unwrap_or("GET");
+                Line::from(vec![
+                    Span::raw(format!("{indent}{icon}")),
+                    Span::styled(format!("{method:<7}"), Style::default().fg(method_color(method))),
+                    Span::styled(node.name.clone(), Style::default().fg(Color::White)),
+                ])
+            };
+            let style = if i == app.collection_cursor {
+                Style::default().bg(Color::Indexed(237)).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
+            ListItem::new(line).style(style)
+        }).collect()
     };
 
     let list = List::new(items).block(
@@ -311,92 +286,182 @@ fn render_collections_panel(frame: &mut Frame, app: &App, area: Rect) {
             .title(" Collections ")
             .border_style(Style::default().fg(Color::Cyan)),
     );
-
     frame.render_widget(list, area);
 }
+
+// ── Env panel ────────────────────────────────────────────────────────────────
+
+fn render_env_panel(frame: &mut Frame, app: &App, area: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
+        .split(area);
+
+    render_env_list(frame, app, chunks[0]);
+    render_env_vars(frame, app, chunks[1]);
+}
+
+fn render_env_list(frame: &mut Frame, app: &App, area: Rect) {
+    let focused = app.env_focus == EnvFocus::Envs;
+    let border_style = if focused {
+        Style::default().fg(Color::Yellow)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+
+    let items: Vec<ListItem> = if app.environments.is_empty() {
+        vec![ListItem::new(Line::from(Span::styled(
+            "  No environments",
+            Style::default().fg(Color::DarkGray),
+        ))),
+        ListItem::new(Line::from(Span::styled(
+            "  Press n to create one",
+            Style::default().fg(Color::DarkGray),
+        )))]
+    } else {
+        app.environments.iter().enumerate().map(|(i, env)| {
+            let active = app.active_env_idx == Some(i);
+            let indicator = if active { "● " } else { "  " };
+            let line = Line::from(vec![
+                Span::styled(indicator, Style::default().fg(Color::Green)),
+                Span::styled(env.env.name.clone(), Style::default().fg(if active { Color::Green } else { Color::White })),
+            ]);
+            let style = if i == app.env_cursor && focused {
+                Style::default().bg(Color::Indexed(237)).add_modifier(Modifier::BOLD)
+            } else if i == app.env_cursor {
+                Style::default().bg(Color::Indexed(235))
+            } else {
+                Style::default()
+            };
+            ListItem::new(line).style(style)
+        }).collect()
+    };
+
+    let list = List::new(items).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Environments ")
+            .border_style(border_style),
+    );
+    frame.render_widget(list, area);
+}
+
+fn render_env_vars(frame: &mut Frame, app: &App, area: Rect) {
+    let focused = app.env_focus == EnvFocus::Vars;
+    let border_style = if focused {
+        Style::default().fg(Color::Yellow)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+
+    let Some(env) = app.environments.get(app.env_cursor) else {
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title(" Variables ")
+            .border_style(border_style);
+        frame.render_widget(
+            Paragraph::new("Select an environment.")
+                .block(block)
+                .style(Style::default().fg(Color::DarkGray))
+                .alignment(Alignment::Center),
+            area,
+        );
+        return;
+    };
+
+    let vars = sorted_vars(env);
+
+    let items: Vec<ListItem> = if vars.is_empty() {
+        vec![ListItem::new(Line::from(Span::styled(
+            "  No variables — press a to add one",
+            Style::default().fg(Color::DarkGray),
+        )))]
+    } else {
+        vars.iter().enumerate().map(|(i, (k, v))| {
+            let line = Line::from(vec![
+                Span::styled(format!("  {:<22}", k), Style::default().fg(Color::Cyan)),
+                Span::styled("= ", Style::default().fg(Color::DarkGray)),
+                Span::styled(v.clone(), Style::default().fg(Color::Green)),
+            ]);
+            let style = if i == app.env_var_cursor && focused {
+                Style::default().bg(Color::Indexed(237)).add_modifier(Modifier::BOLD)
+            } else if i == app.env_var_cursor {
+                Style::default().bg(Color::Indexed(235))
+            } else {
+                Style::default()
+            };
+            ListItem::new(line).style(style)
+        }).collect()
+    };
+
+    let title = format!(" {} — Variables ", env.env.name);
+    let list = List::new(items).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(title)
+            .border_style(border_style),
+    );
+    frame.render_widget(list, area);
+}
+
+// ── Modals ───────────────────────────────────────────────────────────────────
 
 fn render_modal(frame: &mut Frame, app: &App) {
     match &app.modal {
         Some(ModalState::NewCollection { input }) => {
             let area = centered_rect(52, 7, frame.area());
             frame.render_widget(Clear, area);
-
             let text = vec![
                 Line::from(""),
                 Line::from(vec![
                     Span::raw("  Name: "),
-                    Span::styled(
-                        format!("{}_", input),
-                        Style::default().fg(Color::Yellow),
-                    ),
+                    Span::styled(format!("{}_", input), Style::default().fg(Color::Yellow)),
                 ]),
                 Line::from(""),
-                Line::from(Span::styled(
-                    "  Enter: save   Esc: cancel",
-                    Style::default().fg(Color::DarkGray),
-                )),
+                Line::from(Span::styled("  Enter: save   Esc: cancel", Style::default().fg(Color::DarkGray))),
             ];
-
-            let modal = Paragraph::new(text).block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title(" New Collection ")
-                    .title_alignment(Alignment::Center)
-                    .border_style(Style::default().fg(Color::Cyan)),
+            frame.render_widget(
+                Paragraph::new(text).block(
+                    Block::default().borders(Borders::ALL)
+                        .title(" New Collection ").title_alignment(Alignment::Center)
+                        .border_style(Style::default().fg(Color::Cyan)),
+                ),
+                area,
             );
-            frame.render_widget(modal, area);
         }
 
         Some(ModalState::NewFolder { input, .. }) => {
             let area = centered_rect(52, 7, frame.area());
             frame.render_widget(Clear, area);
-
             let text = vec![
                 Line::from(""),
                 Line::from(vec![
                     Span::raw("  Name: "),
-                    Span::styled(
-                        format!("{}_", input),
-                        Style::default().fg(Color::Cyan),
-                    ),
+                    Span::styled(format!("{}_", input), Style::default().fg(Color::Cyan)),
                 ]),
                 Line::from(""),
-                Line::from(Span::styled(
-                    "  Enter: save   Esc: cancel",
-                    Style::default().fg(Color::DarkGray),
-                )),
+                Line::from(Span::styled("  Enter: save   Esc: cancel", Style::default().fg(Color::DarkGray))),
             ];
-
-            let modal = Paragraph::new(text).block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title(" New Folder ")
-                    .title_alignment(Alignment::Center)
-                    .border_style(Style::default().fg(Color::Cyan)),
+            frame.render_widget(
+                Paragraph::new(text).block(
+                    Block::default().borders(Borders::ALL)
+                        .title(" New Folder ").title_alignment(Alignment::Center)
+                        .border_style(Style::default().fg(Color::Cyan)),
+                ),
+                area,
             );
-            frame.render_widget(modal, area);
         }
 
         Some(ModalState::NewRequest { name, method_idx, url, active_field, .. }) => {
             let area = centered_rect(60, 11, frame.area());
             frame.render_widget(Clear, area);
 
-            let name_style = if *active_field == InputField::Name {
-                Style::default().fg(Color::Yellow)
-            } else {
-                Style::default().fg(Color::White)
-            };
-            let url_style = if *active_field == InputField::Url {
-                Style::default().fg(Color::Yellow)
-            } else {
-                Style::default().fg(Color::White)
-            };
+            let name_style = if *active_field == InputField::Name { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
+            let url_style  = if *active_field == InputField::Url  { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
             let name_cursor = if *active_field == InputField::Name { "_" } else { "" };
             let url_cursor  = if *active_field == InputField::Url  { "_" } else { "" };
 
             let method = METHODS[*method_idx];
-            let method_color = method_color(method);
-
             let max_url = 44usize;
             let url_display = if url.len() > max_url {
                 format!("…{}", &url[url.len() - max_url..])
@@ -406,74 +471,107 @@ fn render_modal(frame: &mut Frame, app: &App) {
 
             let text = vec![
                 Line::from(""),
-                Line::from(vec![
-                    Span::raw("  Name:   "),
-                    Span::styled(format!("{}{}", name, name_cursor), name_style),
-                ]),
+                Line::from(vec![Span::raw("  Name:   "), Span::styled(format!("{}{}", name, name_cursor), name_style)]),
                 Line::from(""),
                 Line::from(vec![
                     Span::raw("  Method: "),
                     Span::styled("◀ ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(method, Style::default().fg(method_color).add_modifier(Modifier::BOLD)),
+                    Span::styled(method, Style::default().fg(method_color(method)).add_modifier(Modifier::BOLD)),
                     Span::styled(" ▶", Style::default().fg(Color::DarkGray)),
                     Span::styled("  (←/→ to change)", Style::default().fg(Color::DarkGray)),
                 ]),
                 Line::from(""),
+                Line::from(vec![Span::raw("  URL:    "), Span::styled(format!("{}{}", url_display, url_cursor), url_style)]),
+                Line::from(""),
+                Line::from(Span::styled("  Tab: next field   Enter: save   Esc: cancel", Style::default().fg(Color::DarkGray))),
+            ];
+            frame.render_widget(
+                Paragraph::new(text).block(
+                    Block::default().borders(Borders::ALL)
+                        .title(" New Request ").title_alignment(Alignment::Center)
+                        .border_style(Style::default().fg(Color::Yellow)),
+                ),
+                area,
+            );
+        }
+
+        Some(ModalState::NewEnv { input }) => {
+            let area = centered_rect(52, 7, frame.area());
+            frame.render_widget(Clear, area);
+            let text = vec![
+                Line::from(""),
                 Line::from(vec![
-                    Span::raw("  URL:    "),
-                    Span::styled(format!("{}{}", url_display, url_cursor), url_style),
+                    Span::raw("  Name: "),
+                    Span::styled(format!("{}_", input), Style::default().fg(Color::Yellow)),
                 ]),
                 Line::from(""),
-                Line::from(Span::styled(
-                    "  Tab: next field   Enter: save   Esc: cancel",
-                    Style::default().fg(Color::DarkGray),
-                )),
+                Line::from(Span::styled("  Enter: save   Esc: cancel", Style::default().fg(Color::DarkGray))),
             ];
-
-            let modal = Paragraph::new(text).block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title(" New Request ")
-                    .title_alignment(Alignment::Center)
-                    .border_style(Style::default().fg(Color::Yellow)),
+            frame.render_widget(
+                Paragraph::new(text).block(
+                    Block::default().borders(Borders::ALL)
+                        .title(" New Environment ").title_alignment(Alignment::Center)
+                        .border_style(Style::default().fg(Color::Yellow)),
+                ),
+                area,
             );
-            frame.render_widget(modal, area);
+        }
+
+        Some(ModalState::NewVar { key, value, active_field, .. }) => {
+            let area = centered_rect(60, 9, frame.area());
+            frame.render_widget(Clear, area);
+
+            let key_style   = if *active_field == VarField::Key   { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
+            let val_style   = if *active_field == VarField::Value { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
+            let key_cursor  = if *active_field == VarField::Key   { "_" } else { "" };
+            let val_cursor  = if *active_field == VarField::Value { "_" } else { "" };
+
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![Span::raw("  Key:   "), Span::styled(format!("{}{}", key, key_cursor), key_style)]),
+                Line::from(""),
+                Line::from(vec![Span::raw("  Value: "), Span::styled(format!("{}{}", value, val_cursor), val_style)]),
+                Line::from(""),
+                Line::from(Span::styled("  Tab: next field   Enter: save   Esc: cancel", Style::default().fg(Color::DarkGray))),
+            ];
+            frame.render_widget(
+                Paragraph::new(text).block(
+                    Block::default().borders(Borders::ALL)
+                        .title(" New Variable ").title_alignment(Alignment::Center)
+                        .border_style(Style::default().fg(Color::Yellow)),
+                ),
+                area,
+            );
         }
 
         Some(ModalState::ConfirmDelete { label, .. }) => {
             let area = centered_rect(52, 7, frame.area());
             frame.render_widget(Clear, area);
-
             let text = vec![
                 Line::from(""),
                 Line::from(vec![
                     Span::raw("  Delete "),
-                    Span::styled(
-                        format!("\"{}\"", label),
-                        Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
-                    ),
+                    Span::styled(format!("\"{}\"", label), Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
                     Span::raw("?"),
                 ]),
                 Line::from(""),
-                Line::from(Span::styled(
-                    "  y / Enter: confirm   n / Esc: cancel",
-                    Style::default().fg(Color::DarkGray),
-                )),
+                Line::from(Span::styled("  y / Enter: confirm   n / Esc: cancel", Style::default().fg(Color::DarkGray))),
             ];
-
-            let modal = Paragraph::new(text).block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title(" Delete ")
-                    .title_alignment(Alignment::Center)
-                    .border_style(Style::default().fg(Color::Red)),
+            frame.render_widget(
+                Paragraph::new(text).block(
+                    Block::default().borders(Borders::ALL)
+                        .title(" Delete ").title_alignment(Alignment::Center)
+                        .border_style(Style::default().fg(Color::Red)),
+                ),
+                area,
             );
-            frame.render_widget(modal, area);
         }
 
         None => {}
     }
 }
+
+// ── Shared helpers ───────────────────────────────────────────────────────────
 
 fn render_placeholder(frame: &mut Frame, area: Rect, title: &str, msg: &str) {
     let widget = Paragraph::new(msg)
@@ -485,7 +583,6 @@ fn render_placeholder(frame: &mut Frame, area: Rect, title: &str, msg: &str) {
         )
         .style(Style::default().fg(Color::DarkGray))
         .alignment(Alignment::Center);
-
     frame.render_widget(widget, area);
 }
 
@@ -498,12 +595,7 @@ fn render_status(frame: &mut Frame, app: &App, area: Rect) {
 fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {
     let x = area.x + (area.width.saturating_sub(width)) / 2;
     let y = area.y + (area.height.saturating_sub(height)) / 2;
-    Rect {
-        x,
-        y,
-        width: width.min(area.width),
-        height: height.min(area.height),
-    }
+    Rect { x, y, width: width.min(area.width), height: height.min(area.height) }
 }
 
 fn method_color(method: &str) -> Color {

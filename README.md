@@ -112,7 +112,7 @@ terapi --help
 | `n` | New collection |
 | `f` | New folder in selected collection |
 | `a` | Add request to selected collection / folder |
-| `e` | Edit selected request — loads into Request tab with all fields editable (URL, headers, body, auth, description); `S` to save back in place |
+| `e` | Edit selected request — loads into Request tab with all fields editable (URL, headers, body, auth, description); `S` opens Update Request modal (pre-filled name/location; change location to save as new) |
 | `d` | Delete selected item |
 | `q` / `Esc` | Quit |
 

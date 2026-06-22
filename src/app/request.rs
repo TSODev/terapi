@@ -142,6 +142,7 @@ impl App {
         self.auth_config = AuthConfig::default();
         self.auth_field_cursor = 0;
         self.editing_request_origin = None;
+        self.editing_request_name = String::new();
         self.last_request_raw = None;
         self.response_body = None;
         self.response_status = None;

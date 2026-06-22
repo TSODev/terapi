@@ -8,7 +8,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Changed
-- **Edit request from Collections** — pressing `e` on a request node now loads the request fully into the Request tab (instead of opening a limited modal). All fields are editable: URL, method, headers, URL params, body, auth, and **description**. Press `S` to save the changes back to the same collection slot (direct overwrite, no modal). Press `n` to discard and start a new blank request.
+- **Edit request from Collections** — pressing `e` on a request node now loads the request fully into the Request tab (instead of opening a limited modal). All fields are editable: URL, method, headers, URL params, body, auth, and **description**. Press `S` to open the **Update Request** modal pre-filled with the original name and location:
+  - Keep location → saves in place (rename supported: just edit the Name field)
+  - Change collection or folder → saves as a new entry at the new location (original preserved)
+  - Press `n` to discard and start a new blank request instead
 - **Description sub-tab** — now a real editable textarea (replaces the static placeholder). Press `i` to enter edit mode (border turns green), `Esc` to exit. Description is persisted in the collection TOML and restored when loading a request from Collections.
 - **Response panel** — takes 2/3 of the available height (up from 1/2), giving more room to inspect responses.
 - **`S: save` hint** — shown in the status bar on every Request sub-tab (was previously missing from Headers, URL Params, Body, Auth, and Options).

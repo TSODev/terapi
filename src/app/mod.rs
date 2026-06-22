@@ -50,6 +50,7 @@ pub struct App {
     pub request_focus: RequestFocus,
     pub request_loading: bool,
     pub editing_request_origin: Option<(usize, Option<usize>, usize)>,
+    pub editing_request_name: String,
     // Auth
     pub auth_config: AuthConfig,
     pub auth_field_cursor: usize,
@@ -115,6 +116,7 @@ impl App {
             request_focus: RequestFocus::Response,
             request_loading: false,
             editing_request_origin: None,
+            editing_request_name: String::new(),
             auth_config: AuthConfig::default(),
             auth_field_cursor: 0,
             skip_tls_verify: false,
@@ -249,15 +251,19 @@ impl App {
                 self.new_request();
             }
             KeyCode::Char('S') if self.active_tab == Tab::Request => {
-                if let Some((ci, fi, ri)) = self.editing_request_origin {
-                    self.overwrite_request(ci, fi, ri)?;
-                } else if self.stored_collections.is_empty() {
+                if self.stored_collections.is_empty() {
                     self.status_message = "No collections — create one first in the Collections tab".into();
                 } else {
+                    let (name, collection_idx, folder_display_idx) =
+                        if let Some((ci, fi, _)) = self.editing_request_origin {
+                            (self.editing_request_name.clone(), ci, fi.map_or(0, |f| f + 1))
+                        } else {
+                            (String::new(), 0, 0)
+                        };
                     self.modal = Some(ModalState::SaveRequest {
-                        name: String::new(),
-                        collection_idx: 0,
-                        folder_display_idx: 0,
+                        name,
+                        collection_idx,
+                        folder_display_idx,
                         active_field: SaveField::Name,
                     });
                 }
@@ -550,13 +556,17 @@ impl App {
                             NodeAddress::FolderRequest(ci, fi, ri) => (*ci, Some(*fi), *ri),
                             _ => return Ok(()),
                         };
+                        let req_name = if let Some(fi) = fi {
+                            self.stored_collections[ci].folders[fi].requests[ri].name.clone()
+                        } else {
+                            self.stored_collections[ci].requests[ri].name.clone()
+                        };
                         let address = node.address.clone();
                         self.load_collection_request(&address);
                         self.editing_request_origin = Some((ci, fi, ri));
+                        self.editing_request_name = req_name;
                         self.active_request_tab = RequestTab::Description;
-                        self.status_message = format!(
-                            "Editing — i: description  ←/→: section  S: save  s: send  n: new request  q: quit"
-                        );
+                        self.status_message = "Editing — i: description  ←/→: section  S: save  s: send  n: new request  q: quit".into();
                     }
                 }
             }
@@ -916,7 +926,13 @@ impl App {
                     KeyCode::Esc => {}
                     KeyCode::Enter if !name.trim().is_empty() && n_cols > 0 => {
                         let fi = if folder_display_idx == 0 { None } else { Some(folder_display_idx - 1) };
-                        self.save_request_to_collection(name.trim().to_string(), collection_idx, fi)?;
+                        let overwrite_origin = self.editing_request_origin
+                            .filter(|(oci, ofi, _)| *oci == collection_idx && *ofi == fi);
+                        if let Some((ci, ofi, ri)) = overwrite_origin {
+                            self.overwrite_request(name.trim().to_string(), ci, ofi, ri)?;
+                        } else {
+                            self.save_request_to_collection(name.trim().to_string(), collection_idx, fi)?;
+                        }
                     }
                     KeyCode::Tab => {
                         active_field = match active_field {

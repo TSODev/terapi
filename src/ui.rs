@@ -1334,6 +1334,14 @@ fn render_modal(frame: &mut Frame, app: &App) {
                 folder_label.clone()
             };
 
+            let is_edit_mode = app.editing_request_origin.is_some();
+            let hint = if is_edit_mode {
+                "  Tab: next field   ↑/↓: navigate   Enter: save   Esc: cancel  (change location → save as new)"
+            } else {
+                "  Tab: next field   ↑/↓: navigate   Enter: save   Esc: cancel"
+            };
+            let modal_title = if is_edit_mode { " Update Request " } else { " Save Request " };
+
             let text = vec![
                 Line::from(""),
                 Line::from(vec![
@@ -1351,15 +1359,12 @@ fn render_modal(frame: &mut Frame, app: &App) {
                     Span::styled(folder_nav, folder_style),
                 ]),
                 Line::from(""),
-                Line::from(Span::styled(
-                    "  Tab: next field   ↑/↓: navigate   Enter: save   Esc: cancel",
-                    Style::default().fg(Color::Gray),
-                )),
+                Line::from(Span::styled(hint, Style::default().fg(Color::Gray))),
             ];
             frame.render_widget(
                 Paragraph::new(text).block(
                     Block::default().borders(Borders::ALL)
-                        .title(" Save Request ").title_alignment(Alignment::Center)
+                        .title(modal_title).title_alignment(Alignment::Center)
                         .border_style(Style::default().fg(Color::Green)),
                 ),
                 area,

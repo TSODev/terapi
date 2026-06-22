@@ -435,7 +435,18 @@ The request is added to:
 
 **Loading a request (`Enter` on a request node)** — pressing `Enter` on a non-folder item loads the request into the Request tab and switches to it. Method, URL, headers, and body are all restored. The response area is cleared and the status bar confirms the load.
 
-**Editing a request (`e`)** — pressing `e` on a request node loads the request fully into the **Request tab** and switches to it. All fields are editable: URL (press `e` to enter URL mode), method (`m` or `↑`/`↓` in URL mode), headers, URL params, body, auth, and description (`i` to edit). Press `S` to save all changes back to the same collection slot (direct overwrite — no modal). Press `n` to discard and start a new blank request instead.
+**Editing a request (`e`)** — pressing `e` on a request node loads the request fully into the **Request tab** and switches to it. All fields are editable: URL (press `e` to enter URL mode), method (`m` or `↑`/`↓` in URL mode), headers, URL params, body, auth, and description (`i` to edit).
+
+Press `S` to open the **Update Request** modal, pre-filled with the original name, collection, and folder:
+
+| Action | Result |
+|--------|--------|
+| Keep name + keep location → `Enter` | Saves in place (overwrites) |
+| Edit name + keep location → `Enter` | Renames the request in place |
+| Change collection or folder → `Enter` | Saves as a new entry at the new location (original preserved) |
+| `Esc` | Cancel — no changes written |
+
+Press `n` to discard all edits and start a new blank request instead.
 
 **Deleting (`d`)** — a confirmation modal shows the item name. Press `y` or `Enter` to confirm, `n` or `Esc` to cancel.
 

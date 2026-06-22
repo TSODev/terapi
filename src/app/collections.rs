@@ -177,7 +177,7 @@ impl App {
         Ok(())
     }
 
-    pub(super) fn overwrite_request(&mut self, ci: usize, fi: Option<usize>, ri: usize) -> Result<()> {
+    pub(super) fn overwrite_request(&mut self, name: String, ci: usize, fi: Option<usize>, ri: usize) -> Result<()> {
         use std::collections::HashMap as HMap;
         // Compute all values from self before taking a mutable borrow on stored_collections
         let url = if self.request_url_params.is_empty() {
@@ -211,16 +211,17 @@ impl App {
         } else {
             &mut self.stored_collections[ci].requests[ri]
         };
+        req.name = name.clone();
         req.method = method;
         req.url = url;
         req.headers = headers;
         req.body = body;
         req.description = description;
         req.auth = auth;
-        let name = req.name.clone();
 
         crate::storage::save_collection(&self.stored_collections[ci])?;
         self.editing_request_origin = None;
+        self.editing_request_name = String::new();
         self.status_message = format!("Saved: \"{}\"  —  s: send  S: save again  q: quit", name);
         Ok(())
     }

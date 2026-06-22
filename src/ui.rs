@@ -7,8 +7,8 @@ use ratatui::{
 };
 
 use crate::app::{
-    flatten_stored, sorted_vars, App, EnvFocus, InputField, ModalState, RequestFocus, RequestTab,
-    ResponseView, Tab, VarField, METHODS,
+    flatten_stored, sorted_vars, App, BodyMode, EnvFocus, InputField, ModalState, RequestFocus,
+    RequestTab, ResponseView, Tab, VarField, METHODS,
 };
 use crate::json_highlight::{self, ValueType};
 
@@ -177,6 +177,13 @@ fn render_request_content(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_body_editor(frame: &mut Frame, app: &App, area: Rect) {
+    match app.body_mode {
+        BodyMode::Text => render_body_text(frame, app, area),
+        BodyMode::Json => render_body_json(frame, app, area),
+    }
+}
+
+fn render_body_text(frame: &mut Frame, app: &App, area: Rect) {
     let editing = app.request_focus == RequestFocus::Body;
     let border_style = if editing {
         Style::default().fg(Color::Green)
@@ -184,16 +191,15 @@ fn render_body_editor(frame: &mut Frame, app: &App, area: Rect) {
         Style::default().fg(Color::Yellow)
     };
     let title = if editing {
-        " Body  [editing — Esc to exit] ".to_string()
+        " Body  [Text — Esc: exit] ".to_string()
     } else {
         let lines = app.body_textarea.lines().iter().filter(|l| !l.trim().is_empty()).count();
         if lines == 0 {
-            " Body  [i: edit] ".to_string()
+            " Body  [Text]  i: edit  t: JSON mode ".to_string()
         } else {
-            format!(" Body  ({} lines)  [i: edit] ", lines)
+            format!(" Body  [Text]  ({} lines)  i: edit  t: JSON mode ", lines)
         }
     };
-
     let block = Block::default()
         .borders(Borders::ALL)
         .title(title)
@@ -201,6 +207,69 @@ fn render_body_editor(frame: &mut Frame, app: &App, area: Rect) {
     let inner = block.inner(area);
     frame.render_widget(block, area);
     frame.render_widget(&app.body_textarea, inner);
+}
+
+fn render_body_json(frame: &mut Frame, app: &App, area: Rect) {
+    let editing = app.request_focus == RequestFocus::Body;
+    let border_style = if editing {
+        Style::default().fg(Color::Green)
+    } else {
+        Style::default().fg(Color::Yellow)
+    };
+    let n = app.body_json_pairs.len();
+    let title = if editing {
+        " Body  [JSON — a: add  d: delete  Enter: edit  Esc: exit] ".to_string()
+    } else if n == 0 {
+        " Body  [JSON]  i: edit  t: text mode ".to_string()
+    } else {
+        format!(" Body  [JSON]  ({} fields)  i: edit  t: text mode ", n)
+    };
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(title)
+        .border_style(border_style);
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    if app.body_json_pairs.is_empty() {
+        let hint = if editing { "  a: add a field" } else { "  No fields — press i then a to add" };
+        frame.render_widget(
+            Paragraph::new(hint).style(Style::default().fg(Color::Gray)),
+            inner,
+        );
+        return;
+    }
+
+    let rows: Vec<Row> = app.body_json_pairs.iter().enumerate().map(|(i, (k, v))| {
+        let value_color = json_value_color(v);
+        let style = if editing && i == app.body_json_cursor {
+            Style::default().bg(Color::Indexed(237)).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default()
+        };
+        Row::new(vec![
+            Cell::from(Span::styled(format!(" {}", k), Style::default().fg(Color::Cyan))),
+            Cell::from(Span::styled(v.clone(), Style::default().fg(value_color))),
+        ]).style(style)
+    }).collect();
+
+    let header = Row::new(vec![
+        Cell::from(Span::styled(" Key", Style::default().fg(Color::White).add_modifier(Modifier::BOLD))),
+        Cell::from(Span::styled("Value", Style::default().fg(Color::White).add_modifier(Modifier::BOLD))),
+    ])
+    .style(Style::default().bg(Color::Indexed(236)))
+    .height(1);
+
+    let widths = [Constraint::Percentage(40), Constraint::Percentage(60)];
+    let table = Table::new(rows, widths).header(header).column_spacing(1);
+    frame.render_widget(table, inner);
+}
+
+fn json_value_color(v: &str) -> Color {
+    if v == "null" { Color::DarkGray }
+    else if v == "true" || v == "false" { Color::Magenta }
+    else if v.parse::<f64>().is_ok() { Color::Yellow }
+    else { Color::Green }
 }
 
 fn render_headers_editor(frame: &mut Frame, app: &App, area: Rect) {
@@ -708,6 +777,32 @@ fn render_modal(frame: &mut Frame, app: &App) {
                     Block::default().borders(Borders::ALL)
                         .title(" New Header ").title_alignment(Alignment::Center)
                         .border_style(Style::default().fg(Color::Cyan)),
+                ),
+                area,
+            );
+        }
+
+        Some(ModalState::BodyPair { key, value, active_field, edit_idx }) => {
+            let area = centered_rect(64, 9, frame.area());
+            frame.render_widget(Clear, area);
+            let key_style  = if *active_field == VarField::Key   { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
+            let val_style  = if *active_field == VarField::Value { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
+            let key_cursor = if *active_field == VarField::Key   { "_" } else { "" };
+            let val_cursor = if *active_field == VarField::Value { "_" } else { "" };
+            let modal_title = if edit_idx.is_some() { " Edit Field " } else { " Add Field " };
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![Span::raw("  Key:   "), Span::styled(format!("{}{}", key, key_cursor), key_style)]),
+                Line::from(""),
+                Line::from(vec![Span::raw("  Value: "), Span::styled(format!("{}{}", value, val_cursor), val_style)]),
+                Line::from(""),
+                Line::from(Span::styled("  Tab: next field   Enter: save   Esc: cancel", Style::default().fg(Color::Gray))),
+            ];
+            frame.render_widget(
+                Paragraph::new(text).block(
+                    Block::default().borders(Borders::ALL)
+                        .title(modal_title).title_alignment(Alignment::Center)
+                        .border_style(Style::default().fg(Color::Yellow)),
                 ),
                 area,
             );

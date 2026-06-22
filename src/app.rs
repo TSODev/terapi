@@ -31,6 +31,12 @@ pub enum RequestFocus {
 pub const METHODS: &[&str] = &["GET", "POST", "PUT", "PATCH", "DELETE"];
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum BodyMode {
+    Text,
+    Json,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum ResponseView {
     Json,
     Raw,
@@ -166,6 +172,12 @@ pub enum ModalState {
         value: String,
         active_field: VarField,
     },
+    BodyPair {
+        key: String,
+        value: String,
+        active_field: VarField,
+        edit_idx: Option<usize>,
+    },
     ConfirmDelete {
         label: String,
         address: NodeAddress,
@@ -262,7 +274,10 @@ pub struct App {
     pub request_method_idx: usize,
     pub request_headers: Vec<(String, String)>,
     pub header_cursor: usize,
+    pub body_mode: BodyMode,
     pub body_textarea: TextArea<'static>,
+    pub body_json_pairs: Vec<(String, String)>,
+    pub body_json_cursor: usize,
     pub request_focus: RequestFocus,
     pub request_loading: bool,
     // Response
@@ -310,7 +325,10 @@ impl App {
             request_method_idx: 0,
             request_headers: Vec::new(),
             header_cursor: 0,
+            body_mode: BodyMode::Text,
             body_textarea: TextArea::default(),
+            body_json_pairs: Vec::new(),
+            body_json_cursor: 0,
             request_focus: RequestFocus::Response,
             request_loading: false,
             response_body,
@@ -442,7 +460,17 @@ impl App {
                     && self.active_request_tab == RequestTab::Body =>
             {
                 self.request_focus = RequestFocus::Body;
-                self.status_message = "Body: editing JSON  Esc: exit editor".into();
+                self.status_message = match self.body_mode {
+                    BodyMode::Text => "Body [Text]: editing  Esc: exit editor".into(),
+                    BodyMode::Json => "Body [JSON]: ↑↓: navigate  a: add  d: delete  Enter: edit  Esc: exit".into(),
+                };
+            }
+            KeyCode::Char('t')
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::Body
+                    && self.request_focus != RequestFocus::Body =>
+            {
+                self.toggle_body_mode();
             }
             KeyCode::Char('m') if self.active_tab == Tab::Request => {
                 self.request_method_idx = (self.request_method_idx + 1) % METHODS.len();
@@ -786,6 +814,31 @@ impl App {
                 _ => { self.modal = Some(ModalState::NewHeader { key: hdr_key, value: hdr_val, active_field }); }
             },
 
+            Some(ModalState::BodyPair { key: mut bp_key, value: mut bp_val, mut active_field, edit_idx }) => match key.code {
+                KeyCode::Esc => {}
+                KeyCode::Enter if !bp_key.trim().is_empty() => {
+                    if let Some(idx) = edit_idx {
+                        self.body_json_pairs[idx] = (bp_key.trim().to_string(), bp_val.trim().to_string());
+                    } else {
+                        self.body_json_pairs.push((bp_key.trim().to_string(), bp_val.trim().to_string()));
+                        self.body_json_cursor = self.body_json_pairs.len() - 1;
+                    }
+                }
+                KeyCode::Tab => {
+                    active_field = match active_field { VarField::Key => VarField::Value, VarField::Value => VarField::Key };
+                    self.modal = Some(ModalState::BodyPair { key: bp_key, value: bp_val, active_field, edit_idx });
+                }
+                KeyCode::Char(c) => {
+                    match active_field { VarField::Key => bp_key.push(c), VarField::Value => bp_val.push(c) }
+                    self.modal = Some(ModalState::BodyPair { key: bp_key, value: bp_val, active_field, edit_idx });
+                }
+                KeyCode::Backspace => {
+                    match active_field { VarField::Key => { bp_key.pop(); } VarField::Value => { bp_val.pop(); } }
+                    self.modal = Some(ModalState::BodyPair { key: bp_key, value: bp_val, active_field, edit_idx });
+                }
+                _ => { self.modal = Some(ModalState::BodyPair { key: bp_key, value: bp_val, active_field, edit_idx }); }
+            },
+
             Some(ModalState::ConfirmDelete { label, address }) => match key.code {
                 KeyCode::Char('y') | KeyCode::Enter => {
                     self.delete_node(address)?;
@@ -849,6 +902,9 @@ impl App {
             } else {
                 TextArea::default()
             };
+            self.body_mode = BodyMode::Text;
+            self.body_json_pairs = Vec::new();
+            self.body_json_cursor = 0;
             self.request_focus = RequestFocus::Response;
             self.response_body = None;
             self.response_status = None;
@@ -1115,9 +1171,16 @@ impl App {
         let method = METHODS[self.request_method_idx].to_string();
         let tx = self.response_tx.clone();
 
-        // Extract body text; None if empty
-        let body_text = self.body_textarea.lines().join("\n");
-        let body = if body_text.trim().is_empty() { None } else { Some(body_text) };
+        let body = match self.body_mode {
+            BodyMode::Text => {
+                let text = self.body_textarea.lines().join("\n");
+                if text.trim().is_empty() { None } else { Some(text) }
+            }
+            BodyMode::Json => {
+                if self.body_json_pairs.is_empty() { None }
+                else { Some(serialize_body_json(&self.body_json_pairs)) }
+            }
+        };
 
         self.request_loading = true;
         self.request_focus = RequestFocus::Response;
@@ -1148,7 +1211,10 @@ impl App {
     fn update_request_status_hint(&mut self) {
         self.status_message = match self.active_request_tab {
             RequestTab::Headers => "Tab: panels  a: add  d: delete  ↑/↓: navigate  ←/→: section  e: edit URL  s: send  q: quit".into(),
-            RequestTab::Body => "Tab: panels  i: edit body  ←/→: section  e: edit URL  s: send  q: quit".into(),
+            RequestTab::Body => match self.body_mode {
+                BodyMode::Text => "Tab: panels  i: edit body  t: JSON mode  ←/→: section  s: send  q: quit".into(),
+                BodyMode::Json => "Tab: panels  i: edit fields  t: text mode  ←/→: section  s: send  q: quit".into(),
+            },
             _ => "Tab: panels  e: edit URL  s: send  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into(),
         };
     }
@@ -1159,8 +1225,88 @@ impl App {
             self.update_request_status_hint();
             return Ok(());
         }
-        self.body_textarea.input(tui_textarea::Input::from(key));
+        match self.body_mode {
+            BodyMode::Text => {
+                self.body_textarea.input(tui_textarea::Input::from(key));
+            }
+            BodyMode::Json => {
+                self.handle_body_json_key(key)?;
+            }
+        }
         Ok(())
+    }
+
+    fn handle_body_json_key(&mut self, key: KeyEvent) -> Result<()> {
+        match key.code {
+            KeyCode::Up => {
+                if self.body_json_cursor > 0 {
+                    self.body_json_cursor -= 1;
+                }
+            }
+            KeyCode::Down => {
+                if self.body_json_cursor + 1 < self.body_json_pairs.len() {
+                    self.body_json_cursor += 1;
+                }
+            }
+            KeyCode::Char('a') => {
+                self.modal = Some(ModalState::BodyPair {
+                    key: String::new(),
+                    value: String::new(),
+                    active_field: VarField::Key,
+                    edit_idx: None,
+                });
+            }
+            KeyCode::Char('d') if !self.body_json_pairs.is_empty() => {
+                self.body_json_pairs.remove(self.body_json_cursor);
+                if self.body_json_cursor > 0 && self.body_json_cursor >= self.body_json_pairs.len() {
+                    self.body_json_cursor -= 1;
+                }
+            }
+            KeyCode::Enter | KeyCode::Char('e') if !self.body_json_pairs.is_empty() => {
+                let (k, v) = self.body_json_pairs[self.body_json_cursor].clone();
+                self.modal = Some(ModalState::BodyPair {
+                    key: k,
+                    value: v,
+                    active_field: VarField::Key,
+                    edit_idx: Some(self.body_json_cursor),
+                });
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn toggle_body_mode(&mut self) {
+        match self.body_mode {
+            BodyMode::Text => {
+                // Try to parse textarea content as a JSON object → populate pairs
+                let text = self.body_textarea.lines().join("\n");
+                if let Ok(serde_json::Value::Object(map)) = serde_json::from_str::<serde_json::Value>(&text) {
+                    self.body_json_pairs = map.into_iter()
+                        .map(|(k, v)| {
+                            let s = match &v {
+                                serde_json::Value::String(s) => s.clone(),
+                                serde_json::Value::Null => "null".to_string(),
+                                other => other.to_string(),
+                            };
+                            (k, s)
+                        })
+                        .collect();
+                    self.body_json_cursor = 0;
+                }
+                self.body_mode = BodyMode::Json;
+            }
+            BodyMode::Json => {
+                // Serialize pairs → pretty JSON in the textarea
+                if !self.body_json_pairs.is_empty() {
+                    let json = serialize_body_json(&self.body_json_pairs);
+                    let lines: Vec<String> = json.lines().map(|l| l.to_string()).collect();
+                    self.body_textarea = TextArea::from(lines);
+                }
+                self.body_mode = BodyMode::Text;
+            }
+        }
+        self.update_request_status_hint();
     }
 
     fn toggle_response_fold(&mut self) {
@@ -1235,6 +1381,28 @@ async fn execute_http(method: &str, url: &str, headers: &[(String, String)], bod
     let body = resp.text().await.map_err(|e| e.to_string())?;
 
     Ok(HttpResult { status, body, headers, elapsed_ms })
+}
+
+fn serialize_body_json(pairs: &[(String, String)]) -> String {
+    use serde_json::{Map, Number, Value};
+    let mut map = Map::new();
+    for (k, v) in pairs {
+        let val = if v == "null" {
+            Value::Null
+        } else if v == "true" {
+            Value::Bool(true)
+        } else if v == "false" {
+            Value::Bool(false)
+        } else if let Ok(n) = v.parse::<i64>() {
+            Value::Number(Number::from(n))
+        } else if let Ok(f) = v.parse::<f64>() {
+            Value::Number(Number::from_f64(f).unwrap_or(Number::from(0)))
+        } else {
+            Value::String(v.clone())
+        };
+        map.insert(k.clone(), val);
+    }
+    serde_json::to_string_pretty(&Value::Object(map)).unwrap_or_else(|_| "{}".to_string())
 }
 
 fn http_status_label(status: u16) -> String {

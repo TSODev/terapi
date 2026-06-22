@@ -144,7 +144,7 @@ The response block title shows the **status code** (color-coded green/yellow/red
 | URL Params | Query string parameters |
 | Body | Raw JSON body editor |
 | Auth | Authentication — No Auth / Bearer / Basic / API Key |
-| Options | TLS verification, timeout, redirects |
+| Options | TLS verification, timeout, redirects, cookie jar |
 
 #### Auth sub-tab
 
@@ -221,30 +221,35 @@ The saved request includes method, URL (with query params appended), headers, an
 
 #### Options sub-tab
 
-Navigate to the Options sub-tab with `←/→`. Use `↑`/`↓` to move between the three options, `Space` or `Enter` to toggle or cycle the selected one.
+Navigate to the Options sub-tab with `←/→`. Use `↑`/`↓` to move between the four options, `Space` or `Enter` to toggle or cycle the selected one.
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | Skip TLS verification | off | Accept self-signed or hostname-mismatched certificates |
 | Follow redirects | on | Automatically follow 3xx responses (up to 10 hops) |
 | Timeout | 30 s | Request timeout — cycles through presets: 5 / 10 / 15 / 20 / 30 / 45 / 60 / 90 / 120 / 300 s |
+| Cookie jar | off | Store received cookies and re-send them on subsequent requests (session mode) |
 
 Active boolean options turn yellow. The timeout shows the current value in brackets (e.g. `[30s]`); each press of `Space`/`Enter` advances to the next preset, wrapping back to 5 s after 300 s.
 
 ```
 ┌─ Options ──────────────────────────────────────────────────────────┐
 │                                                                      │
-│▶ [x] Skip TLS verification  (accept self-signed / mismatched certs) │
+│▶ [ ] Skip TLS verification  (accept self-signed / mismatched certs) │
 │                                                                      │
-│  [ ] Follow redirects        (automatically follow 3xx, up to 10)   │
+│  [x] Follow redirects        (automatically follow 3xx, up to 10)   │
 │                                                                      │
 │  [30s] Timeout               (Space/Enter cycles: 5→10→…→300 s)     │
+│                                                                      │
+│  [ ] Cookie jar              (store & send cookies across requests)  │
 │                                                                      │
 │  ↑/↓: navigate   Space/Enter: toggle / cycle timeout                │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-All three options are persisted in the collection TOML and restored when loading a request from Collections.
+**Cookie jar** — when enabled, terapi behaves like a browser for cookies: `Set-Cookie` headers received in responses are stored and automatically included in the `Cookie` header of subsequent requests. Useful for testing session-based authentication (login → session cookie → authenticated requests).
+
+The jar is cleared automatically when the option is toggled off or when starting a new request (`n`). All four options are persisted in the collection TOML and restored when loading a request from Collections.
 
 #### URL Params editor
 

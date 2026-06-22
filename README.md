@@ -98,7 +98,7 @@ terapi --help
 | `Space` / `Enter` | Auth sub-tab (Type row) — cycle auth type (No Auth → Bearer → Basic → API Key) |
 | `Enter` | Auth sub-tab (field row) — open edit modal for token / username / password / key |
 | `↑` / `↓` | Options sub-tab — navigate between options |
-| `Space` / `Enter` | Options sub-tab — toggle (Skip TLS / Follow redirects) or cycle timeout |
+| `Space` / `Enter` | Options sub-tab — toggle (Skip TLS / Follow redirects / Cookie jar) or cycle timeout |
 | `r` | Cycle response view: JSON → Raw → HTTP exchange |
 | `-` / `=` | Resize Key column |
 | `q` / `Esc` | Quit |

@@ -144,7 +144,7 @@ The response block title shows the **status code** (color-coded green/yellow/red
 | URL Params | Query string parameters |
 | Body | Raw JSON body editor |
 | Auth | Bearer token, API Key, OAuth2 |
-| Options | Timeout, redirects, SSL |
+| Options | TLS verification, timeout, redirects |
 
 #### Saving a request (`S`)
 
@@ -171,6 +171,27 @@ Press `S` (Shift+s) from anywhere in the Request tab to save the current request
 - `Esc` cancels without saving
 
 The saved request includes method, URL (with query params appended), headers, and body.
+
+#### Options sub-tab
+
+Navigate to the Options sub-tab with `←/→` to configure per-request options:
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| Skip TLS verification | off | Accept self-signed or hostname-mismatched certificates |
+
+Press `Space` or `Enter` to toggle the highlighted option. When **Skip TLS verification** is active the checkbox turns yellow — a visual reminder that cert validation is disabled.
+
+```
+┌─ Options ───────────────────────────────────────────────────────┐
+│                                                                   │
+│  [x] Skip TLS verification  (accept self-signed / mismatched…)   │
+│                                                                   │
+│      Space or Enter to toggle                                     │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+Useful for local dev servers, VPS endpoints with self-signed certs, or APIs behind a corporate proxy.
 
 #### URL Params editor
 

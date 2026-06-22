@@ -324,6 +324,7 @@ pub struct App {
     pub request_focus: RequestFocus,
     pub request_loading: bool,
     // Response
+    pub skip_tls_verify: bool,
     pub last_request_raw: Option<RawRequest>,
     pub response_body: Option<String>,
     pub response_status: Option<u16>,
@@ -378,6 +379,7 @@ impl App {
             body_json_cursor: 0,
             request_focus: RequestFocus::Response,
             request_loading: false,
+            skip_tls_verify: false,
             last_request_raw: None,
             response_body,
             response_status: None,
@@ -613,6 +615,14 @@ impl App {
                 if self.url_params_cursor + 1 < self.request_url_params.len() {
                     self.url_params_cursor += 1;
                 }
+            }
+            KeyCode::Char(' ') | KeyCode::Enter
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::Options =>
+            {
+                self.skip_tls_verify = !self.skip_tls_verify;
+                let state = if self.skip_tls_verify { "enabled" } else { "disabled" };
+                self.status_message = format!("Skip TLS verify: {}  —  Space/Enter: toggle  ←/→: section  s: send  q: quit", state);
             }
             KeyCode::Char('a')
                 if self.active_tab == Tab::Request
@@ -1404,6 +1414,7 @@ impl App {
 
         let method = METHODS[self.request_method_idx].to_string();
         let tx = self.response_tx.clone();
+        let skip_tls = self.skip_tls_verify;
 
         let body = self.body_string();
 
@@ -1420,7 +1431,7 @@ impl App {
         self.status_message = format!("Sending {} {}…", method, resolved_url);
 
         tokio::spawn(async move {
-            let result = execute_http(&method, &resolved_url, &resolved_headers, body).await;
+            let result = execute_http(&method, &resolved_url, &resolved_headers, body, skip_tls).await;
             let _ = tx.send(result);
         });
     }
@@ -1449,6 +1460,7 @@ impl App {
                 BodyMode::Text => "Tab: panels  i: edit body  t: JSON mode  ←/→: section  s: send  q: quit".into(),
                 BodyMode::Json => "Tab: panels  i: edit fields  t: text mode  ←/→: section  s: send  q: quit".into(),
             },
+            RequestTab::Options => "Tab: panels  Space/Enter: toggle option  ←/→: section  s: send  q: quit".into(),
             _ => "Tab: panels  e: edit URL  s: send  S: save  n: new  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into(),
         };
     }
@@ -1786,12 +1798,13 @@ impl App {
 
 // ── HTTP execution ────────────────────────────────────────────────────────────
 
-async fn execute_http(method: &str, url: &str, headers: &[(String, String)], body: Option<String>) -> HttpOutcome {
+async fn execute_http(method: &str, url: &str, headers: &[(String, String)], body: Option<String>, skip_tls_verify: bool) -> HttpOutcome {
     use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
     use std::str::FromStr;
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
+        .danger_accept_invalid_certs(skip_tls_verify)
         .build()
         .map_err(|e| e.to_string())?;
 
@@ -1823,7 +1836,16 @@ async fn execute_http(method: &str, url: &str, headers: &[(String, String)], bod
         req = req.body(b);
     }
 
-    let resp = req.send().await.map_err(|e| e.to_string())?;
+    let resp = req.send().await.map_err(|e| {
+        use std::error::Error;
+        let mut msg = e.to_string();
+        let mut src = e.source();
+        while let Some(cause) = src {
+            msg.push_str(&format!("\n  caused by: {}", cause));
+            src = cause.source();
+        }
+        msg
+    })?;
     let elapsed_ms = t0.elapsed().as_millis() as u64;
     let status = resp.status().as_u16();
 

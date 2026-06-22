@@ -161,12 +161,15 @@ fn render_request_content(frame: &mut Frame, app: &App, area: Rect) {
         render_url_params_editor(frame, app, area);
         return;
     }
+    if app.active_request_tab == RequestTab::Options {
+        render_options_editor(frame, app, area);
+        return;
+    }
 
     let (title, msg) = match app.active_request_tab {
         RequestTab::Description => ("Description", "Add a description for this request."),
-        RequestTab::Headers | RequestTab::Body | RequestTab::UrlParams => unreachable!(),
+        RequestTab::Headers | RequestTab::Body | RequestTab::UrlParams | RequestTab::Options => unreachable!(),
         RequestTab::Auth => ("Auth", "Configure authentication (Bearer, API Key, OAuth2…)."),
-        RequestTab::Options => ("Options", "Timeout, redirects, SSL verification…"),
     };
 
     let content = Paragraph::new(msg)
@@ -180,6 +183,42 @@ fn render_request_content(frame: &mut Frame, app: &App, area: Rect) {
         .alignment(Alignment::Center);
 
     frame.render_widget(content, area);
+}
+
+fn render_options_editor(frame: &mut Frame, app: &App, area: Rect) {
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(" Options ")
+        .border_style(Style::default().fg(Color::Yellow));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let checkbox = if app.skip_tls_verify { "[x]" } else { "[ ]" };
+    let (checkbox_style, label_style) = if app.skip_tls_verify {
+        (
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            Style::default().fg(Color::Yellow),
+        )
+    } else {
+        (
+            Style::default().fg(Color::Gray),
+            Style::default().fg(Color::White),
+        )
+    };
+
+    let line = Line::from(vec![
+        Span::styled(format!(" {} ", checkbox), checkbox_style),
+        Span::styled("Skip TLS verification", label_style),
+        Span::styled("  (accept self-signed / mismatched certificates)", Style::default().fg(Color::Indexed(244))),
+    ]);
+
+    let hint = Line::from(Span::styled(
+        " Space or Enter to toggle",
+        Style::default().fg(Color::Indexed(238)),
+    ));
+
+    let text = vec![Line::from(""), line, Line::from(""), hint];
+    frame.render_widget(Paragraph::new(text), inner);
 }
 
 fn render_url_params_editor(frame: &mut Frame, app: &App, area: Rect) {

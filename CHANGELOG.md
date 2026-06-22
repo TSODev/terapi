@@ -41,7 +41,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Response section shows all response headers + body
   - Useful for debugging: see exactly what was sent and what came back
 
+### Added
+- **Options sub-tab — Skip TLS verification** — navigate to the Options sub-tab (`←/→`) and press `Space` or `Enter` to toggle TLS certificate verification on/off:
+  - `[ ] Skip TLS verification` (default) — strict cert validation
+  - `[x] Skip TLS verification` (yellow) — accepts self-signed and hostname-mismatched certificates
+  - Useful for local dev servers, VPN endpoints, or APIs with custom/internal certificates
+
 ### Fixed
+- **Full error chain on connection failure** — transport errors (TLS, DNS, connection refused) now display the complete `caused by:` chain in Raw view instead of just the top-level message, making it possible to diagnose the actual cause (e.g. `caused by: A host name mismatch has occurred`)
 - **Persistent context bar** — a permanent second status line now appears at the bottom of every screen:
   - Left: breadcrumb of the current context (`Request › Body › JSON › editing`, `Env › Variables`, …)
   - Right: active environment indicator — `● env: Production` (green) when an env is active, `○ no active env` (dim) otherwise

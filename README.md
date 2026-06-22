@@ -82,10 +82,11 @@ terapi --help
 | `e` | Edit URL (enter URL mode) |
 | `m` | Cycle HTTP method |
 | `s` | Send request |
+| `i` | Edit body (Body sub-tab, enter editor mode) |
 | `←` / `→` | Navigate sub-tabs (or cycle method in URL mode) |
 | `↑` / `↓` | Move response cursor (JSON) / scroll (Raw) |
 | `Enter` | Send request (URL mode) / fold-unfold JSON node |
-| `Esc` | Exit URL mode |
+| `Esc` | Exit URL mode / exit body editor |
 | `r` | Toggle JSON ↔ Raw response view |
 | `-` / `=` | Resize Key column |
 | `q` / `Esc` | Quit |
@@ -259,8 +260,8 @@ Campaign : Users API — smoke tests
 - [x] URL input — `e` to edit, `Enter` to send, `Esc` to cancel
 - [x] Send request — async via tokio, `{{VAR}}` resolved from active env
 - [x] Response viewer: status code (color-coded) + elapsed time in title
-- [ ] Headers editor
-- [ ] Body editor (raw JSON)
+- [x] Headers editor — `a`/`d`/`↑↓` in Headers sub-tab, `{{VAR}}` resolved before send
+- [x] Body editor — multi-line raw JSON via `tui-textarea`, `i` to edit, `Esc` to exit
 
 ### v0.3 — Collections
 - [x] TOML-based collection format (one file per collection)
@@ -311,6 +312,7 @@ Campaign : Users API — smoke tests
 | CLI | `clap` |
 | Config dir resolution | `dirs` |
 | Error handling | `anyhow` |
+| Body editor | `tui-textarea` |
 
 ---
 

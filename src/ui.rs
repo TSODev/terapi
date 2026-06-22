@@ -150,12 +150,15 @@ fn render_request_content(frame: &mut Frame, app: &App, area: Rect) {
         render_headers_editor(frame, app, area);
         return;
     }
+    if app.active_request_tab == RequestTab::Body {
+        render_body_editor(frame, app, area);
+        return;
+    }
 
     let (title, msg) = match app.active_request_tab {
         RequestTab::Description => ("Description", "Add a description for this request."),
-        RequestTab::Headers => unreachable!(),
+        RequestTab::Headers | RequestTab::Body => unreachable!(),
         RequestTab::UrlParams => ("URL Params", "Add query parameters (key=value)."),
-        RequestTab::Body => ("Body", "Enter the raw JSON body."),
         RequestTab::Auth => ("Auth", "Configure authentication (Bearer, API Key, OAuth2…)."),
         RequestTab::Options => ("Options", "Timeout, redirects, SSL verification…"),
     };
@@ -171,6 +174,33 @@ fn render_request_content(frame: &mut Frame, app: &App, area: Rect) {
         .alignment(Alignment::Center);
 
     frame.render_widget(content, area);
+}
+
+fn render_body_editor(frame: &mut Frame, app: &App, area: Rect) {
+    let editing = app.request_focus == RequestFocus::Body;
+    let border_style = if editing {
+        Style::default().fg(Color::Green)
+    } else {
+        Style::default().fg(Color::Yellow)
+    };
+    let title = if editing {
+        " Body  [editing — Esc to exit] ".to_string()
+    } else {
+        let lines = app.body_textarea.lines().iter().filter(|l| !l.trim().is_empty()).count();
+        if lines == 0 {
+            " Body  [i: edit] ".to_string()
+        } else {
+            format!(" Body  ({} lines)  [i: edit] ", lines)
+        }
+    };
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(title)
+        .border_style(border_style);
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    frame.render_widget(&app.body_textarea, inner);
 }
 
 fn render_headers_editor(frame: &mut Frame, app: &App, area: Rect) {

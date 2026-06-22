@@ -28,3 +28,4 @@ clap = { version = "4", features = ["derive"] }
 toml = "0.8"
 csv  = "1"
 dirs = "5"
+tui-textarea = { version = "0.7", features = ["crossterm"] }

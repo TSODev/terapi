@@ -43,6 +43,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `examples/crud_demo.toml` — full CRUD on JSONPlaceholder (POST → extract id → GET → PUT → PATCH → DELETE)
   - `examples/auth_flow.toml` — ReqRes auth flow (login → extract token → GET user → PUT update)
   - `examples/debug_toolbox.toml` — httpbin.io edge cases (status codes, headers, bearer auth)
+- **Body editor** — multi-line raw JSON editor in the Body sub-tab powered by `tui-textarea`:
+  - `i` — enter body edit mode (green border, cursor visible)
+  - `Esc` — exit body edit mode
+  - Full text editing: arrows, Backspace/Delete, multi-line input
+  - Body is resolved and sent with the request; empty body sends no body
+  - Title shows line count when body has content (`(N lines)`)
+  - `tui-textarea = "0.7"` added as dependency
 
 ### Changed
 - Collection CRUD in the TUI (Collections panel):

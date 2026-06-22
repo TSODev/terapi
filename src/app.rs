@@ -2,6 +2,7 @@ use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use std::collections::{HashMap, HashSet};
 use tokio::sync::mpsc;
+use tui_textarea::TextArea;
 
 use crate::storage::{
     CollectionMeta, EnvMeta, StoredCollection, StoredEnv, StoredFolder, StoredRequest,
@@ -23,6 +24,7 @@ pub type HttpOutcome = Result<HttpResult, String>;
 #[derive(Debug, Clone, PartialEq)]
 pub enum RequestFocus {
     Url,
+    Body,
     Response,
 }
 
@@ -260,6 +262,7 @@ pub struct App {
     pub request_method_idx: usize,
     pub request_headers: Vec<(String, String)>,
     pub header_cursor: usize,
+    pub body_textarea: TextArea<'static>,
     pub request_focus: RequestFocus,
     pub request_loading: bool,
     // Response
@@ -307,6 +310,7 @@ impl App {
             request_method_idx: 0,
             request_headers: Vec::new(),
             header_cursor: 0,
+            body_textarea: TextArea::default(),
             request_focus: RequestFocus::Response,
             request_loading: false,
             response_body,
@@ -357,6 +361,11 @@ impl App {
     pub fn handle_key(&mut self, key: KeyEvent) -> Result<()> {
         if self.modal.is_some() {
             return self.handle_modal_key(key);
+        }
+
+        // Body editor intercepts all keys when focused
+        if self.active_tab == Tab::Request && self.request_focus == RequestFocus::Body {
+            return self.handle_body_key(key);
         }
 
         match key.code {
@@ -427,6 +436,13 @@ impl App {
             KeyCode::Char('e') if self.active_tab == Tab::Request => {
                 self.request_focus = RequestFocus::Url;
                 self.status_message = "URL: type address  ←/→: method  Enter: send  Esc: cancel".into();
+            }
+            KeyCode::Char('i')
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::Body =>
+            {
+                self.request_focus = RequestFocus::Body;
+                self.status_message = "Body: editing JSON  Esc: exit editor".into();
             }
             KeyCode::Char('m') if self.active_tab == Tab::Request => {
                 self.request_method_idx = (self.request_method_idx + 1) % METHODS.len();
@@ -1051,12 +1067,16 @@ impl App {
         let method = METHODS[self.request_method_idx].to_string();
         let tx = self.response_tx.clone();
 
+        // Extract body text; None if empty
+        let body_text = self.body_textarea.lines().join("\n");
+        let body = if body_text.trim().is_empty() { None } else { Some(body_text) };
+
         self.request_loading = true;
         self.request_focus = RequestFocus::Response;
         self.status_message = format!("Sending {} {}…", method, resolved_url);
 
         tokio::spawn(async move {
-            let result = execute_http(&method, &resolved_url, &resolved_headers).await;
+            let result = execute_http(&method, &resolved_url, &resolved_headers, body).await;
             let _ = tx.send(result);
         });
     }
@@ -1080,8 +1100,19 @@ impl App {
     fn update_request_status_hint(&mut self) {
         self.status_message = match self.active_request_tab {
             RequestTab::Headers => "Tab: panels  a: add  d: delete  ↑/↓: navigate  ←/→: section  e: edit URL  s: send  q: quit".into(),
+            RequestTab::Body => "Tab: panels  i: edit body  ←/→: section  e: edit URL  s: send  q: quit".into(),
             _ => "Tab: panels  e: edit URL  s: send  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into(),
         };
+    }
+
+    fn handle_body_key(&mut self, key: KeyEvent) -> Result<()> {
+        if key.code == KeyCode::Esc {
+            self.request_focus = RequestFocus::Response;
+            self.update_request_status_hint();
+            return Ok(());
+        }
+        self.body_textarea.input(tui_textarea::Input::from(key));
+        Ok(())
     }
 
     fn toggle_response_fold(&mut self) {
@@ -1106,7 +1137,7 @@ impl App {
 
 // ── HTTP execution ────────────────────────────────────────────────────────────
 
-async fn execute_http(method: &str, url: &str, headers: &[(String, String)]) -> HttpOutcome {
+async fn execute_http(method: &str, url: &str, headers: &[(String, String)], body: Option<String>) -> HttpOutcome {
     use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
     use std::str::FromStr;
 
@@ -1137,6 +1168,10 @@ async fn execute_http(method: &str, url: &str, headers: &[(String, String)]) -> 
             }
         }
         req = req.headers(hmap);
+    }
+
+    if let Some(b) = body {
+        req = req.body(b);
     }
 
     let resp = req.send().await.map_err(|e| e.to_string())?;

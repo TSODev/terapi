@@ -114,9 +114,28 @@ The response block title shows the **status code** (color-coded green/yellow/red
 | Description | Free-text note about the request |
 | Headers | Request headers (key / value) |
 | URL Params | Query string parameters |
-| Body | Raw JSON body |
+| Body | Raw JSON body editor |
 | Auth | Bearer token, API Key, OAuth2 |
 | Options | Timeout, redirects, SSL |
+
+#### Body editor
+
+Switch to the Body sub-tab (`←`/`→`), then press `i` to enter edit mode. The border turns green and a cursor appears:
+
+```
+┌─ Body  [editing — Esc to exit] ─────────────────────────────────┐
+│ {                                                                  │
+│   "email": "admin@example.com",                                   │
+│   "password": "{{PASSWORD}}"                                      │
+│ }                                                                  │
+└────────────────────────────────────────────────────────────────── ┘
+```
+
+- Full text editing: arrows, Home/End, Backspace/Delete, multi-line
+- `Esc` — exit editor (border returns to yellow)
+- Body is sent with the request as-is; `{{VAR}}` placeholders are **not** yet resolved in the TUI body (coming soon — use the campaign runner for variable substitution in bodies)
+- When the editor has content the title shows the line count: ` Body  (4 lines)  [i: edit] `
+- An empty body sends no request body
 
 **Response viewer** (bottom half of the Request panel):
 
@@ -241,10 +260,12 @@ Placeholder — will show recent requests in v0.4.
 | `e` | Request panel | Enter URL edit mode |
 | `m` | Request panel | Cycle HTTP method (GET → POST → PUT → PATCH → DELETE) |
 | `s` | Request panel | Send current request |
+| `i` | Request panel (Body sub-tab) | Enter body editor mode |
 | `←` / `→` | Request panel (response mode) | Navigate request sub-tabs |
 | `←` / `→` | Request panel (URL mode) | Cycle HTTP method |
 | `Enter` | Request panel (URL mode) | Send request |
 | `Esc` | Request panel (URL mode) | Cancel URL edit |
+| `Esc` | Request panel (body editor) | Exit body editor |
 | `↑` / `↓` | Request panel | Move response cursor (JSON) / scroll (Raw) |
 | `Enter` | Request panel (response mode) | Fold / unfold selected JSON node |
 | `r` | Request panel | Toggle JSON ↔ Raw response view |

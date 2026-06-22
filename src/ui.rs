@@ -1561,8 +1561,13 @@ fn render_status(frame: &mut Frame, app: &App, area: Rect) {
     );
 
     // ── Hints bar (bottom row) ─────────────────────────────────────────────
+    let (hint_text, hint_color) = if app.confirm_quit {
+        (app.status_message.as_str(), Color::Yellow)
+    } else {
+        (app.status_message.as_str(), Color::Gray)
+    };
     frame.render_widget(
-        Paragraph::new(app.status_message.as_str()).style(Style::default().fg(Color::Gray)),
+        Paragraph::new(hint_text).style(Style::default().fg(hint_color)),
         rows[1],
     );
 }

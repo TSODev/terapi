@@ -20,6 +20,7 @@ pub use types::*;
 
 pub struct App {
     pub running: bool,
+    pub confirm_quit: bool,
     pub active_tab: Tab,
     pub active_request_tab: RequestTab,
     // Collections
@@ -98,6 +99,7 @@ impl App {
         let (response_tx, response_rx) = mpsc::unbounded_channel();
         Self {
             running: true,
+            confirm_quit: false,
             active_tab: Tab::Collections,
             active_request_tab: RequestTab::Description,
             stored_collections,
@@ -174,6 +176,12 @@ impl App {
     }
 
     pub fn handle_key(&mut self, key: KeyEvent) -> Result<()> {
+        // Reset quit confirmation on any key except q itself
+        let was_confirming_quit = self.confirm_quit;
+        if key.code != KeyCode::Char('q') {
+            self.confirm_quit = false;
+        }
+
         if self.var_picker.is_some() {
             return self.handle_var_picker_key(key);
         }
@@ -208,8 +216,13 @@ impl App {
                 self.status_message = "Tab: panels  e: edit URL  s: send  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into();
             }
 
-            KeyCode::Char('q') | KeyCode::Esc => {
-                self.running = false;
+            KeyCode::Char('q') => {
+                if was_confirming_quit {
+                    self.running = false;
+                } else {
+                    self.confirm_quit = true;
+                    self.status_message = "Press q again to quit".into();
+                }
             }
             KeyCode::Tab => {
                 self.active_tab = match self.active_tab {

@@ -8,6 +8,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Edit existing request** — press `e` on a request node in the Collections panel to open an **Edit Request** modal (cyan border) pre-filled with the current name, method and URL:
+  - `Tab` to cycle between Name and URL fields
+  - `←` / `→` to change the HTTP method
+  - `Enter` to save — updates the request in place in the collection file
+  - `Esc` to cancel without changes
+  - Headers and body are preserved unchanged
+
+### Fixed
+- **`{{VAR}}` substitution in body at send time** — variables were already resolved in URL and headers but the body was sent verbatim. `resolve_vars()` is now applied to the body string before the request is dispatched.
+
+### Added
 - **`{{` variable auto-completion** — typing `{{` in any editable field opens a picker overlay showing variables from the active environment:
   - Available in: URL bar, header values, URL param values, body JSON field values, body text (textarea)
   - `↑` / `↓` to navigate, `Enter` to insert `{{VAR_NAME}}`, `Esc` to close without inserting

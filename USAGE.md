@@ -359,6 +359,7 @@ Displays the full collection tree loaded from disk. Collections can contain fold
 | `n` | Create a new collection |
 | `f` | Create a new folder inside the selected collection |
 | `a` | Add a request to the selected collection or folder |
+| `e` | Edit the selected request (name, method, URL) |
 | `d` | Delete the selected item (collection, folder, or request) |
 
 **Creating a collection (`n`)** — a modal prompts for a name. Press `Enter` to save or `Esc` to cancel. The collection is immediately written to disk.
@@ -386,6 +387,8 @@ The request is added to:
 - the folder, if a folder or folder request is selected
 
 **Loading a request (`Enter` on a request node)** — pressing `Enter` on a non-folder item loads the request into the Request tab and switches to it. Method, URL, headers, and body are all restored. The response area is cleared and the status bar confirms the load.
+
+**Editing a request (`e`)** — pressing `e` on a request node opens the **Edit Request** modal (cyan border) pre-filled with the current name, method, and URL. Use `Tab` to switch between Name and URL fields, `←` / `→` to change the method. Press `Enter` to save in place (headers and body are preserved unchanged) or `Esc` to cancel.
 
 **Deleting (`d`)** — a confirmation modal shows the item name. Press `y` or `Enter` to confirm, `n` or `Esc` to cancel.
 
@@ -432,7 +435,7 @@ The panel is split into two columns:
 
 **Adding a variable (`a`)** — modal with two fields: Key and Value. Use `Tab` to switch between them. The variable is added to the currently selected environment. Variables are displayed sorted alphabetically.
 
-**Activating an environment** — press `Enter` on an environment in the left panel. The `●` indicator moves to it. The active environment name is displayed in the Request panel URL bar title: ` URL · env: Test `. Its variables will be substituted in requests as `{{VAR}}` when request sending is implemented.
+**Activating an environment** — press `Enter` on an environment in the left panel. The `●` indicator moves to it. The active environment name is displayed in the Request panel URL bar title: ` URL · env: Test `. Its variables are substituted in all `{{VAR}}` placeholders in the URL, headers, and body when a request is sent.
 
 ### History panel
 
@@ -490,6 +493,7 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `n` | Collections panel | New collection |
 | `f` | Collections panel | New folder in selected collection |
 | `a` | Collections panel | Add request to selected collection / folder |
+| `e` | Collections panel (request) | Edit request (name, method, URL) |
 | `d` | Collections panel | Delete selected item |
 | `←` / `→` | Env panel | Switch focus: Environments ↔ Variables |
 | `↑` / `↓` | Env panel | Navigate within focused panel |

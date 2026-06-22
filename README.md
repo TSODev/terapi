@@ -104,10 +104,11 @@ terapi --help
 |-----|--------|
 | `Tab` | Switch panel |
 | `↑` / `↓` | Move cursor |
-| `Enter` | Expand / collapse folder |
+| `Enter` | Expand / collapse folder — or load request into Request tab |
 | `n` | New collection |
 | `f` | New folder in selected collection |
 | `a` | Add request to selected collection / folder |
+| `e` | Edit selected request (name, method, URL) |
 | `d` | Delete selected item |
 | `q` / `Esc` | Quit |
 
@@ -262,7 +263,7 @@ Campaign : Users API — smoke tests
 
 ## Roadmap
 
-### v0.2 — REST basics *(in progress)*
+### v0.2 — REST basics *(complete)*
 - [x] Method selector — `m` to cycle, `←/→` in URL edit mode
 - [x] URL input — `e` to edit, `Enter` to send, `Esc` to cancel
 - [x] Send request — async via tokio, `{{VAR}}` resolved from active env
@@ -280,7 +281,7 @@ Campaign : Users API — smoke tests
 - [x] Create folders within a collection (`f`) — cursor follows automatically
 - [x] Add / delete requests from the TUI (`a`, `d`)
 - [x] Select a request from Collections to load into the Request tab (`Enter`)
-- [ ] Edit an existing request (name, method, URL, headers, body)
+- [x] Edit an existing request — `e` opens a pre-filled modal (name, method, URL); headers and body preserved
 
 ### v0.4 — Environment & History
 - [x] Environment tab — create / manage multiple environments (test, staging, prod…)
@@ -289,7 +290,7 @@ Campaign : Users API — smoke tests
 - [x] Active env indicator in Request panel URL bar (`· env: <name>`)
 - [x] Campaign: `env_file = "name"` loads a terapi env as base variable set
 - [x] Campaign: per-step `env = "name"` to switch environment for a single step
-- [ ] Inject active environment variables into requests (`{{VAR}}` substitution in TUI, requires editable URL/body)
+- [x] `{{VAR}}` substitution in URL, headers and body when sending from TUI
 - [ ] Request history (persistent, TOML)
 
 ### v0.5 — GraphQL

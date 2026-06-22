@@ -172,6 +172,12 @@ pub enum ModalState {
         value: String,
         active_field: VarField,
     },
+    UrlParam {
+        key: String,
+        value: String,
+        active_field: VarField,
+        edit_idx: Option<usize>,
+    },
     BodyPair {
         key: String,
         value: String,
@@ -272,6 +278,8 @@ pub struct App {
     // Request builder
     pub request_url: String,
     pub request_method_idx: usize,
+    pub request_url_params: Vec<(String, String)>,
+    pub url_params_cursor: usize,
     pub request_headers: Vec<(String, String)>,
     pub header_cursor: usize,
     pub body_mode: BodyMode,
@@ -323,6 +331,8 @@ impl App {
             modal: None,
             request_url: String::new(),
             request_method_idx: 0,
+            request_url_params: Vec::new(),
+            url_params_cursor: 0,
             request_headers: Vec::new(),
             header_cursor: 0,
             body_mode: BodyMode::Text,
@@ -477,6 +487,56 @@ impl App {
             }
             KeyCode::Char('s') if self.active_tab == Tab::Request => {
                 self.send_request();
+            }
+            KeyCode::Char('a')
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::UrlParams =>
+            {
+                self.modal = Some(ModalState::UrlParam {
+                    key: String::new(),
+                    value: String::new(),
+                    active_field: VarField::Key,
+                    edit_idx: None,
+                });
+            }
+            KeyCode::Char('d')
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::UrlParams
+                    && !self.request_url_params.is_empty() =>
+            {
+                self.request_url_params.remove(self.url_params_cursor);
+                if self.url_params_cursor > 0 && self.url_params_cursor >= self.request_url_params.len() {
+                    self.url_params_cursor -= 1;
+                }
+            }
+            KeyCode::Enter
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::UrlParams
+                    && !self.request_url_params.is_empty() =>
+            {
+                let (k, v) = self.request_url_params[self.url_params_cursor].clone();
+                self.modal = Some(ModalState::UrlParam {
+                    key: k,
+                    value: v,
+                    active_field: VarField::Key,
+                    edit_idx: Some(self.url_params_cursor),
+                });
+            }
+            KeyCode::Up
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::UrlParams =>
+            {
+                if self.url_params_cursor > 0 {
+                    self.url_params_cursor -= 1;
+                }
+            }
+            KeyCode::Down
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::UrlParams =>
+            {
+                if self.url_params_cursor + 1 < self.request_url_params.len() {
+                    self.url_params_cursor += 1;
+                }
             }
             KeyCode::Char('a')
                 if self.active_tab == Tab::Request
@@ -814,6 +874,31 @@ impl App {
                 _ => { self.modal = Some(ModalState::NewHeader { key: hdr_key, value: hdr_val, active_field }); }
             },
 
+            Some(ModalState::UrlParam { key: mut up_key, value: mut up_val, mut active_field, edit_idx }) => match key.code {
+                KeyCode::Esc => {}
+                KeyCode::Enter if !up_key.trim().is_empty() => {
+                    if let Some(idx) = edit_idx {
+                        self.request_url_params[idx] = (up_key.trim().to_string(), up_val.trim().to_string());
+                    } else {
+                        self.request_url_params.push((up_key.trim().to_string(), up_val.trim().to_string()));
+                        self.url_params_cursor = self.request_url_params.len() - 1;
+                    }
+                }
+                KeyCode::Tab => {
+                    active_field = match active_field { VarField::Key => VarField::Value, VarField::Value => VarField::Key };
+                    self.modal = Some(ModalState::UrlParam { key: up_key, value: up_val, active_field, edit_idx });
+                }
+                KeyCode::Char(c) => {
+                    match active_field { VarField::Key => up_key.push(c), VarField::Value => up_val.push(c) }
+                    self.modal = Some(ModalState::UrlParam { key: up_key, value: up_val, active_field, edit_idx });
+                }
+                KeyCode::Backspace => {
+                    match active_field { VarField::Key => { up_key.pop(); } VarField::Value => { up_val.pop(); } }
+                    self.modal = Some(ModalState::UrlParam { key: up_key, value: up_val, active_field, edit_idx });
+                }
+                _ => { self.modal = Some(ModalState::UrlParam { key: up_key, value: up_val, active_field, edit_idx }); }
+            },
+
             Some(ModalState::BodyPair { key: mut bp_key, value: mut bp_val, mut active_field, edit_idx }) => match key.code {
                 KeyCode::Esc => {}
                 KeyCode::Enter if !bp_key.trim().is_empty() => {
@@ -890,7 +975,11 @@ impl App {
             self.request_method_idx = METHODS.iter()
                 .position(|&m| m == req.method)
                 .unwrap_or(0);
-            self.request_url = req.url.clone();
+            // Split base URL and query params
+            let (base_url, params) = split_url_params(&req.url);
+            self.request_url = base_url;
+            self.request_url_params = params;
+            self.url_params_cursor = 0;
             self.request_headers = req.headers.iter()
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect();
@@ -905,6 +994,7 @@ impl App {
             self.body_mode = BodyMode::Text;
             self.body_json_pairs = Vec::new();
             self.body_json_cursor = 0;
+            self.header_cursor = 0;
             self.request_focus = RequestFocus::Response;
             self.response_body = None;
             self.response_status = None;
@@ -1159,7 +1249,19 @@ impl App {
             .map(|e| e.vars.clone())
             .unwrap_or_default();
 
-        let resolved_url = crate::storage::resolve_vars(&url, &env_vars);
+        // Append URL params if any
+        let url_with_params = if self.request_url_params.is_empty() {
+            url.clone()
+        } else {
+            let sep = if url.contains('?') { '&' } else { '?' };
+            let query: String = self.request_url_params.iter()
+                .filter(|(k, _)| !k.is_empty())
+                .map(|(k, v)| format!("{}={}", k, v))
+                .collect::<Vec<_>>()
+                .join("&");
+            format!("{}{}{}", url, sep, query)
+        };
+        let resolved_url = crate::storage::resolve_vars(&url_with_params, &env_vars);
 
         let resolved_headers: Vec<(String, String)> = self.request_headers.iter()
             .map(|(k, v)| (
@@ -1210,6 +1312,7 @@ impl App {
 
     fn update_request_status_hint(&mut self) {
         self.status_message = match self.active_request_tab {
+            RequestTab::UrlParams => "Tab: panels  a: add  d: delete  Enter: edit  ↑/↓: navigate  ←/→: section  s: send  q: quit".into(),
             RequestTab::Headers => "Tab: panels  a: add  d: delete  ↑/↓: navigate  ←/→: section  e: edit URL  s: send  q: quit".into(),
             RequestTab::Body => match self.body_mode {
                 BodyMode::Text => "Tab: panels  i: edit body  t: JSON mode  ←/→: section  s: send  q: quit".into(),
@@ -1381,6 +1484,26 @@ async fn execute_http(method: &str, url: &str, headers: &[(String, String)], bod
     let body = resp.text().await.map_err(|e| e.to_string())?;
 
     Ok(HttpResult { status, body, headers, elapsed_ms })
+}
+
+fn split_url_params(url: &str) -> (String, Vec<(String, String)>) {
+    match url.find('?') {
+        None => (url.to_string(), Vec::new()),
+        Some(pos) => {
+            let base = url[..pos].to_string();
+            let params = url[pos + 1..]
+                .split('&')
+                .filter(|s| !s.is_empty())
+                .map(|pair| {
+                    let mut it = pair.splitn(2, '=');
+                    let k = it.next().unwrap_or("").to_string();
+                    let v = it.next().unwrap_or("").to_string();
+                    (k, v)
+                })
+                .collect();
+            (base, params)
+        }
+    }
 }
 
 fn serialize_body_json(pairs: &[(String, String)]) -> String {

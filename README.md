@@ -74,14 +74,28 @@ terapi --help
 
 ## TUI keybindings
 
+**Request panel**
+
 | Key | Action |
 |-----|--------|
-| `Tab` | Switch panel (Request / Collections / History) |
+| `Tab` | Switch panel |
 | `←` / `→` | Navigate request sub-tabs |
-| `↑` / `↓` | Move cursor / scroll response |
-| `Enter` | Fold / unfold JSON node — expand/collapse collection folder |
-| `r` | Toggle response view: JSON ↔ Raw |
-| `-` / `=` | Resize Key column in JSON viewer |
+| `↑` / `↓` | Move response cursor (JSON) / scroll (Raw) |
+| `Enter` | Fold / unfold selected JSON node |
+| `r` | Toggle JSON ↔ Raw response view |
+| `-` / `=` | Resize Key column |
+| `q` / `Esc` | Quit |
+
+**Collections panel**
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Switch panel |
+| `↑` / `↓` | Move cursor |
+| `Enter` | Expand / collapse folder |
+| `n` | New collection |
+| `a` | Add request to selected collection / folder |
+| `d` | Delete selected item |
 | `q` / `Esc` | Quit |
 
 ---
@@ -222,8 +236,10 @@ Campaign : Users API — smoke tests
 ### v0.3 — Collections
 - [x] TOML-based collection format (one file per collection)
 - [x] Load collections from disk at startup
-- [ ] Save / edit requests from the TUI
+- [x] Create / delete collections from the TUI (`n`, `d`)
+- [x] Add / delete requests from the TUI (`a`, `d`)
 - [ ] Collections panel: select a request to load it into the Request tab
+- [ ] Edit an existing request (name, method, URL, headers, body)
 
 ### v0.4 — Environment & History
 - [ ] Environment variables (dev / staging / prod)

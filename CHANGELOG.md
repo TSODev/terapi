@@ -8,16 +8,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- Collection CRUD in the TUI (Collections panel):
+  - `n` — create a new collection (name input modal)
+  - `a` — add a request to the selected collection or folder (name / method / URL modal, `Tab` cycles fields, `←`/`→` cycles HTTP method)
+  - `d` — delete the selected item (collection, folder, or request) with a confirmation modal
+- Modal overlay system: `NewCollection`, `NewRequest`, `ConfirmDelete` — centered, drawn over existing UI with `ratatui::widgets::Clear`
+- `delete_collection()` in `storage.rs`
+- `StoredRequest::new()` constructor
 - `src/storage.rs` — TOML-based local storage for collections
   - `resolve_terapi_dir()` — priority resolution: `TERAPI_DIR` env var → `./.terapi/` (project-local) → `~/.config/terapi/` (XDG global fallback)
   - `load_collections()` — reads all `.toml` files from `<dir>/collections/` at startup
-  - `save_collection()` — serialises a collection to a named TOML file (used by future TUI save feature)
-  - Collection schema: `[collection]`, `[[folders]]`, `[[folders.requests]]`, `[[requests]]` with headers, body, description
+  - `save_collection()` — serialises a collection to a named TOML file; called on every mutation
+  - Collection schema: `[collection]`, `[[folders]]`, `[[folders.requests]]`, `[[requests]]`
 - `examples/collection.toml` — annotated template documenting the collection TOML format
 - `dirs` crate dependency for cross-platform config directory resolution
+- Empty Collections panel now shows a hint: "No collections — press n to create one"
 
 ### Changed
-- `App::new()` now loads collections from disk at startup; falls back to built-in sample collections when no files are found
+- `App` state: `Vec<CollectionNode>` replaced by `Vec<StoredCollection>` (source of truth) + `HashSet<String>` for expand/collapse state (`"c0"`, `"c0f1"`, …)
+- `flatten_stored()` replaces `flatten_collections()` — produces context-aware `FlatNode` with `NodeAddress` for direct indexing into `stored_collections`
+- `App::new()` loads collections from disk at startup; falls back to built-in sample collections when no files are found
 
 ---
 

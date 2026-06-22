@@ -115,10 +115,35 @@ The JSON view displays a 3-column table: **Key / Type / Value**.
 
 ### Collections panel
 
-Displays the full collection tree loaded from disk. Folders can be nested one level deep.
+Displays the full collection tree loaded from disk. Collections can contain folders (one level deep) and root-level requests.
+
+**Navigation:**
 
 - `↑` / `↓` — move cursor
 - `Enter` — expand or collapse the selected folder
+
+**Editing:**
+
+| Key | Action |
+|-----|--------|
+| `n` | Create a new collection |
+| `a` | Add a request to the selected collection or folder |
+| `d` | Delete the selected item (collection, folder, or request) |
+
+**Creating a collection (`n`)** — a modal prompts for a name. Press `Enter` to save or `Esc` to cancel. The collection is immediately written to disk.
+
+**Adding a request (`a`)** — a modal with three fields:
+- **Name** — displayed in the tree
+- **Method** — cycle with `←` / `→` (GET / POST / PUT / PATCH / DELETE)
+- **URL** — full URL, supports `{{VAR}}` placeholders
+
+Use `Tab` to switch between Name and URL fields. Press `Enter` to save (both fields must be non-empty) or `Esc` to cancel.
+
+The request is added to:
+- the collection root, if a collection or root request is selected
+- the folder, if a folder or folder request is selected
+
+**Deleting (`d`)** — a confirmation modal shows the item name. Press `y` or `Enter` to confirm, `n` or `Esc` to cancel.
 
 Method badges are colour-coded:
 
@@ -148,6 +173,13 @@ Placeholder — will show recent requests in v0.4.
 | `=` | Request panel | Grow Key column |
 | `↑` / `↓` | Collections panel | Move cursor |
 | `Enter` | Collections panel | Expand / collapse folder |
+| `n` | Collections panel | New collection |
+| `a` | Collections panel | Add request to selected collection / folder |
+| `d` | Collections panel | Delete selected item |
+| `Tab` | Modal | Cycle input fields (Name ↔ URL) |
+| `←` / `→` | Modal (New Request) | Cycle HTTP method |
+| `Enter` | Modal | Confirm |
+| `Esc` | Modal | Cancel |
 
 ---
 

@@ -8,6 +8,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **`{{` variable auto-completion** — typing `{{` in any editable field opens a picker overlay showing variables from the active environment:
+  - Available in: URL bar, header values, URL param values, body JSON field values, body text (textarea)
+  - `↑` / `↓` to navigate, `Enter` to insert `{{VAR_NAME}}`, `Esc` to close without inserting
+  - Typing characters after `{{` filters the list in real time
+  - `Backspace` with no filter prefix removes one `{` and closes the picker
+  - If no environment is active: a status bar message prompts to activate one in the Env tab
+  - If the active environment has no variables: a status bar message says so
+
+### Fixed
+- **Connection errors auto-switch to Raw view** — when a request fails at the transport layer (TLS, DNS, connection refused), the response area now automatically switches to Raw view so the full error message is visible immediately, instead of going through the JSON parser which only showed a generic parse error
+- **URL edit mode — method cycling moved to `↑/↓`** — `←` / `→` in URL edit mode now navigate sub-tabs (matching the behaviour outside URL mode), while `↑` / `↓` cycle the HTTP method; this removes the conflict where `←/→` blocked sub-tab navigation while in the URL bar
+
+### Added (continued)
 - **Active env indicator in Request panel**: the URL bar title now shows ` · env: <name>` when an environment is active, making the active environment visible while building requests
 - **`env_file` in campaign TOML** — reference a named terapi environment as the base variable set:
   ```toml

@@ -80,7 +80,7 @@ In URL edit mode (`e`), the bar highlights and shows a cursor:
 
 **Workflow — building a request from scratch:**
 1. Press `n` to clear all fields and start a new blank request
-2. Press `e` to enter URL edit mode — type the URL, use `←`/`→` to set the method, `Enter` to send or `Esc` to cancel
+2. Press `e` to enter URL edit mode — type the URL, use `↑`/`↓` to set the method, `Enter` to send or `Esc` to cancel
 3. Navigate sub-tabs (`←`/`→`) to add headers, URL params, and body
 4. Press `s` to send at any time
 5. Press `S` to save the current request to a collection (see below)
@@ -88,11 +88,32 @@ In URL edit mode (`e`), the bar highlights and shows a cursor:
 **Sending a request:**
 1. Press `e` to enter URL edit mode
 2. Type the URL (Backspace to delete)
-3. Use `←` / `→` to change the HTTP method
-4. Press `Enter` to send — or `Esc` to cancel
-5. Alternatively, press `s` at any time to send the current URL without entering edit mode
+3. Use `↑` / `↓` to change the HTTP method
+4. Press `←` / `→` to exit URL mode and jump directly to a sub-tab (Headers, Body…)
+5. Press `Enter` to send — or `Esc` to finish editing without sending
+6. Alternatively, press `s` at any time to send the current URL without entering edit mode
 
-`{{VAR}}` placeholders in the URL are automatically resolved from the active environment (set in the Env tab) before the request is sent.
+`{{VAR}}` placeholders in the URL (and all other fields) are automatically resolved from the active environment before the request is sent.
+
+#### Variable auto-completion (`{{`)
+
+Typing `{{` in any editable field opens a picker overlay showing the variables available in the active environment:
+
+```
+┌─ Insert variable · filter: TO ──────────┐
+│  {{TOKEN}}  = eyJhbGciOiJIUzI...         │
+│▶ {{TOKEN_EXP}}  = 3600                   │
+│                                          │
+│  ↑/↓: navigate  Enter: insert  Esc: cancel │
+└──────────────────────────────────────────┘
+```
+
+- Works in: URL bar, header values, URL param values, body JSON field values, body text
+- Continue typing after `{{` to filter the list in real time
+- `Enter` inserts the selected variable as `{{VAR_NAME}}`
+- `Esc` closes the picker and leaves `{{` as typed
+- `Backspace` with an empty filter removes one `{` and closes the picker
+- If no environment is active, a message in the status bar reminds you to activate one in the Env tab
 
 The response block title shows the **status code** (color-coded green/yellow/red) and **elapsed time** while the request is in flight, a `⟳ sending…` indicator is shown.
 
@@ -363,9 +384,10 @@ Placeholder — will show recent requests in v0.4.
 | `Enter` / `e` | Body editor (JSON mode) | Edit selected field |
 | `↑` / `↓` | Body editor (JSON mode) | Navigate fields |
 | `←` / `→` | Request panel (response mode) | Navigate request sub-tabs |
-| `←` / `→` | Request panel (URL mode) | Cycle HTTP method |
+| `←` / `→` | Request panel (URL mode) | Navigate sub-tabs (exit URL mode) |
+| `↑` / `↓` | Request panel (URL mode) | Cycle HTTP method |
 | `Enter` | Request panel (URL mode) | Send request |
-| `Esc` | Request panel (URL mode) | Cancel URL edit |
+| `Esc` | Request panel (URL mode) | Finish URL edit (stay on current sub-tab) |
 | `Esc` | Request panel (body editor, Text or JSON) | Exit body editor |
 | `↑` / `↓` | Request panel | Move response cursor (JSON) / scroll (Raw) |
 | `Enter` | Request panel (response mode) | Fold / unfold selected JSON node |

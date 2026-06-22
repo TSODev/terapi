@@ -80,17 +80,18 @@ terapi --help
 |-----|--------|
 | `Tab` | Switch panel |
 | `e` | Edit URL (enter URL mode) |
-| `m` | Cycle HTTP method |
+| `m` | Cycle HTTP method (outside URL mode) |
+| `↑` / `↓` | Cycle HTTP method (in URL mode) / move response cursor / scroll |
 | `n` | New request — clear all fields |
 | `s` | Send request |
 | `S` | Save current request to a collection |
 | `i` | Edit body (Body sub-tab — enter editor) |
 | `a` / `d` | URL Params sub-tab — add / delete param |
 | `t` | Toggle body mode: Text ↔ JSON (Body sub-tab, outside editor) |
-| `←` / `→` | Navigate sub-tabs (or cycle method in URL mode) |
-| `↑` / `↓` | Move response cursor (JSON) / scroll (Raw) / navigate JSON body fields |
+| `←` / `→` | Navigate sub-tabs (also exits URL mode) |
 | `Enter` | Send request (URL mode) / fold-unfold JSON node / edit body field (JSON mode) |
-| `Esc` | Exit URL mode / exit body editor |
+| `Esc` | Finish URL edit / exit body editor |
+| `{{` | Open variable picker (any editable field) — insert `{{VAR}}` from active env |
 | `r` | Toggle JSON ↔ Raw response view |
 | `-` / `=` | Resize Key column |
 | `q` / `Esc` | Quit |

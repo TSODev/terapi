@@ -43,6 +43,19 @@ pub enum ResponseView {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum VarPickerTarget {
+    Url,
+    ModalValue,
+    BodyText,
+}
+
+pub struct VarPickerState {
+    pub target: VarPickerTarget,
+    pub prefix: String,
+    pub cursor: usize,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Tab {
     Request,
     Collections,
@@ -288,6 +301,7 @@ pub struct App {
     pub env_focus: EnvFocus,
     // Modal
     pub modal: Option<ModalState>,
+    pub var_picker: Option<VarPickerState>,
     // Request builder
     pub request_url: String,
     pub request_method_idx: usize,
@@ -342,6 +356,7 @@ impl App {
             env_var_cursor: 0,
             env_focus: EnvFocus::Envs,
             modal: None,
+            var_picker: None,
             request_url: String::new(),
             request_method_idx: 0,
             request_url_params: Vec::new(),
@@ -400,6 +415,10 @@ impl App {
     }
 
     pub fn handle_key(&mut self, key: KeyEvent) -> Result<()> {
+        if self.var_picker.is_some() {
+            return self.handle_var_picker_key(key);
+        }
+
         if self.modal.is_some() {
             return self.handle_modal_key(key);
         }
@@ -444,7 +463,7 @@ impl App {
             {
                 self.send_request();
             }
-            KeyCode::Left
+            KeyCode::Up
                 if self.active_tab == Tab::Request
                     && self.request_focus == RequestFocus::Url =>
             {
@@ -454,11 +473,27 @@ impl App {
                     self.request_method_idx - 1
                 };
             }
-            KeyCode::Right
+            KeyCode::Down
                 if self.active_tab == Tab::Request
                     && self.request_focus == RequestFocus::Url =>
             {
                 self.request_method_idx = (self.request_method_idx + 1) % METHODS.len();
+            }
+            KeyCode::Left
+                if self.active_tab == Tab::Request
+                    && self.request_focus == RequestFocus::Url =>
+            {
+                self.request_focus = RequestFocus::Response;
+                self.active_request_tab = self.active_request_tab.prev();
+                self.update_request_status_hint();
+            }
+            KeyCode::Right
+                if self.active_tab == Tab::Request
+                    && self.request_focus == RequestFocus::Url =>
+            {
+                self.request_focus = RequestFocus::Response;
+                self.active_request_tab = self.active_request_tab.next();
+                self.update_request_status_hint();
             }
             KeyCode::Backspace
                 if self.active_tab == Tab::Request
@@ -471,6 +506,9 @@ impl App {
                     && self.request_focus == RequestFocus::Url =>
             {
                 self.request_url.push(c);
+                if self.request_url.ends_with("{{") {
+                    self.open_var_picker(VarPickerTarget::Url);
+                }
             }
 
             // ── Request panel — response navigation mode ───────────────────
@@ -491,7 +529,7 @@ impl App {
             }
             KeyCode::Char('e') if self.active_tab == Tab::Request => {
                 self.request_focus = RequestFocus::Url;
-                self.status_message = "URL: type address  ←/→: method  Enter: send  Esc: cancel".into();
+                self.status_message = "URL: type address  ↑/↓: method  ←/→: section  Enter: send  Esc: done".into();
             }
             KeyCode::Char('i')
                 if self.active_tab == Tab::Request
@@ -893,7 +931,9 @@ impl App {
                 }
                 KeyCode::Char(c) => {
                     match active_field { VarField::Key => hdr_key.push(c), VarField::Value => hdr_val.push(c) }
+                    let trigger = active_field == VarField::Value && hdr_val.ends_with("{{");
                     self.modal = Some(ModalState::NewHeader { key: hdr_key, value: hdr_val, active_field });
+                    if trigger { self.open_var_picker(VarPickerTarget::ModalValue); }
                 }
                 KeyCode::Backspace => {
                     match active_field { VarField::Key => { hdr_key.pop(); } VarField::Value => { hdr_val.pop(); } }
@@ -918,7 +958,9 @@ impl App {
                 }
                 KeyCode::Char(c) => {
                     match active_field { VarField::Key => up_key.push(c), VarField::Value => up_val.push(c) }
+                    let trigger = active_field == VarField::Value && up_val.ends_with("{{");
                     self.modal = Some(ModalState::UrlParam { key: up_key, value: up_val, active_field, edit_idx });
+                    if trigger { self.open_var_picker(VarPickerTarget::ModalValue); }
                 }
                 KeyCode::Backspace => {
                     match active_field { VarField::Key => { up_key.pop(); } VarField::Value => { up_val.pop(); } }
@@ -943,7 +985,9 @@ impl App {
                 }
                 KeyCode::Char(c) => {
                     match active_field { VarField::Key => bp_key.push(c), VarField::Value => bp_val.push(c) }
+                    let trigger = active_field == VarField::Value && bp_val.ends_with("{{");
                     self.modal = Some(ModalState::BodyPair { key: bp_key, value: bp_val, active_field, edit_idx });
+                    if trigger { self.open_var_picker(VarPickerTarget::ModalValue); }
                 }
                 KeyCode::Backspace => {
                     match active_field { VarField::Key => { bp_key.pop(); } VarField::Value => { bp_val.pop(); } }
@@ -1297,10 +1341,12 @@ impl App {
                 Err(msg) => {
                     self.response_status = None;
                     self.response_body = Some(format!("Error: {}", msg));
+                    self.response_view = ResponseView::Raw;
                     self.response_cursor = 0;
                     self.response_scroll = 0;
                     self.response_folds = HashSet::new();
-                    self.status_message = format!("Error: {}  —  e: edit URL  s: retry  q: quit", msg);
+                    let short = msg.lines().next().unwrap_or(&msg).chars().take(80).collect::<String>();
+                    self.status_message = format!("Error: {}  —  r: JSON view  e: edit URL  s: retry  q: quit", short);
                 }
             }
         }
@@ -1397,6 +1443,12 @@ impl App {
         match self.body_mode {
             BodyMode::Text => {
                 self.body_textarea.input(tui_textarea::Input::from(key));
+                if key.code == KeyCode::Char('{') {
+                    let last = self.body_textarea.lines().last().cloned().unwrap_or_default();
+                    if last.ends_with("{{") {
+                        self.open_var_picker(VarPickerTarget::BodyText);
+                    }
+                }
             }
             BodyMode::Json => {
                 self.handle_body_json_key(key)?;
@@ -1445,6 +1497,152 @@ impl App {
         Ok(())
     }
 
+    // ── Var Picker ────────────────────────────────────────────────────────────
+
+    pub fn active_env_vars(&self) -> Vec<(String, String)> {
+        let mut vars: Vec<(String, String)> = self.active_env_idx
+            .and_then(|i| self.environments.get(i))
+            .map(|e| e.vars.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+            .unwrap_or_default();
+        vars.sort_by(|a, b| a.0.cmp(&b.0));
+        vars
+    }
+
+    pub fn filtered_var_names(&self, prefix: &str) -> Vec<String> {
+        self.active_env_vars()
+            .into_iter()
+            .filter(|(k, _)| k.to_lowercase().starts_with(&prefix.to_lowercase()))
+            .map(|(k, _)| k)
+            .collect()
+    }
+
+    fn open_var_picker(&mut self, target: VarPickerTarget) {
+        if self.active_env_idx.is_none() {
+            self.status_message = "No active environment — activate one in the Env tab first".into();
+            return;
+        }
+        if self.active_env_vars().is_empty() {
+            self.status_message = "Active environment has no variables".into();
+            return;
+        }
+        self.var_picker = Some(VarPickerState { target, prefix: String::new(), cursor: 0 });
+    }
+
+    fn handle_var_picker_key(&mut self, key: KeyEvent) -> Result<()> {
+        let Some(mut picker) = self.var_picker.take() else { return Ok(()); };
+        let vars = self.filtered_var_names(&picker.prefix);
+
+        match key.code {
+            KeyCode::Esc => {}
+            KeyCode::Up => {
+                if picker.cursor > 0 { picker.cursor -= 1; }
+                self.var_picker = Some(picker);
+            }
+            KeyCode::Down => {
+                if picker.cursor + 1 < vars.len() { picker.cursor += 1; }
+                self.var_picker = Some(picker);
+            }
+            KeyCode::Enter => {
+                if !vars.is_empty() {
+                    let var_name = vars[picker.cursor].clone();
+                    self.insert_var_into_target(&picker.target, &var_name, &picker.prefix);
+                } else {
+                    // No match — close picker, leave {{prefix in field as-is
+                }
+            }
+            KeyCode::Backspace => {
+                if picker.prefix.is_empty() {
+                    // Backspace past the `{{` — remove one `{` from the field and close
+                    self.backspace_in_target(&picker.target);
+                } else {
+                    picker.prefix.pop();
+                    picker.cursor = 0;
+                    self.var_picker = Some(picker);
+                }
+            }
+            KeyCode::Char(c) => {
+                picker.prefix.push(c);
+                picker.cursor = 0;
+                let still_matches = !self.filtered_var_names(&picker.prefix).is_empty();
+                if still_matches {
+                    self.var_picker = Some(picker);
+                } else {
+                    // No more matches: push the char to the field and close
+                    self.push_char_to_target(&picker.target, c);
+                }
+            }
+            _ => { self.var_picker = Some(picker); }
+        }
+        Ok(())
+    }
+
+    fn insert_var_into_target(&mut self, target: &VarPickerTarget, var_name: &str, prefix: &str) {
+        let remove_count = 2 + prefix.len(); // `{{` + prefix typed so far
+        let insert = format!("{{{{{}}}}}", var_name); // {{VAR_NAME}}
+        match target {
+            VarPickerTarget::Url => {
+                let new_len = self.request_url.len().saturating_sub(remove_count);
+                self.request_url.truncate(new_len);
+                self.request_url.push_str(&insert);
+            }
+            VarPickerTarget::ModalValue => {
+                if let Some(modal) = &mut self.modal {
+                    let val = match modal {
+                        ModalState::NewHeader { value, .. } => Some(value),
+                        ModalState::UrlParam { value, .. } => Some(value),
+                        ModalState::BodyPair { value, .. } => Some(value),
+                        _ => None,
+                    };
+                    if let Some(v) = val {
+                        let new_len = v.len().saturating_sub(remove_count);
+                        v.truncate(new_len);
+                        v.push_str(&insert);
+                    }
+                }
+            }
+            VarPickerTarget::BodyText => {
+                for _ in 0..remove_count {
+                    self.body_textarea.delete_char();
+                }
+                self.body_textarea.insert_str(&insert);
+            }
+        }
+    }
+
+    fn push_char_to_target(&mut self, target: &VarPickerTarget, c: char) {
+        match target {
+            VarPickerTarget::Url => { self.request_url.push(c); }
+            VarPickerTarget::ModalValue => {
+                if let Some(modal) = &mut self.modal {
+                    match modal {
+                        ModalState::NewHeader { value, .. }
+                        | ModalState::UrlParam { value, .. }
+                        | ModalState::BodyPair { value, .. } => { value.push(c); }
+                        _ => {}
+                    }
+                }
+            }
+            VarPickerTarget::BodyText => { self.body_textarea.insert_str(&c.to_string()); }
+        }
+    }
+
+    fn backspace_in_target(&mut self, target: &VarPickerTarget) {
+        match target {
+            VarPickerTarget::Url => { self.request_url.pop(); }
+            VarPickerTarget::ModalValue => {
+                if let Some(modal) = &mut self.modal {
+                    match modal {
+                        ModalState::NewHeader { value, .. }
+                        | ModalState::UrlParam { value, .. }
+                        | ModalState::BodyPair { value, .. } => { value.pop(); }
+                        _ => {}
+                    }
+                }
+            }
+            VarPickerTarget::BodyText => { self.body_textarea.delete_char(); }
+        }
+    }
+
     pub fn new_request(&mut self) {
         self.request_url = String::new();
         self.request_method_idx = 0;
@@ -1464,6 +1662,7 @@ impl App {
         self.response_cursor = 0;
         self.response_scroll = 0;
         self.response_folds = HashSet::new();
+        self.var_picker = None;
         self.status_message = "New request — e: edit URL  ←/→: section  s: send  S: save  q: quit".into();
     }
 

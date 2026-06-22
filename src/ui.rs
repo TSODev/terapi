@@ -31,6 +31,9 @@ pub fn render(frame: &mut Frame, app: &App) {
     if app.modal.is_some() {
         render_modal(frame, app);
     }
+    if app.var_picker.is_some() {
+        render_var_picker(frame, app);
+    }
 }
 
 fn render_tabs(frame: &mut Frame, app: &App, area: Rect) {
@@ -1009,6 +1012,76 @@ fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {
     let x = area.x + (area.width.saturating_sub(width)) / 2;
     let y = area.y + (area.height.saturating_sub(height)) / 2;
     Rect { x, y, width: width.min(area.width), height: height.min(area.height) }
+}
+
+fn render_var_picker(frame: &mut Frame, app: &App) {
+    let Some(picker) = &app.var_picker else { return };
+    let vars = app.filtered_var_names(&picker.prefix);
+
+    let inner_h = (vars.len().max(1) as u16).min(10);
+    let total_h = inner_h + 4; // border (2) + title (1) + hint (1)
+    let width: u16 = 44;
+    let area = centered_rect(width, total_h, frame.area());
+
+    let title = if picker.prefix.is_empty() {
+        " Insert variable ".to_string()
+    } else {
+        format!(" Insert variable · filter: {} ", picker.prefix)
+    };
+
+    let block = Block::default()
+        .title(title)
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+
+    frame.render_widget(Clear, area);
+    frame.render_widget(block, area);
+
+    let inner = Rect {
+        x: area.x + 1,
+        y: area.y + 1,
+        width: area.width.saturating_sub(2),
+        height: area.height.saturating_sub(2),
+    };
+
+    // Hint line at the bottom
+    let hint_area = Rect { x: inner.x, y: inner.y + inner.height - 1, width: inner.width, height: 1 };
+    let hint = Paragraph::new("↑/↓: navigate  Enter: insert  Esc: cancel")
+        .style(Style::default().fg(Color::Indexed(244)));
+    frame.render_widget(hint, hint_area);
+
+    // Var list
+    let list_area = Rect { x: inner.x, y: inner.y, width: inner.width, height: inner.height.saturating_sub(1) };
+
+    if vars.is_empty() {
+        let no_match = Paragraph::new("No matching variables")
+            .style(Style::default().fg(Color::Indexed(244)));
+        frame.render_widget(no_match, list_area);
+        return;
+    }
+
+    let items: Vec<ListItem> = vars.iter().enumerate().map(|(i, name)| {
+        let style = if i == picker.cursor {
+            Style::default().fg(Color::Black).bg(Color::Cyan)
+        } else {
+            Style::default().fg(Color::White)
+        };
+        let env_val = app.active_env_vars()
+            .into_iter()
+            .find(|(k, _)| k == name)
+            .map(|(_, v)| v)
+            .unwrap_or_default();
+        let preview: String = env_val.chars().take(16).collect();
+        let label = if env_val.is_empty() {
+            format!("{{{{{}}}}}  ", name)
+        } else {
+            format!("{{{{{}}}}}  = {}", name, preview)
+        };
+        ListItem::new(label).style(style)
+    }).collect();
+
+    let list = List::new(items);
+    frame.render_widget(list, list_area);
 }
 
 fn method_color(method: &str) -> Color {

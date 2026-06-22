@@ -42,6 +42,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Useful for debugging: see exactly what was sent and what came back
 
 ### Added
+- **Header picker** — pressing `a` in the Headers sub-tab now opens a picker of common HTTP headers before the edit modal:
+  - `Authorization` (pre-filled: `Bearer `)
+  - `Content-Type` (pre-filled: `application/json`)
+  - `Accept`, `Accept-Language`, `Accept-Encoding`, `Cache-Control`
+  - `X-API-Key`, `X-Request-ID`, `User-Agent`, `Origin`, `Referer`
+  - **Custom…** — opens the blank modal to type any header name
+  - Selecting a common header opens the edit modal with the key pre-filled and the cursor on the value field (default value pre-filled where applicable)
 - **Options sub-tab — Skip TLS verification** — navigate to the Options sub-tab (`←/→`) and press `Space` or `Enter` to toggle TLS certificate verification on/off:
   - `[ ] Skip TLS verification` (default) — strict cert validation
   - `[x] Skip TLS verification` (yellow) — accepts self-signed and hostname-mismatched certificates

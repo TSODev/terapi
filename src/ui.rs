@@ -8,7 +8,7 @@ use ratatui::{
 
 use crate::app::{
     flatten_stored, sorted_vars, App, BodyMode, EnvFocus, InputField, ModalState,
-    RequestFocus, RequestTab, ResponseView, SaveField, Tab, VarField, METHODS,
+    RequestFocus, RequestTab, ResponseView, SaveField, Tab, VarField, COMMON_HEADERS, METHODS,
 };
 use crate::json_highlight::{self, ValueType};
 
@@ -818,6 +818,61 @@ fn render_env_vars(frame: &mut Frame, app: &App, area: Rect) {
 
 fn render_modal(frame: &mut Frame, app: &App) {
     match &app.modal {
+        Some(ModalState::HeaderPicker { cursor }) => {
+            let total = COMMON_HEADERS.len() + 1;
+            let inner_h = total as u16;
+            let area = centered_rect(58, inner_h + 4, frame.area());
+            frame.render_widget(Clear, area);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .title(" Add header ")
+                .title_alignment(Alignment::Center)
+                .border_style(Style::default().fg(Color::Cyan));
+            let inner = block.inner(area);
+            frame.render_widget(block, area);
+
+            let hint_area = Rect { x: inner.x, y: inner.y + inner.height - 1, width: inner.width, height: 1 };
+            frame.render_widget(
+                Paragraph::new("↑/↓: navigate  Enter: select  Esc: cancel")
+                    .style(Style::default().fg(Color::Indexed(244))),
+                hint_area,
+            );
+
+            let list_area = Rect { x: inner.x, y: inner.y, width: inner.width, height: inner.height.saturating_sub(1) };
+
+            let mut items: Vec<ListItem> = COMMON_HEADERS.iter().enumerate().map(|(i, (name, default_val))| {
+                let selected = i == *cursor;
+                let style = if selected {
+                    Style::default().fg(Color::Black).bg(Color::Cyan)
+                } else {
+                    Style::default().fg(Color::White)
+                };
+                let val_style = if selected {
+                    Style::default().fg(Color::Black).bg(Color::Cyan)
+                } else {
+                    Style::default().fg(Color::Indexed(244))
+                };
+                let pad = 22usize.saturating_sub(name.len());
+                let preview: String = default_val.chars().take(20).collect();
+                let line = Line::from(vec![
+                    Span::styled(format!(" {}{} ", name, " ".repeat(pad)), style),
+                    Span::styled(preview, val_style),
+                ]);
+                ListItem::new(line)
+            }).collect();
+
+            // Custom... entry
+            let custom_selected = *cursor == COMMON_HEADERS.len();
+            let custom_style = if custom_selected {
+                Style::default().fg(Color::Black).bg(Color::Cyan)
+            } else {
+                Style::default().fg(Color::Yellow)
+            };
+            items.push(ListItem::new(Line::from(Span::styled(" Custom…", custom_style))));
+
+            frame.render_widget(List::new(items), list_area);
+        }
         Some(ModalState::NewCollection { input }) => {
             let area = centered_rect(52, 7, frame.area());
             frame.render_widget(Clear, area);

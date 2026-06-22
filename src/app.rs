@@ -30,6 +30,20 @@ pub enum RequestFocus {
 
 pub const METHODS: &[&str] = &["GET", "POST", "PUT", "PATCH", "DELETE"];
 
+pub const COMMON_HEADERS: &[(&str, &str)] = &[
+    ("Authorization",    "Bearer "),
+    ("Content-Type",     "application/json"),
+    ("Accept",           "application/json"),
+    ("Accept-Language",  "en-US,en;q=0.9"),
+    ("Accept-Encoding",  "gzip, deflate, br"),
+    ("Cache-Control",    "no-cache"),
+    ("X-API-Key",        ""),
+    ("X-Request-ID",     ""),
+    ("User-Agent",       ""),
+    ("Origin",           ""),
+    ("Referer",          ""),
+];
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum BodyMode {
     Text,
@@ -194,6 +208,9 @@ pub enum ModalState {
         value: String,
         active_field: VarField,
         env_idx: usize,
+    },
+    HeaderPicker {
+        cursor: usize,
     },
     NewHeader {
         key: String,
@@ -628,11 +645,7 @@ impl App {
                 if self.active_tab == Tab::Request
                     && self.active_request_tab == RequestTab::Headers =>
             {
-                self.modal = Some(ModalState::NewHeader {
-                    key: String::new(),
-                    value: String::new(),
-                    active_field: VarField::Key,
-                });
+                self.modal = Some(ModalState::HeaderPicker { cursor: 0 });
             }
             KeyCode::Char('d')
                 if self.active_tab == Tab::Request
@@ -936,6 +949,39 @@ impl App {
                 }
                 _ => { self.modal = Some(ModalState::NewVar { key: var_key, value: var_value, active_field, env_idx }); }
             },
+
+            Some(ModalState::HeaderPicker { mut cursor }) => {
+                let total = COMMON_HEADERS.len() + 1; // +1 for "Custom..."
+                match key.code {
+                    KeyCode::Esc => {}
+                    KeyCode::Up => {
+                        cursor = if cursor == 0 { total - 1 } else { cursor - 1 };
+                        self.modal = Some(ModalState::HeaderPicker { cursor });
+                    }
+                    KeyCode::Down => {
+                        cursor = (cursor + 1) % total;
+                        self.modal = Some(ModalState::HeaderPicker { cursor });
+                    }
+                    KeyCode::Enter => {
+                        if cursor < COMMON_HEADERS.len() {
+                            let (k, v) = COMMON_HEADERS[cursor];
+                            self.modal = Some(ModalState::NewHeader {
+                                key: k.to_string(),
+                                value: v.to_string(),
+                                active_field: VarField::Value,
+                            });
+                        } else {
+                            // Custom
+                            self.modal = Some(ModalState::NewHeader {
+                                key: String::new(),
+                                value: String::new(),
+                                active_field: VarField::Key,
+                            });
+                        }
+                    }
+                    _ => { self.modal = Some(ModalState::HeaderPicker { cursor }); }
+                }
+            }
 
             Some(ModalState::NewHeader { key: mut hdr_key, value: mut hdr_val, mut active_field }) => match key.code {
                 KeyCode::Esc => {}

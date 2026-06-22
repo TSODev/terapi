@@ -140,7 +140,7 @@ The response block title shows the **status code** (color-coded green/yellow/red
 | Sub-tab | Purpose |
 |---------|---------|
 | Description | Free-text note about the request |
-| Headers | Request headers (key / value) |
+| Headers | Request headers — common header picker + custom entry |
 | URL Params | Query string parameters |
 | Body | Raw JSON body editor |
 | Auth | Bearer token, API Key, OAuth2 |
@@ -203,6 +203,32 @@ Switch to the URL Params sub-tab and use the same keys as the headers editor, wi
 │▶ limit                        = 10                               │
 └──────────────────────────────────────────────────────────────────┘
 ```
+
+#### Headers editor
+
+Press `a` to add a header. A picker appears with the most common HTTP headers:
+
+```
+┌─ Add header ──────────────────────────────────────────┐
+│  Authorization         Bearer ...                      │
+│▶ Content-Type          application/json                │
+│  Accept                application/json                │
+│  Accept-Language       en-US,en;q=0.9                 │
+│  Accept-Encoding       gzip, deflate, br               │
+│  Cache-Control         no-cache                        │
+│  X-API-Key                                             │
+│  X-Request-ID                                          │
+│  User-Agent                                            │
+│  Origin                                                │
+│  Referer                                               │
+│  Custom…                                               │
+│  ↑/↓: navigate  Enter: select  Esc: cancel            │
+└───────────────────────────────────────────────────────┘
+```
+
+- Selecting a common header pre-fills the key and default value; the modal opens with the cursor on the **value** field, ready to edit
+- **Custom…** opens a blank modal with the cursor on the **key** field
+- `{{` in the value field opens the variable picker (active env required)
 
 | Key | Action |
 |-----|--------|

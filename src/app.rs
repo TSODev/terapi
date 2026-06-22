@@ -40,6 +40,14 @@ pub enum BodyMode {
 pub enum ResponseView {
     Json,
     Raw,
+    Http,
+}
+
+pub struct RawRequest {
+    pub method: String,
+    pub url: String,
+    pub headers: Vec<(String, String)>,
+    pub body: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -316,6 +324,7 @@ pub struct App {
     pub request_focus: RequestFocus,
     pub request_loading: bool,
     // Response
+    pub last_request_raw: Option<RawRequest>,
     pub response_body: Option<String>,
     pub response_status: Option<u16>,
     pub response_elapsed_ms: Option<u64>,
@@ -369,6 +378,7 @@ impl App {
             body_json_cursor: 0,
             request_focus: RequestFocus::Response,
             request_loading: false,
+            last_request_raw: None,
             response_body,
             response_status: None,
             response_elapsed_ms: None,
@@ -651,7 +661,8 @@ impl App {
             KeyCode::Char('r') if self.active_tab == Tab::Request => {
                 self.response_view = match self.response_view {
                     ResponseView::Json => ResponseView::Raw,
-                    ResponseView::Raw => ResponseView::Json,
+                    ResponseView::Raw => ResponseView::Http,
+                    ResponseView::Http => ResponseView::Json,
                 };
                 self.response_cursor = 0;
                 self.response_scroll = 0;
@@ -662,7 +673,7 @@ impl App {
                         self.response_cursor = self.response_cursor.saturating_sub(1);
                         self.sync_scroll();
                     }
-                    ResponseView::Raw => {
+                    ResponseView::Raw | ResponseView::Http => {
                         self.response_scroll = self.response_scroll.saturating_sub(1);
                     }
                 }
@@ -676,7 +687,7 @@ impl App {
                         }
                         self.sync_scroll();
                     }
-                    ResponseView::Raw => {
+                    ResponseView::Raw | ResponseView::Http => {
                         self.response_scroll = self.response_scroll.saturating_add(1);
                     }
                 }
@@ -1396,6 +1407,14 @@ impl App {
 
         let body = self.body_string();
 
+        // Snapshot the resolved request for the HTTP exchange view
+        self.last_request_raw = Some(RawRequest {
+            method: method.clone(),
+            url: resolved_url.clone(),
+            headers: resolved_headers.clone(),
+            body: body.clone(),
+        });
+
         self.request_loading = true;
         self.request_focus = RequestFocus::Response;
         self.status_message = format!("Sending {} {}…", method, resolved_url);
@@ -1655,6 +1674,7 @@ impl App {
         self.body_json_pairs = Vec::new();
         self.body_json_cursor = 0;
         self.request_focus = RequestFocus::Response;
+        self.last_request_raw = None;
         self.response_body = None;
         self.response_status = None;
         self.response_elapsed_ms = None;

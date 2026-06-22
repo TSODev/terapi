@@ -7,8 +7,8 @@ use ratatui::{
 };
 
 use crate::app::{
-    flatten_stored, sorted_vars, App, BodyMode, EnvFocus, InputField, ModalState, RequestFocus,
-    RequestTab, ResponseView, SaveField, Tab, VarField, METHODS,
+    flatten_stored, sorted_vars, App, BodyMode, EnvFocus, InputField, ModalState,
+    RequestFocus, RequestTab, ResponseView, SaveField, Tab, VarField, METHODS,
 };
 use crate::json_highlight::{self, ValueType};
 
@@ -355,31 +355,28 @@ fn render_headers_editor(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_response(frame: &mut Frame, app: &App, area: Rect) {
-    let json_active = app.response_view == ResponseView::Json;
-
-    let json_style = if json_active {
-        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
-    } else {
-        Style::default().fg(Color::Indexed(244))
-    };
-    let raw_style = if !json_active {
-        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
-    } else {
-        Style::default().fg(Color::Indexed(244))
-    };
-
     let title = if app.request_loading {
         Line::from(vec![
             Span::raw(" "),
             Span::styled("⟳ sending…", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-            Span::raw("  r: toggle  -/=: resize "),
+            Span::raw("  r: cycle view  -/=: resize "),
         ])
     } else {
+        let style_for = |v: &ResponseView| {
+            if *v == app.response_view {
+                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::Indexed(244))
+            }
+        };
+        let sep = Span::styled(" · ", Style::default().fg(Color::DarkGray));
         let mut spans = vec![
             Span::raw(" "),
-            Span::styled("JSON", json_style),
-            Span::styled(" · ", Style::default().fg(Color::DarkGray)),
-            Span::styled("Raw", raw_style),
+            Span::styled("JSON", style_for(&ResponseView::Json)),
+            sep.clone(),
+            Span::styled("Raw", style_for(&ResponseView::Raw)),
+            sep.clone(),
+            Span::styled("HTTP", style_for(&ResponseView::Http)),
         ];
         if let Some(status) = app.response_status {
             let status_color = match status {
@@ -400,7 +397,7 @@ fn render_response(frame: &mut Frame, app: &App, area: Rect) {
                 ));
             }
         }
-        spans.push(Span::raw("  r: toggle  -/=: resize "));
+        spans.push(Span::raw("  r: cycle  -/=: resize "));
         Line::from(spans)
     };
 
@@ -414,7 +411,8 @@ fn render_response(frame: &mut Frame, app: &App, area: Rect) {
 
     match app.response_view {
         ResponseView::Json => render_response_json(frame, app, inner),
-        ResponseView::Raw => render_response_raw(frame, app, inner),
+        ResponseView::Raw  => render_response_raw(frame, app, inner),
+        ResponseView::Http => render_response_http(frame, app, inner),
     }
 }
 
@@ -493,6 +491,124 @@ fn render_response_raw(frame: &mut Frame, app: &App, area: Rect) {
         .style(Style::default().fg(Color::White))
         .scroll((app.response_scroll, 0));
     frame.render_widget(para, area);
+}
+
+fn render_response_http(frame: &mut Frame, app: &App, area: Rect) {
+    let mut lines: Vec<Line> = Vec::new();
+
+    let sep_style    = Style::default().fg(Color::Indexed(238));
+    let header_key   = Style::default().fg(Color::Yellow);
+    let header_val   = Style::default().fg(Color::White);
+    let body_style   = Style::default().fg(Color::White);
+    let hint_style   = Style::default().fg(Color::Indexed(244));
+
+    // ── Request ───────────────────────────────────────────────────────────
+    lines.push(Line::from(Span::styled("── Request ──────────────────────────────────────────", sep_style)));
+
+    match &app.last_request_raw {
+        None => {
+            lines.push(Line::from(Span::styled("No request sent yet.", hint_style)));
+        }
+        Some(req) => {
+            // Extract host and path from URL with simple string splitting
+            let (path_query, host_str) = {
+                let url = &req.url;
+                // Strip scheme (https:// or http://)
+                let after_scheme = url.find("://").map(|i| &url[i+3..]).unwrap_or(url);
+                let slash_pos = after_scheme.find('/').unwrap_or(after_scheme.len());
+                let host = &after_scheme[..slash_pos];
+                let path = if slash_pos < after_scheme.len() {
+                    after_scheme[slash_pos..].to_string()
+                } else {
+                    "/".to_string()
+                };
+                (path, host.to_string())
+            };
+
+            lines.push(Line::from(vec![
+                Span::styled(format!("{} ", req.method), Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)),
+                Span::styled(path_query, header_val),
+                Span::styled(" HTTP/1.1", hint_style),
+            ]));
+            if !host_str.is_empty() {
+                lines.push(Line::from(vec![
+                    Span::styled("Host: ", header_key),
+                    Span::styled(host_str, header_val),
+                ]));
+            }
+            for (k, v) in &req.headers {
+                lines.push(Line::from(vec![
+                    Span::styled(format!("{}: ", k), header_key),
+                    Span::styled(v.clone(), header_val),
+                ]));
+            }
+            if let Some(body) = &req.body {
+                lines.push(Line::from(vec![
+                    Span::styled("Content-Length: ", header_key),
+                    Span::styled(body.len().to_string(), header_val),
+                ]));
+                lines.push(Line::from(Span::raw("")));
+                for l in body.lines() {
+                    lines.push(Line::from(Span::styled(l.to_string(), body_style)));
+                }
+            } else {
+                lines.push(Line::from(Span::raw("")));
+            }
+        }
+    }
+
+    lines.push(Line::from(Span::raw("")));
+
+    // ── Response ──────────────────────────────────────────────────────────
+    lines.push(Line::from(Span::styled("── Response ─────────────────────────────────────────", sep_style)));
+
+    match app.response_status {
+        None => {
+            lines.push(Line::from(Span::styled("No response yet.", hint_style)));
+        }
+        Some(status) => {
+            let status_color = match status {
+                200..=299 => Color::Green,
+                300..=399 => Color::Cyan,
+                400..=499 => Color::Yellow,
+                _         => Color::Red,
+            };
+            let reason = http_reason(status);
+            lines.push(Line::from(vec![
+                Span::styled("HTTP/1.1 ", hint_style),
+                Span::styled(
+                    format!("{} {}", status, reason),
+                    Style::default().fg(status_color).add_modifier(Modifier::BOLD),
+                ),
+            ]));
+            for (k, v) in &app.response_headers {
+                lines.push(Line::from(vec![
+                    Span::styled(format!("{}: ", k), header_key),
+                    Span::styled(v.clone(), header_val),
+                ]));
+            }
+            lines.push(Line::from(Span::raw("")));
+            let body = app.response_body.as_deref().unwrap_or("");
+            for l in body.lines() {
+                lines.push(Line::from(Span::styled(l.to_string(), body_style)));
+            }
+        }
+    }
+
+    frame.render_widget(Paragraph::new(lines).scroll((app.response_scroll, 0)), area);
+}
+
+fn http_reason(status: u16) -> &'static str {
+    match status {
+        200 => "OK", 201 => "Created", 202 => "Accepted", 204 => "No Content",
+        301 => "Moved Permanently", 302 => "Found", 304 => "Not Modified",
+        400 => "Bad Request", 401 => "Unauthorized", 403 => "Forbidden",
+        404 => "Not Found", 405 => "Method Not Allowed", 409 => "Conflict",
+        422 => "Unprocessable Entity", 429 => "Too Many Requests",
+        500 => "Internal Server Error", 502 => "Bad Gateway",
+        503 => "Service Unavailable", 504 => "Gateway Timeout",
+        _ => "",
+    }
 }
 
 // ── Collections panel ────────────────────────────────────────────────────────

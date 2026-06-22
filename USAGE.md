@@ -252,9 +252,37 @@ The JSON view displays a 3-column table: **Key / Type / Value**.
 
 - Objects and arrays show a `▼` / `▶` fold icon — press `Enter` to fold or unfold.
 - Folded nodes display an inline content preview: `{ id: 42, name: "tsodev" … }`.
-- Press `r` to toggle between **JSON** (structured table) and **Raw** (plain text) views.
+- Press `r` to cycle through three views: **JSON** → **Raw** → **HTTP** → JSON.
 - Use `-` / `=` to shrink or grow the Key column width.
-- Use `↑` / `↓` to move the cursor row by row (JSON view) or scroll the raw text.
+- Use `↑` / `↓` to move the cursor row by row (JSON view) or scroll (Raw / HTTP views).
+
+**Response views:**
+
+| View | Content |
+|------|---------|
+| JSON | Parsed JSON tree — foldable, colour-coded, cursor navigation |
+| Raw | Plain response body text |
+| HTTP | Full HTTP exchange: request line + headers + body, then response status + headers + body |
+
+The **HTTP view** is especially useful for debugging — it shows the exact request that was sent (with all `{{VAR}}` already resolved) and the full response headers:
+
+```
+── Request ──────────────────────────────────────────────
+POST /login HTTP/1.1
+Host: api.tsodev.fr
+Content-Type: application/json
+Content-Length: 45
+
+{"username":"thierry","password":"Pr0bleme#"}
+
+── Response ─────────────────────────────────────────────
+HTTP/1.1 200 OK
+Content-Type: application/json
+Date: Tue, 02 Jun 2026 08:34:44 GMT
+...
+
+{"token":"eyJ0eXAiOiJKV1Qi…"}
+```
 
 **Value type colours:**
 
@@ -405,7 +433,7 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `Esc` | Request panel (body editor, Text or JSON) | Exit body editor |
 | `↑` / `↓` | Request panel | Move response cursor (JSON) / scroll (Raw) |
 | `Enter` | Request panel (response mode) | Fold / unfold selected JSON node |
-| `r` | Request panel | Toggle JSON ↔ Raw response view |
+| `r` | Request panel | Cycle response view: JSON → Raw → HTTP exchange |
 | `-` | Request panel | Shrink Key column |
 | `=` | Request panel | Grow Key column |
 | `↑` / `↓` | Collections panel | Move cursor |

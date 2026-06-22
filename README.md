@@ -93,7 +93,7 @@ terapi --help
 | `Enter` | Send request (URL mode) / fold-unfold JSON node / edit body field (JSON mode) |
 | `Esc` | Finish URL edit / exit body editor |
 | `{{` | Open variable picker (any editable field) — insert `{{VAR}}` from active env |
-| `r` | Toggle JSON ↔ Raw response view |
+| `r` | Cycle response view: JSON → Raw → HTTP exchange |
 | `-` / `=` | Resize Key column |
 | `q` / `Esc` | Quit |
 

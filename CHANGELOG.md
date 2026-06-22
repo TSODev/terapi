@@ -16,6 +16,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - If no environment is active: a status bar message prompts to activate one in the Env tab
   - If the active environment has no variables: a status bar message says so
 
+### Added
+- **HTTP Exchange view** — press `r` to cycle through three response views:
+  - **JSON** — parsed JSON tree (existing)
+  - **Raw** — raw response body (existing)
+  - **HTTP** — full HTTP exchange showing request and response in wire format:
+    ```
+    ── Request ──────────────────────────────────────────
+    POST /login HTTP/1.1
+    Host: api.tsodev.fr
+    Content-Type: application/json
+    Content-Length: 45
+
+    {"username":"thierry","password":"Pr0bleme#"}
+
+    ── Response ─────────────────────────────────────────
+    HTTP/1.1 200 OK
+    Content-Type: application/json
+    Date: Tue, 02 Jun 2026 08:34:44 GMT
+
+    {"token":"eyJ0eXAiOiJKV1Qi…"}
+    ```
+  - Request snapshot captures the fully resolved URL, headers (with `{{VAR}}` substituted), and body at send time
+  - Response section shows all response headers + body
+  - Useful for debugging: see exactly what was sent and what came back
+
 ### Fixed
 - **Persistent context bar** — a permanent second status line now appears at the bottom of every screen:
   - Left: breadcrumb of the current context (`Request › Body › JSON › editing`, `Env › Variables`, …)

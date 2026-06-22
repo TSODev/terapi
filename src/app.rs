@@ -1464,7 +1464,7 @@ impl App {
         self.response_cursor = 0;
         self.response_scroll = 0;
         self.response_folds = HashSet::new();
-        self.status_message = "New request — e: edit URL  S: save to collection  s: send  q: quit".into();
+        self.status_message = "New request — e: edit URL  ←/→: section  s: send  S: save  q: quit".into();
     }
 
     fn body_string(&self) -> Option<String> {

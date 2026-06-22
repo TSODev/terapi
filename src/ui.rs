@@ -8,7 +8,8 @@ use ratatui::{
 
 use crate::app::{
     flatten_stored, sorted_vars, App, BodyMode, EnvFocus, InputField, ModalState,
-    RequestFocus, RequestTab, ResponseView, SaveField, Tab, VarField, COMMON_HEADERS, METHODS,
+    RequestFocus, RequestTab, ResponseView, SaveField, Tab, VarField,
+    COMMON_CONTENT_TYPES, COMMON_HEADERS, METHODS,
 };
 use crate::json_highlight::{self, ValueType};
 
@@ -870,6 +871,50 @@ fn render_modal(frame: &mut Frame, app: &App) {
                 Style::default().fg(Color::Yellow)
             };
             items.push(ListItem::new(Line::from(Span::styled(" Custom…", custom_style))));
+
+            frame.render_widget(List::new(items), list_area);
+        }
+        Some(ModalState::ContentTypePicker { cursor }) => {
+            let total = COMMON_CONTENT_TYPES.len() + 1;
+            let area = centered_rect(52, total as u16 + 4, frame.area());
+            frame.render_widget(Clear, area);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .title(" Content-Type ")
+                .title_alignment(Alignment::Center)
+                .border_style(Style::default().fg(Color::Cyan));
+            let inner = block.inner(area);
+            frame.render_widget(block, area);
+
+            let hint_area = Rect { x: inner.x, y: inner.y + inner.height - 1, width: inner.width, height: 1 };
+            frame.render_widget(
+                Paragraph::new("↑/↓: navigate  Enter: select  Esc: back")
+                    .style(Style::default().fg(Color::Indexed(244))),
+                hint_area,
+            );
+
+            let list_area = Rect { x: inner.x, y: inner.y, width: inner.width, height: inner.height.saturating_sub(1) };
+
+            let mut items: Vec<ListItem> = COMMON_CONTENT_TYPES.iter().enumerate().map(|(i, ct)| {
+                let selected = i == *cursor;
+                let style = if selected {
+                    Style::default().fg(Color::Black).bg(Color::Cyan)
+                } else {
+                    Style::default().fg(Color::White)
+                };
+                ListItem::new(Line::from(Span::styled(format!(" {} ", ct), style)))
+            }).collect();
+
+            let custom_selected = *cursor == COMMON_CONTENT_TYPES.len();
+            items.push(ListItem::new(Line::from(Span::styled(
+                " Custom…",
+                if custom_selected {
+                    Style::default().fg(Color::Black).bg(Color::Cyan)
+                } else {
+                    Style::default().fg(Color::Yellow)
+                },
+            ))));
 
             frame.render_widget(List::new(items), list_area);
         }

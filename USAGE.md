@@ -227,6 +227,7 @@ Press `a` to add a header. A picker appears with the most common HTTP headers:
 ```
 
 - Selecting a common header pre-fills the key and default value; the modal opens with the cursor on the **value** field, ready to edit
+- **Content-Type** opens a second picker with 9 common values (`application/json`, `multipart/form-data`, `text/plain`…); `Esc` goes back to the header picker
 - **Custom…** opens a blank modal with the cursor on the **key** field
 - `{{` in the value field opens the variable picker (active env required)
 

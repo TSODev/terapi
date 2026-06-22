@@ -42,6 +42,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Useful for debugging: see exactly what was sent and what came back
 
 ### Added
+- **Content-Type value picker** — selecting `Content-Type` in the header picker opens a second picker with 9 common values:
+  - `application/json`, `application/x-www-form-urlencoded`, `multipart/form-data`
+  - `text/plain`, `text/html`, `text/xml`, `application/xml`
+  - `application/octet-stream`, `application/graphql`
+  - **Custom…** — opens the modal with an empty value field
+  - `Esc` goes back to the header picker
 - **Header picker** — pressing `a` in the Headers sub-tab now opens a picker of common HTTP headers before the edit modal:
   - `Authorization` (pre-filled: `Bearer `)
   - `Content-Type` (pre-filled: `application/json`)

@@ -44,6 +44,18 @@ pub const COMMON_HEADERS: &[(&str, &str)] = &[
     ("Referer",          ""),
 ];
 
+pub const COMMON_CONTENT_TYPES: &[&str] = &[
+    "application/json",
+    "application/x-www-form-urlencoded",
+    "multipart/form-data",
+    "text/plain; charset=utf-8",
+    "text/html; charset=utf-8",
+    "text/xml",
+    "application/xml",
+    "application/octet-stream",
+    "application/graphql",
+];
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum BodyMode {
     Text,
@@ -210,6 +222,9 @@ pub enum ModalState {
         env_idx: usize,
     },
     HeaderPicker {
+        cursor: usize,
+    },
+    ContentTypePicker {
         cursor: usize,
     },
     NewHeader {
@@ -964,14 +979,18 @@ impl App {
                     }
                     KeyCode::Enter => {
                         if cursor < COMMON_HEADERS.len() {
-                            let (k, v) = COMMON_HEADERS[cursor];
-                            self.modal = Some(ModalState::NewHeader {
-                                key: k.to_string(),
-                                value: v.to_string(),
-                                active_field: VarField::Value,
-                            });
+                            let (k, _) = COMMON_HEADERS[cursor];
+                            if k == "Content-Type" {
+                                self.modal = Some(ModalState::ContentTypePicker { cursor: 0 });
+                            } else {
+                                let (k, v) = COMMON_HEADERS[cursor];
+                                self.modal = Some(ModalState::NewHeader {
+                                    key: k.to_string(),
+                                    value: v.to_string(),
+                                    active_field: VarField::Value,
+                                });
+                            }
                         } else {
-                            // Custom
                             self.modal = Some(ModalState::NewHeader {
                                 key: String::new(),
                                 value: String::new(),
@@ -980,6 +999,38 @@ impl App {
                         }
                     }
                     _ => { self.modal = Some(ModalState::HeaderPicker { cursor }); }
+                }
+            }
+
+            Some(ModalState::ContentTypePicker { mut cursor }) => {
+                let total = COMMON_CONTENT_TYPES.len() + 1; // +1 for Custom...
+                match key.code {
+                    KeyCode::Esc => { self.modal = Some(ModalState::HeaderPicker { cursor: 1 }); } // back to header picker on Content-Type
+                    KeyCode::Up => {
+                        cursor = if cursor == 0 { total - 1 } else { cursor - 1 };
+                        self.modal = Some(ModalState::ContentTypePicker { cursor });
+                    }
+                    KeyCode::Down => {
+                        cursor = (cursor + 1) % total;
+                        self.modal = Some(ModalState::ContentTypePicker { cursor });
+                    }
+                    KeyCode::Enter => {
+                        let value = if cursor < COMMON_CONTENT_TYPES.len() {
+                            COMMON_CONTENT_TYPES[cursor].to_string()
+                        } else {
+                            String::new()
+                        };
+                        self.modal = Some(ModalState::NewHeader {
+                            key: "Content-Type".to_string(),
+                            value,
+                            active_field: if cursor < COMMON_CONTENT_TYPES.len() {
+                                VarField::Value
+                            } else {
+                                VarField::Key // cursor on value for custom
+                            },
+                        });
+                    }
+                    _ => { self.modal = Some(ModalState::ContentTypePicker { cursor }); }
                 }
             }
 

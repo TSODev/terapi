@@ -8,6 +8,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Active env indicator in Request panel**: the URL bar title now shows ` · env: <name>` when an environment is active, making the active environment visible while building requests
+- **`env_file` in campaign TOML** — reference a named terapi environment as the base variable set:
+  ```toml
+  env_file = "production"   # loads <terapi_dir>/envs/production.toml
+  ```
+  Inline `[env]` vars take precedence over `env_file` vars
+- **Per-step `env` field** — each step can point to a named terapi environment to use for that step:
+  ```toml
+  [[steps]]
+  name = "Health check (staging)"
+  env  = "staging"   # loads staging env vars, overrides campaign base for this step only
+  method = "GET"
+  url    = "{{BASE_URL}}/health"
+  ```
+  Extracted vars from previous steps still override the step env (highest priority)
+- `storage::load_env_by_name(name)` — load a single terapi environment by name (used by campaign runner)
+- `storage::resolve_vars(text, vars)` — `{{VAR}}` substitution helper (foundation for TUI request sending)
+
+### Changed
 - Collection CRUD in the TUI (Collections panel):
   - `n` — create a new collection (name input modal)
   - `f` — create a new folder inside the selected collection (name input modal); cursor moves to the new folder automatically so `a` can be pressed immediately

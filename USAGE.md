@@ -201,7 +201,7 @@ The panel is split into two columns:
 
 **Adding a variable (`a`)** — modal with two fields: Key and Value. Use `Tab` to switch between them. The variable is added to the currently selected environment. Variables are displayed sorted alphabetically.
 
-**Activating an environment** — press `Enter` on an environment in the left panel. The `●` indicator moves to it. Its variables will be used as `{{VAR}}` substitutions in requests (injection into the TUI request editor is coming in a future version).
+**Activating an environment** — press `Enter` on an environment in the left panel. The `●` indicator moves to it. The active environment name is displayed in the Request panel URL bar title: ` URL · env: Test `. Its variables will be substituted in requests as `{{VAR}}` when request sending is implemented.
 
 ### History panel
 
@@ -357,8 +357,12 @@ terapi run campaign.toml
 name        = "Users API — smoke tests"
 description = "Login, then run CRUD operations"   # optional
 
+# Load a named terapi environment as base vars (optional).
+# Inline [env] overrides these; extracted step vars override everything.
+env_file = "production"   # references <terapi_dir>/envs/production.toml
+
 [env]
-BASE_URL = "https://api.example.com"
+BASE_URL = "https://api.example.com"   # overrides env_file if same key
 ADMIN    = "admin@example.com"
 
 [[steps]]
@@ -393,11 +397,29 @@ Authorization = "Bearer {{JWT}}"
 
 ### Variable substitution
 
-`{{VAR}}` placeholders are replaced in `url`, `headers`, and `body` using values from:
+`{{VAR}}` placeholders are replaced in `url`, `headers`, and `body` using values from (lowest to highest priority):
 
-1. `[env]` block (defined at campaign level)
-2. `[steps.extract]` values extracted from previous step responses
-3. `$TERAPI_DIR` / connector row variables (CSV)
+1. `env_file` — named terapi environment loaded from disk (campaign-level base)
+2. `[env]` block — inline vars at campaign level, override `env_file`
+3. Connector row variables — CSV columns, override campaign env
+4. Step `env` — named terapi environment for that step only, overrides campaign base
+5. `[steps.extract]` — values extracted from previous step responses (always highest priority)
+
+**Per-step environment** — each step can declare `env = "name"` to use a specific terapi environment for that step. The step env overrides campaign-level vars, but extracted vars from previous steps always take precedence:
+
+```toml
+[[steps]]
+name   = "Login (production)"
+env    = "production"    # uses production.toml vars for this step
+method = "POST"
+url    = "{{BASE_URL}}/auth/login"
+
+[[steps]]
+name   = "Health check (staging)"
+env    = "staging"       # uses staging.toml vars for this step
+method = "GET"
+url    = "{{BASE_URL}}/health"
+```
 
 ### Variable extraction
 

@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -169,6 +169,26 @@ pub fn delete_env(name: &str) -> Result<()> {
         std::fs::remove_file(path)?;
     }
     Ok(())
+}
+
+/// Load a single environment by name from the terapi envs directory.
+pub fn load_env_by_name(name: &str) -> Result<StoredEnv> {
+    let path = resolve_terapi_dir()
+        .join("envs")
+        .join(format!("{}.toml", sanitize_filename(name)));
+    let content = std::fs::read_to_string(&path)
+        .with_context(|| format!("cannot read environment '{}' at {:?}", name, path))?;
+    toml::from_str(&content)
+        .with_context(|| format!("invalid TOML in environment file for '{}'", name))
+}
+
+/// Replace `{{VAR}}` placeholders in `text` using the given variable map.
+pub fn resolve_vars(text: &str, vars: &std::collections::HashMap<String, String>) -> String {
+    let mut out = text.to_string();
+    for (k, v) in vars {
+        out = out.replace(&format!("{{{{{}}}}}", k), v);
+    }
+    out
 }
 
 // ── Shared ───────────────────────────────────────────────────────────────────

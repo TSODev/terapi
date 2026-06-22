@@ -75,11 +75,17 @@ fn render_request_panel(frame: &mut Frame, app: &App, area: Rect) {
         ])
         .split(area);
 
+    let env_badge = app.active_env_idx
+        .and_then(|i| app.environments.get(i))
+        .map(|e| format!(" · env: {}", e.env.name))
+        .unwrap_or_default();
+    let url_title = format!(" URL{} ", env_badge);
+
     let url_bar = Paragraph::new("GET  https://")
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title(" URL ")
+                .title(url_title)
                 .border_style(Style::default().fg(Color::Yellow)),
         )
         .style(Style::default().fg(Color::White));

@@ -167,8 +167,11 @@ Terapi includes a headless campaign runner for API automation.
 name        = "Users API — smoke tests"
 description = "Login then run CRUD operations"
 
+# Optional: load a named terapi environment as base vars
+env_file = "production"   # <terapi_dir>/envs/production.toml
+
 [env]
-BASE_URL = "https://api.example.com"
+BASE_URL = "https://api.example.com"   # overrides env_file if same key
 
 [[steps]]
 name   = "Login"
@@ -187,7 +190,15 @@ method = "GET"
 url    = "{{BASE_URL}}/users/{{USER_ID}}"
 [steps.headers]
 Authorization = "Bearer {{JWT}}"
+
+[[steps]]
+name   = "Health check (staging)"
+env    = "staging"   # uses staging terapi env for this step only
+method = "GET"
+url    = "{{BASE_URL}}/health"
 ```
+
+Variable priority (lowest → highest): `env_file` → `[env]` → connector row → step `env` → extracted vars.
 
 ### Data-driven campaigns (CSV connector)
 
@@ -260,7 +271,10 @@ Campaign : Users API — smoke tests
 - [x] Environment tab — create / manage multiple environments (test, staging, prod…)
 - [x] Add variables per environment (`KEY = value`), activate with `Enter`
 - [x] Storage: one TOML file per environment in `<terapi_dir>/envs/`
-- [ ] Inject active environment variables into requests (`{{VAR}}` substitution in the TUI)
+- [x] Active env indicator in Request panel URL bar (`· env: <name>`)
+- [x] Campaign: `env_file = "name"` loads a terapi env as base variable set
+- [x] Campaign: per-step `env = "name"` to switch environment for a single step
+- [ ] Inject active environment variables into requests (`{{VAR}}` substitution in TUI, requires editable URL/body)
 - [ ] Request history (persistent, TOML)
 
 ### v0.5 — GraphQL

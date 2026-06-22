@@ -13,8 +13,13 @@ use crate::connector::{self, ConnectorConfig, Row};
 #[derive(Debug, Deserialize)]
 pub struct Campaign {
     pub campaign: Meta,
+    /// Inline environment variables. Overrides env_file vars.
     #[serde(default)]
     pub env: HashMap<String, String>,
+    /// Name of a terapi environment to load as base (e.g. "production").
+    /// Loaded from `<terapi_dir>/envs/<name>.toml`. Inline [env] takes precedence.
+    #[serde(default)]
+    pub env_file: Option<String>,
     /// One connector = one data source; the campaign runs once per row.
     #[serde(default)]
     pub connectors: Vec<ConnectorConfig>,
@@ -38,6 +43,10 @@ pub struct Step {
     pub headers: HashMap<String, String>,
     #[serde(default)]
     pub body: Option<String>,
+    /// Name of a terapi environment to use for this step (e.g. "staging").
+    /// Overrides campaign-level env vars for this step only; extracted vars still take priority.
+    #[serde(default)]
+    pub env: Option<String>,
     /// variable_name = "dot.path.in.response"
     #[serde(default)]
     pub extract: HashMap<String, String>,
@@ -94,6 +103,23 @@ pub async fn run(campaign: &Campaign, silent: bool) -> Result<()> {
         out!("           {}", campaign.campaign.description);
     }
 
+    // Build base environment: env_file (lowest priority) then campaign [env] on top
+    let mut base_env: HashMap<String, String> = if let Some(ref name) = campaign.env_file {
+        match crate::storage::load_env_by_name(name) {
+            Ok(stored) => {
+                out!("Env file  : {} ({} vars)", name, stored.vars.len());
+                stored.vars
+            }
+            Err(e) => {
+                out!("Warning   : could not load env_file '{}': {}", name, e);
+                HashMap::new()
+            }
+        }
+    } else {
+        HashMap::new()
+    };
+    base_env.extend(campaign.env.clone());
+
     // Build iteration list from connectors
     let rows: Vec<Row> = match campaign.connectors.as_slice() {
         [] => {
@@ -117,7 +143,7 @@ pub async fn run(campaign: &Campaign, silent: bool) -> Result<()> {
     let mut all: Vec<IterationResult> = Vec::new();
 
     for (idx, row_vars) in rows.into_iter().enumerate() {
-        let mut env = campaign.env.clone();
+        let mut env = base_env.clone();
         env.extend(row_vars.clone());
 
         if use_iter_prefix {
@@ -128,7 +154,7 @@ pub async fn run(campaign: &Campaign, silent: bool) -> Result<()> {
             out!("── Row {}/{} — {} ", idx + 1, total_iters, row_summary);
         }
 
-        let step_results = run_steps(&client, &campaign.steps, &mut env).await;
+        let step_results = run_steps(&client, &campaign.steps, &env, silent).await;
 
         for sr in &step_results {
             let status_str = sr.status
@@ -169,27 +195,50 @@ pub async fn run(campaign: &Campaign, silent: bool) -> Result<()> {
 
 /// Run all steps for one iteration. Errors are captured into StepResult,
 /// not propagated — execution stops at the first failure.
+///
+/// Variable priority (lowest → highest):
+///   base_env  <  step env_file  <  extracted vars from previous steps
 async fn run_steps(
     client: &reqwest::Client,
     steps: &[Step],
-    env: &mut HashMap<String, String>,
+    base_env: &HashMap<String, String>,
+    silent: bool,
 ) -> Vec<StepResult> {
+    macro_rules! out {
+        ($($arg:tt)*) => { if !silent { println!($($arg)*); } }
+    }
+
+    let mut extracted: HashMap<String, String> = HashMap::new();
     let mut results = Vec::new();
 
     for step in steps {
-        let url  = resolve(&step.url, env);
-        let body = step.body.as_deref().map(|b| resolve(b, env));
+        // Build effective env for this step:
+        //   1. campaign base (env_file + [env] + row_vars)
+        //   2. step's named env (if any) — overrides base for this step
+        //   3. vars extracted from previous steps — always highest priority
+        let mut effective = base_env.clone();
+
+        if let Some(ref env_name) = step.env {
+            match crate::storage::load_env_by_name(env_name) {
+                Ok(stored) => effective.extend(stored.vars),
+                Err(e) => out!("  Warning: env '{}' not found: {}", env_name, e),
+            }
+        }
+
+        // Extracted vars override everything else
+        effective.extend(extracted.clone());
+
+        let url  = resolve(&step.url, &effective);
+        let body = step.body.as_deref().map(|b| resolve(b, &effective));
         let t0   = Instant::now();
 
-        let outcome = execute_step(client, step, &url, body.as_deref(), env).await;
+        let outcome = execute_step(client, step, &url, body.as_deref(), &effective).await;
         let duration_ms = t0.elapsed().as_millis() as u64;
 
         match outcome {
-            Ok((status, extracted)) => {
+            Ok((status, new_extracted)) => {
                 let success = status < 400;
-                for (k, v) in &extracted {
-                    env.insert(k.clone(), v.clone());
-                }
+                extracted.extend(new_extracted.clone());
                 let error = if success { None } else { Some(format!("HTTP {}", status)) };
                 let failed = !success;
                 results.push(StepResult {
@@ -200,7 +249,7 @@ async fn run_steps(
                     duration_ms,
                     success,
                     error,
-                    extracted,
+                    extracted: new_extracted,
                 });
                 if failed { break; }
             }

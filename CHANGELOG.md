@@ -43,6 +43,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `examples/crud_demo.toml` — full CRUD on JSONPlaceholder (POST → extract id → GET → PUT → PATCH → DELETE)
   - `examples/auth_flow.toml` — ReqRes auth flow (login → extract token → GET user → PUT update)
   - `examples/debug_toolbox.toml` — httpbin.io edge cases (status codes, headers, bearer auth)
+- **URL Params editor** — key/value list in the URL Params sub-tab:
+  - `a` — add a param (Key + Value modal, `Tab` to switch fields)
+  - `d` — delete selected param
+  - `Enter` — edit selected param
+  - `↑` / `↓` — navigate params
+  - Params are appended to the URL as query string at send time (`?k=v&k2=v2`)
+  - Loading a collection request with a query string splits it automatically: base URL goes to the URL bar, params populate the list
 - **Load request from Collections** — press `Enter` on a request node to load it into the Request tab:
   - Method, URL, headers, and body are all restored
   - App switches automatically to the Request tab

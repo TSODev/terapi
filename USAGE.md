@@ -118,6 +118,28 @@ The response block title shows the **status code** (color-coded green/yellow/red
 | Auth | Bearer token, API Key, OAuth2 |
 | Options | Timeout, redirects, SSL |
 
+#### URL Params editor
+
+Switch to the URL Params sub-tab and use the same keys as the headers editor, with the addition of `Enter` to edit a selected param:
+
+```
+┌─ URL Params (2) ────────────────────────────────────────────────┐
+│  page                         = 2                                │
+│▶ limit                        = 10                               │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+| Key | Action |
+|-----|--------|
+| `a` | Add a param (Key + Value modal, `Tab` to switch fields) |
+| `d` | Delete selected param |
+| `Enter` | Edit selected param |
+| `↑` / `↓` | Navigate params |
+
+At send time params are recomposed as a query string and appended to the URL (`?key=value&key2=value2`). If the URL already contains a `?`, params are joined with `&`.
+
+**Auto-parse on load** — when a request is loaded from Collections and its URL contains a query string (e.g. `https://api.example.com/users?page=2&limit=10`), terapi splits it automatically: the URL bar receives the base URL (`https://api.example.com/users`) and the params list is populated with the parsed key/value pairs.
+
 #### Body editor
 
 The body editor has two modes, toggled with `t` (when the Body sub-tab is active and outside edit mode).
@@ -295,6 +317,10 @@ Placeholder — will show recent requests in v0.4.
 | `e` | Request panel | Enter URL edit mode |
 | `m` | Request panel | Cycle HTTP method (GET → POST → PUT → PATCH → DELETE) |
 | `s` | Request panel | Send current request |
+| `a` | Request panel (URL Params sub-tab) | Add param |
+| `d` | Request panel (URL Params sub-tab) | Delete selected param |
+| `Enter` | Request panel (URL Params sub-tab) | Edit selected param |
+| `↑` / `↓` | Request panel (URL Params sub-tab) | Navigate params |
 | `i` | Request panel (Body sub-tab) | Enter body editor mode |
 | `t` | Request panel (Body sub-tab, outside editor) | Toggle body mode: Text ↔ JSON |
 | `a` | Body editor (JSON mode) | Add field |

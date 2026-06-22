@@ -83,6 +83,7 @@ terapi --help
 | `m` | Cycle HTTP method |
 | `s` | Send request |
 | `i` | Edit body (Body sub-tab — enter editor) |
+| `a` / `d` | URL Params sub-tab — add / delete param |
 | `t` | Toggle body mode: Text ↔ JSON (Body sub-tab, outside editor) |
 | `←` / `→` | Navigate sub-tabs (or cycle method in URL mode) |
 | `↑` / `↓` | Move response cursor (JSON) / scroll (Raw) / navigate JSON body fields |
@@ -262,6 +263,7 @@ Campaign : Users API — smoke tests
 - [x] Send request — async via tokio, `{{VAR}}` resolved from active env
 - [x] Response viewer: status code (color-coded) + elapsed time in title
 - [x] Headers editor — `a`/`d`/`↑↓` in Headers sub-tab, `{{VAR}}` resolved before send
+- [x] URL Params editor — `a`/`d`/`Enter`/`↑↓`; appended to URL at send time; auto-parsed when loading from Collections
 - [x] Body editor — dual mode: Text (`tui-textarea`) and JSON key/value table; `t` to toggle, `i` to edit
 
 ### v0.3 — Collections

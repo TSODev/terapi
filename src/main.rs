@@ -42,6 +42,13 @@ enum Commands {
         #[arg(long, short = 's')]
         silent: bool,
     },
+
+    /// Import a collection TOML file into the terapi collections directory
+    Import {
+        /// Path to the collection TOML file to import
+        #[arg(value_name = "FILE")]
+        file: String,
+    },
 }
 
 #[tokio::main]
@@ -53,9 +60,37 @@ async fn main() -> Result<()> {
             let camp = campaign::load(&file)?;
             campaign::run(&camp, silent).await?;
         }
+        Some(Commands::Import { file }) => {
+            import_collection(&file)?;
+        }
         None => launch_tui(load_json(cli.demo.as_deref())).await?,
     }
 
+    Ok(())
+}
+
+fn import_collection(path: &str) -> Result<()> {
+    use anyhow::Context;
+
+    let content = std::fs::read_to_string(path)
+        .with_context(|| format!("cannot read '{}'", path))?;
+
+    let col: storage::StoredCollection = toml::from_str(&content)
+        .with_context(|| format!("'{}' is not a valid collection TOML", path))?;
+
+    let dir = storage::resolve_terapi_dir().join("collections");
+    std::fs::create_dir_all(&dir)?;
+
+    let filename = storage::sanitize_filename(&col.collection.name);
+    let dest = dir.join(format!("{}.toml", filename));
+    let existed = dest.exists();
+    std::fs::write(&dest, &content)?;
+
+    if existed {
+        println!("Updated  \"{}\" → {}", col.collection.name, dest.display());
+    } else {
+        println!("Imported \"{}\" → {}", col.collection.name, dest.display());
+    }
     Ok(())
 }
 

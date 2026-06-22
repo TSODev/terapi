@@ -7,8 +7,8 @@ use ratatui::{
 };
 
 use crate::app::{
-    flatten_stored, sorted_vars, App, EnvFocus, InputField, ModalState, RequestTab, ResponseView,
-    Tab, VarField, METHODS,
+    flatten_stored, sorted_vars, App, EnvFocus, InputField, ModalState, RequestFocus, RequestTab,
+    ResponseView, Tab, VarField, METHODS,
 };
 use crate::json_highlight::{self, ValueType};
 
@@ -81,14 +81,49 @@ fn render_request_panel(frame: &mut Frame, app: &App, area: Rect) {
         .unwrap_or_default();
     let url_title = format!(" URL{} ", env_badge);
 
-    let url_bar = Paragraph::new("GET  https://")
+    let editing = app.request_focus == RequestFocus::Url;
+    let method = app.active_method();
+    let url_cursor = if editing { "_" } else { "" };
+    let url_text = Line::from(vec![
+        Span::raw(" "),
+        if editing {
+            Span::styled("◀ ", Style::default().fg(Color::DarkGray))
+        } else {
+            Span::raw("  ")
+        },
+        Span::styled(method, Style::default().fg(method_color(method)).add_modifier(Modifier::BOLD)),
+        if editing {
+            Span::styled(" ▶  ", Style::default().fg(Color::DarkGray))
+        } else {
+            Span::raw("  ")
+        },
+        Span::styled(
+            format!("{}{}", app.request_url, url_cursor),
+            if editing {
+                Style::default().fg(Color::Yellow)
+            } else if app.request_url.is_empty() {
+                Style::default().fg(Color::DarkGray)
+            } else {
+                Style::default().fg(Color::White)
+            },
+        ),
+    ]);
+
+    let url_border_color = if app.request_loading {
+        Color::Cyan
+    } else if editing {
+        Color::Yellow
+    } else {
+        Color::Yellow
+    };
+
+    let url_bar = Paragraph::new(url_text)
         .block(
             Block::default()
                 .borders(Borders::ALL)
                 .title(url_title)
-                .border_style(Style::default().fg(Color::Yellow)),
-        )
-        .style(Style::default().fg(Color::White));
+                .border_style(Style::default().fg(url_border_color)),
+        );
     frame.render_widget(url_bar, chunks[0]);
 
     render_request_subtabs(frame, app, chunks[1]);
@@ -147,13 +182,41 @@ fn render_response(frame: &mut Frame, app: &App, area: Rect) {
         Style::default().fg(Color::DarkGray)
     };
 
-    let title = Line::from(vec![
-        Span::raw(" "),
-        Span::styled("JSON", json_style),
-        Span::styled(" · ", Style::default().fg(Color::DarkGray)),
-        Span::styled("Raw", raw_style),
-        Span::raw("  r: toggle  -/=: resize "),
-    ]);
+    let title = if app.request_loading {
+        Line::from(vec![
+            Span::raw(" "),
+            Span::styled("⟳ sending…", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw("  r: toggle  -/=: resize "),
+        ])
+    } else {
+        let mut spans = vec![
+            Span::raw(" "),
+            Span::styled("JSON", json_style),
+            Span::styled(" · ", Style::default().fg(Color::DarkGray)),
+            Span::styled("Raw", raw_style),
+        ];
+        if let Some(status) = app.response_status {
+            let status_color = match status {
+                200..=299 => Color::Green,
+                300..=399 => Color::Cyan,
+                400..=499 => Color::Yellow,
+                _         => Color::Red,
+            };
+            spans.push(Span::styled("  ·  ", Style::default().fg(Color::DarkGray)));
+            spans.push(Span::styled(
+                format!("{}", status),
+                Style::default().fg(status_color).add_modifier(Modifier::BOLD),
+            ));
+            if let Some(ms) = app.response_elapsed_ms {
+                spans.push(Span::styled(
+                    format!("  {}ms", ms),
+                    Style::default().fg(Color::DarkGray),
+                ));
+            }
+        }
+        spans.push(Span::raw("  r: toggle  -/=: resize "));
+        Line::from(spans)
+    };
 
     let block = Block::default()
         .borders(Borders::ALL)

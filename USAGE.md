@@ -65,6 +65,31 @@ The interface is divided into three top-level panels, navigated with `Tab`:
 The Request panel is split into four zones, from top to bottom:
 
 ```
+┌─ URL ─────────────────────────────────────────────────────────────┐
+│   GET  https://api.example.com/users                               │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+In URL edit mode (`e`), the bar highlights and shows a cursor:
+
+```
+┌─ URL ─────────────────────────────────────────────────────────────┐
+│ ◀ GET ▶  https://api.example.com/users_                            │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+**Sending a request:**
+1. Press `e` to enter URL edit mode
+2. Type the URL (Backspace to delete)
+3. Use `←` / `→` to change the HTTP method
+4. Press `Enter` to send — or `Esc` to cancel
+5. Alternatively, press `s` at any time to send the current URL without entering edit mode
+
+`{{VAR}}` placeholders in the URL are automatically resolved from the active environment (set in the Env tab) before the request is sent.
+
+The response block title shows the **status code** (color-coded green/yellow/red) and **elapsed time** while the request is in flight, a `⟳ sending…` indicator is shown.
+
+```
 ┌─ URL ──────────────────────────────────────────────┐
 │ GET  https://api.example.com/users                  │
 └─────────────────────────────────────────────────────┘
@@ -213,9 +238,15 @@ Placeholder — will show recent requests in v0.4.
 |-----|---------|--------|
 | `Tab` | Global | Cycle panels: Request → Collections → History |
 | `q` / `Esc` | Global | Quit |
-| `←` / `→` | Request panel | Navigate request sub-tabs |
+| `e` | Request panel | Enter URL edit mode |
+| `m` | Request panel | Cycle HTTP method (GET → POST → PUT → PATCH → DELETE) |
+| `s` | Request panel | Send current request |
+| `←` / `→` | Request panel (response mode) | Navigate request sub-tabs |
+| `←` / `→` | Request panel (URL mode) | Cycle HTTP method |
+| `Enter` | Request panel (URL mode) | Send request |
+| `Esc` | Request panel (URL mode) | Cancel URL edit |
 | `↑` / `↓` | Request panel | Move response cursor (JSON) / scroll (Raw) |
-| `Enter` | Request panel | Fold / unfold selected JSON node |
+| `Enter` | Request panel (response mode) | Fold / unfold selected JSON node |
 | `r` | Request panel | Toggle JSON ↔ Raw response view |
 | `-` | Request panel | Shrink Key column |
 | `=` | Request panel | Grow Key column |

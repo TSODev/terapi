@@ -25,6 +25,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   Extracted vars from previous steps still override the step env (highest priority)
 - `storage::load_env_by_name(name)` — load a single terapi environment by name (used by campaign runner)
 - `storage::resolve_vars(text, vars)` — `{{VAR}}` substitution helper (foundation for TUI request sending)
+- **Send request** — interactive HTTP requests from the TUI Request panel:
+  - `e` — enter URL edit mode (URL bar highlighted, cursor visible)
+  - `←` / `→` in URL mode — cycle HTTP method (GET / POST / PUT / PATCH / DELETE)
+  - `Enter` — send request and return to response mode
+  - `Esc` — exit URL edit mode without sending
+  - `s` — send the current request from response mode (without re-entering edit)
+  - `m` — cycle method in response mode
+  - Async execution via `tokio::spawn` + `mpsc::unbounded_channel`; result polled in `tick()`
+  - `{{VAR}}` placeholders in the URL resolved from the active environment before sending
+  - Response block title shows status code (color-coded) + elapsed time (ms)
+  - Loading indicator `⟳ sending…` while request is in flight
 - Example collections for the TUI (`examples/collections/`):
   - `public-rest.toml` — JSONPlaceholder, ReqRes, httpbin, PokeAPI, CoinGecko (5 folders)
   - `graphql.toml` — Countries API and Rick & Morty API (GraphQL via POST, ready for v0.5)

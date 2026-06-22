@@ -1,10 +1,30 @@
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use std::collections::{HashMap, HashSet};
+use tokio::sync::mpsc;
 
 use crate::storage::{
     CollectionMeta, EnvMeta, StoredCollection, StoredEnv, StoredFolder, StoredRequest,
 };
+
+// ── HTTP types ────────────────────────────────────────────────────────────────
+
+pub struct HttpResult {
+    pub status: u16,
+    pub body: String,
+    pub headers: Vec<(String, String)>,
+    pub elapsed_ms: u64,
+}
+
+pub type HttpOutcome = Result<HttpResult, String>;
+
+// ── Request focus ─────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RequestFocus {
+    Url,
+    Response,
+}
 
 pub const METHODS: &[&str] = &["GET", "POST", "PUT", "PATCH", "DELETE"];
 
@@ -230,14 +250,25 @@ pub struct App {
     pub env_focus: EnvFocus,
     // Modal
     pub modal: Option<ModalState>,
+    // Request builder
+    pub request_url: String,
+    pub request_method_idx: usize,
+    pub request_focus: RequestFocus,
+    pub request_loading: bool,
     // Response
     pub response_body: Option<String>,
+    pub response_status: Option<u16>,
+    pub response_elapsed_ms: Option<u64>,
+    pub response_headers: Vec<(String, String)>,
     pub response_view: ResponseView,
     pub response_cursor: usize,
     pub response_scroll: u16,
     pub response_folds: HashSet<String>,
     pub key_col_width: u16,
     pub status_message: String,
+    // Async channel — receives HTTP results from spawned tasks
+    response_rx: mpsc::UnboundedReceiver<HttpOutcome>,
+    response_tx: mpsc::UnboundedSender<HttpOutcome>,
 }
 
 impl App {
@@ -251,6 +282,7 @@ impl App {
             expanded_nodes.insert("c0".to_string());
         }
         let environments = crate::storage::load_envs().unwrap_or_default();
+        let (response_tx, response_rx) = mpsc::unbounded_channel();
         Self {
             running: true,
             active_tab: Tab::Request,
@@ -264,13 +296,22 @@ impl App {
             env_var_cursor: 0,
             env_focus: EnvFocus::Envs,
             modal: None,
+            request_url: String::new(),
+            request_method_idx: 0,
+            request_focus: RequestFocus::Response,
+            request_loading: false,
             response_body,
+            response_status: None,
+            response_elapsed_ms: None,
+            response_headers: Vec::new(),
             response_view: ResponseView::Json,
             response_cursor: 0,
             response_scroll: 0,
             response_folds: HashSet::new(),
             key_col_width: 22,
-            status_message: "Tab: panels  ←/→: section  ↑/↓: cursor  Enter: fold  r: raw/json  -/=: resize  q: quit".into(),
+            status_message: "Tab: panels  e: edit URL  s: send  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into(),
+            response_rx,
+            response_tx,
         }
     }
 
@@ -310,6 +351,15 @@ impl App {
         }
 
         match key.code {
+            // URL edit mode Esc must come before the global quit handler
+            KeyCode::Esc
+                if self.active_tab == Tab::Request
+                    && self.request_focus == RequestFocus::Url =>
+            {
+                self.request_focus = RequestFocus::Response;
+                self.status_message = "Tab: panels  e: edit URL  s: send  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into();
+            }
+
             KeyCode::Char('q') | KeyCode::Esc => {
                 self.running = false;
             }
@@ -328,7 +378,53 @@ impl App {
                 };
             }
 
-            // ── Request panel ──────────────────────────────────────────────
+            // ── Request panel — URL edit mode ──────────────────────────────
+            KeyCode::Enter
+                if self.active_tab == Tab::Request
+                    && self.request_focus == RequestFocus::Url =>
+            {
+                self.send_request();
+            }
+            KeyCode::Left
+                if self.active_tab == Tab::Request
+                    && self.request_focus == RequestFocus::Url =>
+            {
+                self.request_method_idx = if self.request_method_idx == 0 {
+                    METHODS.len() - 1
+                } else {
+                    self.request_method_idx - 1
+                };
+            }
+            KeyCode::Right
+                if self.active_tab == Tab::Request
+                    && self.request_focus == RequestFocus::Url =>
+            {
+                self.request_method_idx = (self.request_method_idx + 1) % METHODS.len();
+            }
+            KeyCode::Backspace
+                if self.active_tab == Tab::Request
+                    && self.request_focus == RequestFocus::Url =>
+            {
+                self.request_url.pop();
+            }
+            KeyCode::Char(c)
+                if self.active_tab == Tab::Request
+                    && self.request_focus == RequestFocus::Url =>
+            {
+                self.request_url.push(c);
+            }
+
+            // ── Request panel — response navigation mode ───────────────────
+            KeyCode::Char('e') if self.active_tab == Tab::Request => {
+                self.request_focus = RequestFocus::Url;
+                self.status_message = "URL: type address  ←/→: method  Enter: send  Esc: cancel".into();
+            }
+            KeyCode::Char('m') if self.active_tab == Tab::Request => {
+                self.request_method_idx = (self.request_method_idx + 1) % METHODS.len();
+            }
+            KeyCode::Char('s') if self.active_tab == Tab::Request => {
+                self.send_request();
+            }
             KeyCode::Right if self.active_tab == Tab::Request => {
                 self.active_request_tab = self.active_request_tab.next();
             }
@@ -823,7 +919,72 @@ impl App {
 
     // ── Response helpers ───────────────────────────────────────────────────
 
-    pub fn tick(&mut self) {}
+    pub fn tick(&mut self) {
+        // Poll for HTTP results from spawned tasks (non-blocking)
+        if let Ok(outcome) = self.response_rx.try_recv() {
+            self.request_loading = false;
+            match outcome {
+                Ok(http) => {
+                    self.response_status = Some(http.status);
+                    self.response_elapsed_ms = Some(http.elapsed_ms);
+                    self.response_headers = http.headers;
+                    self.response_body = Some(http.body);
+                    self.response_cursor = 0;
+                    self.response_scroll = 0;
+                    self.response_folds = HashSet::new();
+                    self.status_message = format!(
+                        "{}  {}ms  —  Tab: panels  e: edit URL  s: send  m: method  ←/→: section  r: raw  q: quit",
+                        http_status_label(self.response_status.unwrap_or(0)),
+                        self.response_elapsed_ms.unwrap_or(0),
+                    );
+                }
+                Err(msg) => {
+                    self.response_status = None;
+                    self.response_body = Some(format!("Error: {}", msg));
+                    self.response_cursor = 0;
+                    self.response_scroll = 0;
+                    self.response_folds = HashSet::new();
+                    self.status_message = format!("Error: {}  —  e: edit URL  s: retry  q: quit", msg);
+                }
+            }
+        }
+    }
+
+    // ── HTTP ───────────────────────────────────────────────────────────────
+
+    fn send_request(&mut self) {
+        if self.request_loading {
+            return;
+        }
+        let url = self.request_url.trim().to_string();
+        if url.is_empty() {
+            self.status_message = "No URL — press e to enter one".into();
+            return;
+        }
+
+        // Resolve {{VAR}} from the active environment
+        let resolved = if let Some(idx) = self.active_env_idx {
+            if let Some(env) = self.environments.get(idx) {
+                crate::storage::resolve_vars(&url, &env.vars)
+            } else {
+                url
+            }
+        } else {
+            url
+        };
+
+        let method = METHODS[self.request_method_idx].to_string();
+        let tx = self.response_tx.clone();
+
+        self.request_loading = true;
+        self.request_focus = RequestFocus::Response;
+        self.status_message = format!("Sending {} {}…", method, resolved);
+
+        tokio::spawn(async move {
+            let result = execute_http(&method, &resolved).await;
+            let _ = tx.send(result);
+        });
+    }
 
     fn response_line_count(&self) -> usize {
         crate::json_highlight::rows(
@@ -835,6 +996,10 @@ impl App {
 
     fn sync_scroll(&mut self) {
         self.response_scroll = (self.response_cursor as u16).saturating_sub(3);
+    }
+
+    pub fn active_method(&self) -> &'static str {
+        METHODS[self.request_method_idx]
     }
 
     fn toggle_response_fold(&mut self) {
@@ -855,4 +1020,62 @@ impl App {
             self.sync_scroll();
         }
     }
+}
+
+// ── HTTP execution ────────────────────────────────────────────────────────────
+
+async fn execute_http(method: &str, url: &str) -> HttpOutcome {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let t0 = std::time::Instant::now();
+
+    let req = match method {
+        "GET"    => client.get(url),
+        "POST"   => client.post(url),
+        "PUT"    => client.put(url),
+        "PATCH"  => client.patch(url),
+        "DELETE" => client.delete(url),
+        _        => client.get(url),
+    };
+
+    let resp = req.send().await.map_err(|e| e.to_string())?;
+    let elapsed_ms = t0.elapsed().as_millis() as u64;
+    let status = resp.status().as_u16();
+
+    let headers: Vec<(String, String)> = resp
+        .headers()
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
+        .collect();
+
+    let body = resp.text().await.map_err(|e| e.to_string())?;
+
+    Ok(HttpResult { status, body, headers, elapsed_ms })
+}
+
+fn http_status_label(status: u16) -> String {
+    let text = match status {
+        200 => "200 OK",
+        201 => "201 Created",
+        204 => "204 No Content",
+        301 => "301 Moved Permanently",
+        302 => "302 Found",
+        304 => "304 Not Modified",
+        400 => "400 Bad Request",
+        401 => "401 Unauthorized",
+        403 => "403 Forbidden",
+        404 => "404 Not Found",
+        405 => "405 Method Not Allowed",
+        409 => "409 Conflict",
+        422 => "422 Unprocessable Entity",
+        429 => "429 Too Many Requests",
+        500 => "500 Internal Server Error",
+        502 => "502 Bad Gateway",
+        503 => "503 Service Unavailable",
+        _   => return format!("{}", status),
+    };
+    text.to_string()
 }

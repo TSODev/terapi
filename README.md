@@ -79,9 +79,13 @@ terapi --help
 | Key | Action |
 |-----|--------|
 | `Tab` | Switch panel |
-| `←` / `→` | Navigate request sub-tabs |
+| `e` | Edit URL (enter URL mode) |
+| `m` | Cycle HTTP method |
+| `s` | Send request |
+| `←` / `→` | Navigate sub-tabs (or cycle method in URL mode) |
 | `↑` / `↓` | Move response cursor (JSON) / scroll (Raw) |
-| `Enter` | Fold / unfold selected JSON node |
+| `Enter` | Send request (URL mode) / fold-unfold JSON node |
+| `Esc` | Exit URL mode |
 | `r` | Toggle JSON ↔ Raw response view |
 | `-` / `=` | Resize Key column |
 | `q` / `Esc` | Quit |
@@ -251,12 +255,12 @@ Campaign : Users API — smoke tests
 ## Roadmap
 
 ### v0.2 — REST basics *(in progress)*
-- [ ] Method selector (GET / POST / PUT / PATCH / DELETE)
-- [ ] URL input (editable)
+- [x] Method selector — `m` to cycle, `←/→` in URL edit mode
+- [x] URL input — `e` to edit, `Enter` to send, `Esc` to cancel
+- [x] Send request — async via tokio, `{{VAR}}` resolved from active env
+- [x] Response viewer: status code (color-coded) + elapsed time in title
 - [ ] Headers editor
 - [ ] Body editor (raw JSON)
-- [ ] Send request — async via tokio
-- [ ] Response viewer: status, headers, pretty-printed JSON
 
 ### v0.3 — Collections
 - [x] TOML-based collection format (one file per collection)

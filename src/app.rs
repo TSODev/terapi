@@ -159,6 +159,11 @@ pub enum ModalState {
         active_field: VarField,
         env_idx: usize,
     },
+    NewHeader {
+        key: String,
+        value: String,
+        active_field: VarField,
+    },
     ConfirmDelete {
         label: String,
         address: NodeAddress,
@@ -253,6 +258,8 @@ pub struct App {
     // Request builder
     pub request_url: String,
     pub request_method_idx: usize,
+    pub request_headers: Vec<(String, String)>,
+    pub header_cursor: usize,
     pub request_focus: RequestFocus,
     pub request_loading: bool,
     // Response
@@ -298,6 +305,8 @@ impl App {
             modal: None,
             request_url: String::new(),
             request_method_idx: 0,
+            request_headers: Vec::new(),
+            header_cursor: 0,
             request_focus: RequestFocus::Response,
             request_loading: false,
             response_body,
@@ -425,11 +434,49 @@ impl App {
             KeyCode::Char('s') if self.active_tab == Tab::Request => {
                 self.send_request();
             }
+            KeyCode::Char('a')
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::Headers =>
+            {
+                self.modal = Some(ModalState::NewHeader {
+                    key: String::new(),
+                    value: String::new(),
+                    active_field: VarField::Key,
+                });
+            }
+            KeyCode::Char('d')
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::Headers
+                    && !self.request_headers.is_empty() =>
+            {
+                self.request_headers.remove(self.header_cursor);
+                if self.header_cursor > 0 && self.header_cursor >= self.request_headers.len() {
+                    self.header_cursor -= 1;
+                }
+            }
+            KeyCode::Up
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::Headers =>
+            {
+                if self.header_cursor > 0 {
+                    self.header_cursor -= 1;
+                }
+            }
+            KeyCode::Down
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::Headers =>
+            {
+                if self.header_cursor + 1 < self.request_headers.len() {
+                    self.header_cursor += 1;
+                }
+            }
             KeyCode::Right if self.active_tab == Tab::Request => {
                 self.active_request_tab = self.active_request_tab.next();
+                self.update_request_status_hint();
             }
             KeyCode::Left if self.active_tab == Tab::Request => {
                 self.active_request_tab = self.active_request_tab.prev();
+                self.update_request_status_hint();
             }
             KeyCode::Char('r') if self.active_tab == Tab::Request => {
                 self.response_view = match self.response_view {
@@ -699,6 +746,30 @@ impl App {
                 _ => { self.modal = Some(ModalState::NewVar { key: var_key, value: var_value, active_field, env_idx }); }
             },
 
+            Some(ModalState::NewHeader { key: mut hdr_key, value: mut hdr_val, mut active_field }) => match key.code {
+                KeyCode::Esc => {}
+                KeyCode::Enter if !hdr_key.trim().is_empty() => {
+                    self.request_headers.push((hdr_key.trim().to_string(), hdr_val.trim().to_string()));
+                    self.header_cursor = self.request_headers.len() - 1;
+                }
+                KeyCode::Tab => {
+                    active_field = match active_field {
+                        VarField::Key => VarField::Value,
+                        VarField::Value => VarField::Key,
+                    };
+                    self.modal = Some(ModalState::NewHeader { key: hdr_key, value: hdr_val, active_field });
+                }
+                KeyCode::Char(c) => {
+                    match active_field { VarField::Key => hdr_key.push(c), VarField::Value => hdr_val.push(c) }
+                    self.modal = Some(ModalState::NewHeader { key: hdr_key, value: hdr_val, active_field });
+                }
+                KeyCode::Backspace => {
+                    match active_field { VarField::Key => { hdr_key.pop(); } VarField::Value => { hdr_val.pop(); } }
+                    self.modal = Some(ModalState::NewHeader { key: hdr_key, value: hdr_val, active_field });
+                }
+                _ => { self.modal = Some(ModalState::NewHeader { key: hdr_key, value: hdr_val, active_field }); }
+            },
+
             Some(ModalState::ConfirmDelete { label, address }) => match key.code {
                 KeyCode::Char('y') | KeyCode::Enter => {
                     self.delete_node(address)?;
@@ -963,25 +1034,29 @@ impl App {
         }
 
         // Resolve {{VAR}} from the active environment
-        let resolved = if let Some(idx) = self.active_env_idx {
-            if let Some(env) = self.environments.get(idx) {
-                crate::storage::resolve_vars(&url, &env.vars)
-            } else {
-                url
-            }
-        } else {
-            url
-        };
+        let env_vars = self.active_env_idx
+            .and_then(|i| self.environments.get(i))
+            .map(|e| e.vars.clone())
+            .unwrap_or_default();
+
+        let resolved_url = crate::storage::resolve_vars(&url, &env_vars);
+
+        let resolved_headers: Vec<(String, String)> = self.request_headers.iter()
+            .map(|(k, v)| (
+                crate::storage::resolve_vars(k, &env_vars),
+                crate::storage::resolve_vars(v, &env_vars),
+            ))
+            .collect();
 
         let method = METHODS[self.request_method_idx].to_string();
         let tx = self.response_tx.clone();
 
         self.request_loading = true;
         self.request_focus = RequestFocus::Response;
-        self.status_message = format!("Sending {} {}…", method, resolved);
+        self.status_message = format!("Sending {} {}…", method, resolved_url);
 
         tokio::spawn(async move {
-            let result = execute_http(&method, &resolved).await;
+            let result = execute_http(&method, &resolved_url, &resolved_headers).await;
             let _ = tx.send(result);
         });
     }
@@ -1000,6 +1075,13 @@ impl App {
 
     pub fn active_method(&self) -> &'static str {
         METHODS[self.request_method_idx]
+    }
+
+    fn update_request_status_hint(&mut self) {
+        self.status_message = match self.active_request_tab {
+            RequestTab::Headers => "Tab: panels  a: add  d: delete  ↑/↓: navigate  ←/→: section  e: edit URL  s: send  q: quit".into(),
+            _ => "Tab: panels  e: edit URL  s: send  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into(),
+        };
     }
 
     fn toggle_response_fold(&mut self) {
@@ -1024,7 +1106,10 @@ impl App {
 
 // ── HTTP execution ────────────────────────────────────────────────────────────
 
-async fn execute_http(method: &str, url: &str) -> HttpOutcome {
+async fn execute_http(method: &str, url: &str, headers: &[(String, String)]) -> HttpOutcome {
+    use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+    use std::str::FromStr;
+
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()
@@ -1032,7 +1117,7 @@ async fn execute_http(method: &str, url: &str) -> HttpOutcome {
 
     let t0 = std::time::Instant::now();
 
-    let req = match method {
+    let mut req = match method {
         "GET"    => client.get(url),
         "POST"   => client.post(url),
         "PUT"    => client.put(url),
@@ -1040,6 +1125,19 @@ async fn execute_http(method: &str, url: &str) -> HttpOutcome {
         "DELETE" => client.delete(url),
         _        => client.get(url),
     };
+
+    if !headers.is_empty() {
+        let mut hmap = HeaderMap::new();
+        for (k, v) in headers {
+            if let (Ok(name), Ok(val)) = (
+                HeaderName::from_str(k),
+                HeaderValue::from_str(v),
+            ) {
+                hmap.insert(name, val);
+            }
+        }
+        req = req.headers(hmap);
+    }
 
     let resp = req.send().await.map_err(|e| e.to_string())?;
     let elapsed_ms = t0.elapsed().as_millis() as u64;

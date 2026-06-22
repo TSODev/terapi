@@ -146,9 +146,14 @@ fn render_request_subtabs(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_request_content(frame: &mut Frame, app: &App, area: Rect) {
+    if app.active_request_tab == RequestTab::Headers {
+        render_headers_editor(frame, app, area);
+        return;
+    }
+
     let (title, msg) = match app.active_request_tab {
         RequestTab::Description => ("Description", "Add a description for this request."),
-        RequestTab::Headers => ("Headers", "Add request headers (key: value)."),
+        RequestTab::Headers => unreachable!(),
         RequestTab::UrlParams => ("URL Params", "Add query parameters (key=value)."),
         RequestTab::Body => ("Body", "Enter the raw JSON body."),
         RequestTab::Auth => ("Auth", "Configure authentication (Bearer, API Key, OAuth2…)."),
@@ -166,6 +171,44 @@ fn render_request_content(frame: &mut Frame, app: &App, area: Rect) {
         .alignment(Alignment::Center);
 
     frame.render_widget(content, area);
+}
+
+fn render_headers_editor(frame: &mut Frame, app: &App, area: Rect) {
+    let items: Vec<ListItem> = if app.request_headers.is_empty() {
+        vec![ListItem::new(Line::from(Span::styled(
+            "  No headers — press a to add one",
+            Style::default().fg(Color::DarkGray),
+        )))]
+    } else {
+        app.request_headers.iter().enumerate().map(|(i, (k, v))| {
+            let line = Line::from(vec![
+                Span::styled(format!("  {:<28}", k), Style::default().fg(Color::Cyan)),
+                Span::styled(": ", Style::default().fg(Color::DarkGray)),
+                Span::styled(v.clone(), Style::default().fg(Color::White)),
+            ]);
+            let style = if i == app.header_cursor {
+                Style::default().bg(Color::Indexed(237)).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
+            ListItem::new(line).style(style)
+        }).collect()
+    };
+
+    let count = app.request_headers.len();
+    let title = if count == 0 {
+        " Headers ".to_string()
+    } else {
+        format!(" Headers ({}) ", count)
+    };
+
+    let list = List::new(items).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(title)
+            .border_style(Style::default().fg(Color::Yellow)),
+    );
+    frame.render_widget(list, area);
 }
 
 fn render_response(frame: &mut Frame, app: &App, area: Rect) {
@@ -608,6 +651,33 @@ fn render_modal(frame: &mut Frame, app: &App) {
                     Block::default().borders(Borders::ALL)
                         .title(" New Variable ").title_alignment(Alignment::Center)
                         .border_style(Style::default().fg(Color::Yellow)),
+                ),
+                area,
+            );
+        }
+
+        Some(ModalState::NewHeader { key, value, active_field }) => {
+            let area = centered_rect(64, 9, frame.area());
+            frame.render_widget(Clear, area);
+
+            let key_style   = if *active_field == VarField::Key   { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
+            let val_style   = if *active_field == VarField::Value { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
+            let key_cursor  = if *active_field == VarField::Key   { "_" } else { "" };
+            let val_cursor  = if *active_field == VarField::Value { "_" } else { "" };
+
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![Span::raw("  Key:   "), Span::styled(format!("{}{}", key, key_cursor), key_style)]),
+                Line::from(""),
+                Line::from(vec![Span::raw("  Value: "), Span::styled(format!("{}{}", value, val_cursor), val_style)]),
+                Line::from(""),
+                Line::from(Span::styled("  Tab: next field   Enter: add   Esc: cancel", Style::default().fg(Color::DarkGray))),
+            ];
+            frame.render_widget(
+                Paragraph::new(text).block(
+                    Block::default().borders(Borders::ALL)
+                        .title(" New Header ").title_alignment(Alignment::Center)
+                        .border_style(Style::default().fg(Color::Cyan)),
                 ),
                 area,
             );

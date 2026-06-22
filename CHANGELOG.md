@@ -5,6 +5,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+### Added
+- `src/storage.rs` — TOML-based local storage for collections
+  - `resolve_terapi_dir()` — priority resolution: `TERAPI_DIR` env var → `./.terapi/` (project-local) → `~/.config/terapi/` (XDG global fallback)
+  - `load_collections()` — reads all `.toml` files from `<dir>/collections/` at startup
+  - `save_collection()` — serialises a collection to a named TOML file (used by future TUI save feature)
+  - Collection schema: `[collection]`, `[[folders]]`, `[[folders.requests]]`, `[[requests]]` with headers, body, description
+- `examples/collection.toml` — annotated template documenting the collection TOML format
+- `dirs` crate dependency for cross-platform config directory resolution
+
+### Changed
+- `App::new()` now loads collections from disk at startup; falls back to built-in sample collections when no files are found
+
+---
+
 ## [0.2.0] — 2026-06-21 — REST API (in progress)
 
 ### Added

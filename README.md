@@ -86,6 +86,48 @@ terapi --help
 
 ---
 
+## Collections
+
+Collections are stored as TOML files — one file per collection. Terapi resolves the storage directory in priority order:
+
+| Priority | Location | Use case |
+|----------|----------|----------|
+| 1 | `$TERAPI_DIR` | CI, cron, custom path |
+| 2 | `./.terapi/collections/` | Per-project, versionable in Git |
+| 3 | `~/.config/terapi/collections/` | Global, cross-project (default) |
+
+### Collection TOML format
+
+```toml
+[collection]
+name = "My API"
+description = "Optional description"
+
+[[folders]]
+name = "Auth"
+
+[[folders.requests]]
+name = "Login"
+method = "POST"
+url = "https://api.example.com/auth/login"
+body = '{"email": "{{EMAIL}}", "password": "{{PASSWORD}}"}'
+
+[folders.requests.headers]
+Content-Type = "application/json"
+
+[[requests]]
+name = "List users"
+method = "GET"
+url = "https://api.example.com/users"
+
+[requests.headers]
+Authorization = "Bearer {{TOKEN}}"
+```
+
+See `examples/collection.toml` for a fully annotated template.
+
+---
+
 ## Campaign runner
 
 Terapi includes a headless campaign runner for API automation.
@@ -178,9 +220,10 @@ Campaign : Users API — smoke tests
 - [ ] Response viewer: status, headers, pretty-printed JSON
 
 ### v0.3 — Collections
-- [ ] TOML-based collection format
-- [ ] Save / load requests
-- [ ] Collections panel (list + select)
+- [x] TOML-based collection format (one file per collection)
+- [x] Load collections from disk at startup
+- [ ] Save / edit requests from the TUI
+- [ ] Collections panel: select a request to load it into the Request tab
 
 ### v0.4 — Environment & History
 - [ ] Environment variables (dev / staging / prod)
@@ -214,6 +257,7 @@ Campaign : Users API — smoke tests
 | Config / campaigns | `toml` |
 | CSV connector | `csv` |
 | CLI | `clap` |
+| Config dir resolution | `dirs` |
 | Error handling | `anyhow` |
 
 ---

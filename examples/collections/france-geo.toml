@@ -1,0 +1,129 @@
+[collection]
+name        = "France — Géographie"
+description = "API Géo (découpage administratif) + API Adresse IGN (géocodage). Aucune authentification requise."
+
+# ── API Géo ───────────────────────────────────────────────────────────────────
+# Découpage administratif français : communes, EPCI, départements, régions.
+# Base URL : https://geo.api.gouv.fr/
+# Sans clé — 50 req/s/IP — JSON et GeoJSON
+# Codes utiles :
+#   Île-de-France : region 11 — dept 75 (Paris), 92, 93, 94, 77, 78, 91, 95
+#   PACA          : region 93 — dept 13 (Marseille), 83, 84…
+#   Codes INSEE Paris : 75056
+
+[[folders]]
+name = "API Géo — Communes"
+
+[[folders.requests]]
+name   = "Rechercher une commune par nom"
+method = "GET"
+url    = "https://geo.api.gouv.fr/communes?nom=Lyon&fields=nom,code,codesPostaux,codeDepartement,codeRegion,population&boost=population&limit=5&format=json"
+
+[[folders.requests]]
+name   = "Commune par code INSEE"
+method = "GET"
+url    = "https://geo.api.gouv.fr/communes/75056?fields=nom,code,codesPostaux,codeDepartement,codeRegion,population,surface"
+
+[[folders.requests]]
+name   = "Communes par code postal"
+method = "GET"
+url    = "https://geo.api.gouv.fr/communes?codePostal=69001&fields=nom,code,codeDepartement,population&format=json"
+
+[[folders.requests]]
+name   = "Communes proches d'un point GPS (Paris centre)"
+method = "GET"
+url    = "https://geo.api.gouv.fr/communes?lat=48.8534&lon=2.3488&fields=nom,code,codesPostaux,population&limit=10&format=json"
+
+[[folders.requests]]
+name   = "Communes d'un département (Gironde — 33)"
+method = "GET"
+url    = "https://geo.api.gouv.fr/departements/33/communes?fields=nom,code,codesPostaux,population&format=json&limit=20"
+
+[[folders.requests]]
+name   = "Communes d'un département — GeoJSON (contours)"
+method = "GET"
+url    = "https://geo.api.gouv.fr/departements/69/communes?fields=nom,code,population&format=geojson&geometry=contour&limit=10"
+
+# ── Départements ──────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "API Géo — Départements"
+
+[[folders.requests]]
+name   = "Liste de tous les départements"
+method = "GET"
+url    = "https://geo.api.gouv.fr/departements?fields=nom,code,codeRegion&format=json"
+
+[[folders.requests]]
+name   = "Détail d'un département (Rhône — 69)"
+method = "GET"
+url    = "https://geo.api.gouv.fr/departements/69?fields=nom,code,codeRegion,region"
+
+[[folders.requests]]
+name   = "Rechercher un département par nom"
+method = "GET"
+url    = "https://geo.api.gouv.fr/departements?nom=Haute&fields=nom,code,codeRegion&format=json"
+
+[[folders.requests]]
+name   = "Département par coordonnées GPS"
+method = "GET"
+url    = "https://geo.api.gouv.fr/departements?lat=43.2965&lon=5.3698&fields=nom,code,codeRegion&format=json"
+
+# ── Régions ───────────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "API Géo — Régions"
+
+[[folders.requests]]
+name   = "Liste de toutes les régions"
+method = "GET"
+url    = "https://geo.api.gouv.fr/regions?fields=nom,code&format=json"
+
+[[folders.requests]]
+name   = "Détail d'une région (Occitanie — 76)"
+method = "GET"
+url    = "https://geo.api.gouv.fr/regions/76?fields=nom,code"
+
+[[folders.requests]]
+name   = "Départements d'une région (Nouvelle-Aquitaine — 75)"
+method = "GET"
+url    = "https://geo.api.gouv.fr/regions/75/departements?fields=nom,code&format=json"
+
+# ── API Adresse IGN ───────────────────────────────────────────────────────────
+# Géocodage et géocodage inverse — Base Adresse Nationale (BAN) via IGN Géoplateforme.
+# Base URL : https://data.geopf.fr/geocodage/
+# Sans clé — 50 req/s/IP — GeoJSON
+# Ancienne URL (dépréciation en cours) : https://api-adresse.data.gouv.fr/
+
+[[folders]]
+name = "API Adresse IGN — Géocodage"
+
+[[folders.requests]]
+name   = "Géocoder une adresse"
+method = "GET"
+url    = "https://data.geopf.fr/geocodage/search?q=10+Rue+de+la+Paix+Paris&limit=5"
+
+[[folders.requests]]
+name   = "Géocoder avec code postal pour préciser"
+method = "GET"
+url    = "https://data.geopf.fr/geocodage/search?q=20+Avenue+de+la+Gare&postcode=31000&limit=5"
+
+[[folders.requests]]
+name   = "Autocomplétion d'adresse (Paris 8e)"
+method = "GET"
+url    = "https://data.geopf.fr/geocodage/search?q=Champs+Elys%C3%A9es&type=street&limit=5&citycode=75108"
+
+[[folders.requests]]
+name   = "Géocoder une ville seulement"
+method = "GET"
+url    = "https://data.geopf.fr/geocodage/search?q=Bordeaux&type=municipality&limit=5"
+
+[[folders.requests]]
+name   = "Géocodage inverse — coordonnées → adresse (Tour Eiffel)"
+method = "GET"
+url    = "https://data.geopf.fr/geocodage/reverse?lon=2.2945&lat=48.8584&limit=5"
+
+[[folders.requests]]
+name   = "Géocodage inverse — Lyon Part-Dieu"
+method = "GET"
+url    = "https://data.geopf.fr/geocodage/reverse?lon=4.8588&lat=45.7605&limit=3"

@@ -1,0 +1,126 @@
+[collection]
+name        = "France — Eau"
+description = "Hub'Eau (eaufrance.fr) — Hydrométrie, qualité des rivières et qualité des nappes. Aucune authentification requise."
+
+# ── Hub'Eau ───────────────────────────────────────────────────────────────────
+# Service REST d'accès aux données eau en France — OFB + BRGM.
+# Toutes les APIs retournent JSON, GeoJSON ou CSV selon le paramètre &format=
+# Sans clé — données issues des bases nationales (Banque Hydro, Naïades, ADES).
+# Limite : 20 000 enregistrements par accès, pagination via &cursor= ou &page=
+#
+# Stations de référence utiles :
+#   La Seine à Paris-Austerlitz  : code_station Y2615010
+#   La Garonne à Toulouse        : code_station O200001001
+#   Le Rhône à Lyon              : code_station V720001010
+#   La Loire à Blois             : code_station K267901001
+#   (Utilisez /referentiel/stations pour trouver vos stations locales)
+
+# ── Hydrométrie ───────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Hydrométrie"
+
+[[folders.requests]]
+name   = "Liste des stations hydrométriques (20 premières)"
+method = "GET"
+url    = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations?size=20&format=json&pretty=true"
+
+[[folders.requests]]
+name   = "Stations par commune (Paris — INSEE 75056)"
+method = "GET"
+url    = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations?code_commune_station=75056&format=json&pretty=true"
+
+[[folders.requests]]
+name   = "Stations par département (Haute-Garonne — 31)"
+method = "GET"
+url    = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations?code_departement=31&size=20&format=json&pretty=true"
+
+[[folders.requests]]
+name   = "Sites hydrométriques (tronçons homogènes)"
+method = "GET"
+url    = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/sites?size=10&format=json&pretty=true"
+
+[[folders.requests]]
+name   = "Observations temps réel — hauteur d'eau (H)"
+method = "GET"
+url    = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite=Y251002001&grandeur_hydro=H&size=20&fields=code_station,date_obs,resultat_obs&format=json&pretty=true"
+
+[[folders.requests]]
+name   = "Observations temps réel — débit (Q)"
+method = "GET"
+url    = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/observations_tr?code_entite=Y251002001&grandeur_hydro=Q&size=20&fields=code_station,date_obs,resultat_obs&format=json&pretty=true"
+
+[[folders.requests]]
+name   = "Observations élaborées — débits journaliers historiques"
+method = "GET"
+url    = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/obs_elab?code_entite=Y251002001&grandeur_hydro_elab=QmJ&size=20&format=json&pretty=true"
+
+[[folders.requests]]
+name   = "Résultat GeoJSON — stations en Bretagne (35)"
+method = "GET"
+url    = "https://hubeau.eaufrance.fr/api/v2/hydrometrie/referentiel/stations?code_departement=35&size=20&format=geojson"
+
+# ── Qualité des rivières ──────────────────────────────────────────────────────
+
+[[folders]]
+name = "Qualité des rivières"
+
+[[folders.requests]]
+name   = "Stations physico-chimiques (20 premières)"
+method = "GET"
+url    = "https://hubeau.eaufrance.fr/api/v2/qualite_rivieres/station_pc?size=20&format=json&pretty=true"
+
+[[folders.requests]]
+name   = "Stations par commune (Toulouse — INSEE 31555)"
+method = "GET"
+url    = "https://hubeau.eaufrance.fr/api/v2/qualite_rivieres/station_pc?code_commune=31555&size=20&format=json&pretty=true"
+
+[[folders.requests]]
+name   = "Stations en GeoJSON (Gironde — 33)"
+method = "GET"
+url    = "https://hubeau.eaufrance.fr/api/v2/qualite_rivieres/station_pc?code_departement=33&size=20&format=geojson"
+
+[[folders.requests]]
+name   = "Analyses physico-chimiques (nitrates, pesticides…)"
+method = "GET"
+url    = "https://hubeau.eaufrance.fr/api/v2/qualite_rivieres/analyse_pc?code_departement=69&size=20&fields=code_station,libelle_station,code_parametre,libelle_parametre,resultat,symbole_unite,date_prelevement&format=json&pretty=true"
+
+[[folders.requests]]
+name   = "Opérations de prélèvement"
+method = "GET"
+url    = "https://hubeau.eaufrance.fr/api/v2/qualite_rivieres/operation_pc?code_departement=13&size=20&format=json&pretty=true"
+
+[[folders.requests]]
+name   = "Conditions environnementales lors des prélèvements"
+method = "GET"
+url    = "https://hubeau.eaufrance.fr/api/v2/qualite_rivieres/condition_environnementale_pc?code_departement=75&size=10&format=json&pretty=true"
+
+# ── Qualité des nappes ────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Qualité des nappes souterraines"
+
+[[folders.requests]]
+name   = "Stations de mesure (piézomètres — 20 premiers)"
+method = "GET"
+url    = "https://hubeau.eaufrance.fr/api/v1/qualite_nappes/stations?size=20&format=json&pretty=true"
+
+[[folders.requests]]
+name   = "Stations par département (Alsace — 67)"
+method = "GET"
+url    = "https://hubeau.eaufrance.fr/api/v1/qualite_nappes/stations?code_departement=67&size=20&format=json&pretty=true"
+
+[[folders.requests]]
+name   = "Analyses d'une station (BSS000XUUM)"
+method = "GET"
+url    = "https://hubeau.eaufrance.fr/api/v1/qualite_nappes/analyses?bss_id=BSS000XUUM&size=20&format=json&pretty=true"
+
+[[folders.requests]]
+name   = "Piézométrie — niveaux des nappes"
+method = "GET"
+url    = "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes/stations?size=20&format=json&pretty=true"
+
+[[folders.requests]]
+name   = "Piézométrie — chroniques de niveaux"
+method = "GET"
+url    = "https://hubeau.eaufrance.fr/api/v1/niveaux_nappes/chroniques?bss_id=BSS000XUUM&size=20&format=json&pretty=true"

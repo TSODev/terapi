@@ -1,0 +1,196 @@
+[collection]
+name        = "France — Météo"
+description = "API Météo-France — Prévisions, observations et vigilance. Token Bearer gratuit requis."
+
+# ── Authentification ──────────────────────────────────────────────────────────
+# 1. Créez un compte sur https://portail-api.meteofrance.fr/
+# 2. Abonnez-vous aux APIs souhaitées (DPPrevision, DPObs, DPVigilance, DPClim)
+# 3. Générez un token (valable 1 heure) depuis la page de l'API
+# 4. Dans Terapi : créez un environnement, ajoutez METEO_TOKEN = <votre_token>
+#    et activez l'environnement (Enter sur la ligne dans l'onglet Env)
+# Limite : ~60 req/min selon l'API — accès gratuit avec compte
+#
+# Coordonnées de référence :
+#   Paris      : lat=48.8534 lon=2.3488
+#   Lyon       : lat=45.7640 lon=4.8357
+#   Marseille  : lat=43.2965 lon=5.3698
+#   Toulouse   : lat=43.6047 lon=1.4442
+#   Bordeaux   : lat=44.8378 lon=-0.5792
+#   Strasbourg : lat=48.5734 lon=7.7521
+#   Nantes     : lat=47.2184 lon=-1.5536
+#   Rennes     : lat=48.1173 lon=-1.6778
+
+# ── Prévisions ────────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Prévisions"
+
+[[folders.requests]]
+name   = "Prévisions horaires — Paris"
+method = "GET"
+url    = "https://webservice.meteofrance.com/forecast?lat=48.8534&lon=2.3488&lang=fr"
+
+[folders.requests.auth]
+auth_type     = "bearer"
+bearer_token  = "{{METEO_TOKEN}}"
+
+[[folders.requests]]
+name   = "Prévisions horaires — Lyon"
+method = "GET"
+url    = "https://webservice.meteofrance.com/forecast?lat=45.7640&lon=4.8357&lang=fr"
+
+[folders.requests.auth]
+auth_type     = "bearer"
+bearer_token  = "{{METEO_TOKEN}}"
+
+[[folders.requests]]
+name   = "Prévisions horaires — Marseille"
+method = "GET"
+url    = "https://webservice.meteofrance.com/forecast?lat=43.2965&lon=5.3698&lang=fr"
+
+[folders.requests.auth]
+auth_type     = "bearer"
+bearer_token  = "{{METEO_TOKEN}}"
+
+[[folders.requests]]
+name   = "Prévisions horaires — Bordeaux"
+method = "GET"
+url    = "https://webservice.meteofrance.com/forecast?lat=44.8378&lon=-0.5792&lang=fr"
+
+[folders.requests.auth]
+auth_type     = "bearer"
+bearer_token  = "{{METEO_TOKEN}}"
+
+[[folders.requests]]
+name   = "Rechercher un lieu de prévision"
+method = "GET"
+url    = "https://webservice.meteofrance.com/places?q=Toulouse&lat=43.6&lon=1.4"
+
+[folders.requests.auth]
+auth_type     = "bearer"
+bearer_token  = "{{METEO_TOKEN}}"
+
+# ── Observations ──────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Observations"
+
+[[folders.requests]]
+name   = "Conditions actuelles — Paris"
+method = "GET"
+url    = "https://webservice.meteofrance.com/v2/observation?lat=48.8534&lon=2.3488&lang=fr"
+
+[folders.requests.auth]
+auth_type     = "bearer"
+bearer_token  = "{{METEO_TOKEN}}"
+
+[[folders.requests]]
+name   = "Conditions actuelles — Strasbourg"
+method = "GET"
+url    = "https://webservice.meteofrance.com/v2/observation?lat=48.5734&lon=7.7521&lang=fr"
+
+[folders.requests.auth]
+auth_type     = "bearer"
+bearer_token  = "{{METEO_TOKEN}}"
+
+[[folders.requests]]
+name   = "Pluie dans l'heure — Paris (radar)"
+method = "GET"
+url    = "https://webservice.meteofrance.com/rain?lat=48.8534&lon=2.3488&lang=fr"
+
+[folders.requests.auth]
+auth_type     = "bearer"
+bearer_token  = "{{METEO_TOKEN}}"
+
+[[folders.requests]]
+name   = "Pluie dans l'heure — Nantes"
+method = "GET"
+url    = "https://webservice.meteofrance.com/rain?lat=47.2184&lon=-1.5536&lang=fr"
+
+[folders.requests.auth]
+auth_type     = "bearer"
+bearer_token  = "{{METEO_TOKEN}}"
+
+# ── Vigilance météorologique ──────────────────────────────────────────────────
+
+[[folders]]
+name = "Vigilance"
+
+[[folders.requests]]
+name   = "Phénomènes actuels — France entière"
+method = "GET"
+url    = "https://webservice.meteofrance.com/v3/warning/currentphenomenons?domain=france&depth=1&lang=fr"
+
+[folders.requests.auth]
+auth_type     = "bearer"
+bearer_token  = "{{METEO_TOKEN}}"
+
+[[folders.requests]]
+name   = "Phénomènes actuels — département (Paris — 75)"
+method = "GET"
+url    = "https://webservice.meteofrance.com/v3/warning/currentphenomenons?domain=75&depth=1&lang=fr"
+
+[folders.requests.auth]
+auth_type     = "bearer"
+bearer_token  = "{{METEO_TOKEN}}"
+
+[[folders.requests]]
+name   = "Bulletin de vigilance complet — France"
+method = "GET"
+url    = "https://webservice.meteofrance.com/v3/warning/full?domain=france&lang=fr"
+
+[folders.requests.auth]
+auth_type     = "bearer"
+bearer_token  = "{{METEO_TOKEN}}"
+
+[[folders.requests]]
+name   = "Bulletin de vigilance — département (Bouches-du-Rhône — 13)"
+method = "GET"
+url    = "https://webservice.meteofrance.com/v3/warning/full?domain=13&lang=fr"
+
+[folders.requests.auth]
+auth_type     = "bearer"
+bearer_token  = "{{METEO_TOKEN}}"
+
+[[folders.requests]]
+name   = "Dictionnaire des phénomènes (légende)"
+method = "GET"
+url    = "https://webservice.meteofrance.com/v3/warning/dictionary?lang=fr"
+
+[folders.requests.auth]
+auth_type     = "bearer"
+bearer_token  = "{{METEO_TOKEN}}"
+
+# ── Portail API (v2) ──────────────────────────────────────────────────────────
+# Ces endpoints utilisent le nouveau portail public-api.meteofrance.fr
+# Le format du token est identique (Bearer).
+
+[[folders]]
+name = "Vigilance — Portail v2"
+
+[[folders.requests]]
+name   = "Vignette nationale de vigilance (jour J)"
+method = "GET"
+url    = "https://public-api.meteofrance.fr/public/DPVigilance/v1/vignettenationale-J/encours"
+
+[folders.requests.auth]
+auth_type     = "bearer"
+bearer_token  = "{{METEO_TOKEN}}"
+
+[[folders.requests]]
+name   = "Carte de vigilance en cours"
+method = "GET"
+url    = "https://public-api.meteofrance.fr/public/DPVigilance/v1/cartevigilance/encours"
+
+[folders.requests.auth]
+auth_type     = "bearer"
+bearer_token  = "{{METEO_TOKEN}}"
+
+[[folders.requests]]
+name   = "Vignette nationale de vigilance (jour J+1)"
+method = "GET"
+url    = "https://public-api.meteofrance.fr/public/DPVigilance/v1/vignettenationale-J1/encours"
+
+[folders.requests.auth]
+auth_type     = "bearer"
+bearer_token  = "{{METEO_TOKEN}}"

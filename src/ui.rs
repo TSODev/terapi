@@ -2,7 +2,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Cell, Clear, List, ListItem, Paragraph, Row, Table, TableState, Tabs},
+    widgets::{Block, Borders, Cell, Clear, List, ListItem, Paragraph, Row, Table, TableState, Tabs, Wrap},
     Frame,
 };
 
@@ -714,6 +714,7 @@ fn render_response_raw(frame: &mut Frame, app: &App, area: Rect) {
     let text = app.response_body.as_deref().unwrap_or("No response.");
     let para = Paragraph::new(text)
         .style(Style::default().fg(Color::White))
+        .wrap(Wrap { trim: false })
         .scroll((app.response_scroll, 0));
     frame.render_widget(para, area);
 }

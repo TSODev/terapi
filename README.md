@@ -1,5 +1,10 @@
 # terapi
 
+[![crates.io](https://img.shields.io/crates/v/terapi.svg)](https://crates.io/crates/terapi)
+[![Downloads](https://img.shields.io/crates/d/terapi.svg)](https://crates.io/crates/terapi)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-2021-orange.svg)](https://www.rust-lang.org)
+
 **Terminal + API** — a keyboard-driven TUI for exploring, testing, and automating REST and GraphQL APIs, without leaving your terminal.
 
 ```

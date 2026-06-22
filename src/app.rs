@@ -129,6 +129,13 @@ pub enum EnvFocus {
     Vars,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum SaveField {
+    Name,
+    Collection,
+    Folder,
+}
+
 #[derive(Debug, Clone)]
 pub enum NodeAddress {
     // Collections
@@ -177,6 +184,12 @@ pub enum ModalState {
         value: String,
         active_field: VarField,
         edit_idx: Option<usize>,
+    },
+    SaveRequest {
+        name: String,
+        collection_idx: usize,
+        folder_display_idx: usize, // 0 = root, 1..N = folder index
+        active_field: SaveField,
     },
     BodyPair {
         key: String,
@@ -350,7 +363,7 @@ impl App {
             response_scroll: 0,
             response_folds: HashSet::new(),
             key_col_width: 22,
-            status_message: "Tab: panels  e: edit URL  s: send  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into(),
+            status_message: "Tab: panels  e: edit URL  s: send  S: save  n: new  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into(),
             response_rx,
             response_tx,
         }
@@ -461,6 +474,21 @@ impl App {
             }
 
             // ── Request panel — response navigation mode ───────────────────
+            KeyCode::Char('n') if self.active_tab == Tab::Request => {
+                self.new_request();
+            }
+            KeyCode::Char('S') if self.active_tab == Tab::Request => {
+                if self.stored_collections.is_empty() {
+                    self.status_message = "No collections — create one first in the Collections tab".into();
+                } else {
+                    self.modal = Some(ModalState::SaveRequest {
+                        name: String::new(),
+                        collection_idx: 0,
+                        folder_display_idx: 0,
+                        active_field: SaveField::Name,
+                    });
+                }
+            }
             KeyCode::Char('e') if self.active_tab == Tab::Request => {
                 self.request_focus = RequestFocus::Url;
                 self.status_message = "URL: type address  ←/→: method  Enter: send  Esc: cancel".into();
@@ -924,6 +952,53 @@ impl App {
                 _ => { self.modal = Some(ModalState::BodyPair { key: bp_key, value: bp_val, active_field, edit_idx }); }
             },
 
+            Some(ModalState::SaveRequest { mut name, mut collection_idx, mut folder_display_idx, mut active_field }) => {
+                let n_cols = self.stored_collections.len();
+                let n_folders = self.stored_collections.get(collection_idx).map_or(0, |c| c.folders.len());
+                match key.code {
+                    KeyCode::Esc => {}
+                    KeyCode::Enter if !name.trim().is_empty() && n_cols > 0 => {
+                        let fi = if folder_display_idx == 0 { None } else { Some(folder_display_idx - 1) };
+                        self.save_request_to_collection(name.trim().to_string(), collection_idx, fi)?;
+                    }
+                    KeyCode::Tab => {
+                        active_field = match active_field {
+                            SaveField::Name => SaveField::Collection,
+                            SaveField::Collection => if n_folders > 0 { SaveField::Folder } else { SaveField::Name },
+                            SaveField::Folder => SaveField::Name,
+                        };
+                        self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
+                    }
+                    KeyCode::Up if active_field == SaveField::Collection && n_cols > 0 => {
+                        collection_idx = if collection_idx == 0 { n_cols - 1 } else { collection_idx - 1 };
+                        folder_display_idx = 0;
+                        self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
+                    }
+                    KeyCode::Down if active_field == SaveField::Collection && n_cols > 0 => {
+                        collection_idx = (collection_idx + 1) % n_cols;
+                        folder_display_idx = 0;
+                        self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
+                    }
+                    KeyCode::Up if active_field == SaveField::Folder => {
+                        folder_display_idx = if folder_display_idx == 0 { n_folders } else { folder_display_idx - 1 };
+                        self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
+                    }
+                    KeyCode::Down if active_field == SaveField::Folder => {
+                        folder_display_idx = (folder_display_idx + 1) % (n_folders + 1);
+                        self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
+                    }
+                    KeyCode::Char(c) if active_field == SaveField::Name => {
+                        name.push(c);
+                        self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
+                    }
+                    KeyCode::Backspace if active_field == SaveField::Name => {
+                        name.pop();
+                        self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
+                    }
+                    _ => { self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field }); }
+                }
+            }
+
             Some(ModalState::ConfirmDelete { label, address }) => match key.code {
                 KeyCode::Char('y') | KeyCode::Enter => {
                     self.delete_node(address)?;
@@ -1273,16 +1348,7 @@ impl App {
         let method = METHODS[self.request_method_idx].to_string();
         let tx = self.response_tx.clone();
 
-        let body = match self.body_mode {
-            BodyMode::Text => {
-                let text = self.body_textarea.lines().join("\n");
-                if text.trim().is_empty() { None } else { Some(text) }
-            }
-            BodyMode::Json => {
-                if self.body_json_pairs.is_empty() { None }
-                else { Some(serialize_body_json(&self.body_json_pairs)) }
-            }
-        };
+        let body = self.body_string();
 
         self.request_loading = true;
         self.request_focus = RequestFocus::Response;
@@ -1318,7 +1384,7 @@ impl App {
                 BodyMode::Text => "Tab: panels  i: edit body  t: JSON mode  ←/→: section  s: send  q: quit".into(),
                 BodyMode::Json => "Tab: panels  i: edit fields  t: text mode  ←/→: section  s: send  q: quit".into(),
             },
-            _ => "Tab: panels  e: edit URL  s: send  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into(),
+            _ => "Tab: panels  e: edit URL  s: send  S: save  n: new  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into(),
         };
     }
 
@@ -1376,6 +1442,73 @@ impl App {
             }
             _ => {}
         }
+        Ok(())
+    }
+
+    pub fn new_request(&mut self) {
+        self.request_url = String::new();
+        self.request_method_idx = 0;
+        self.request_url_params = Vec::new();
+        self.url_params_cursor = 0;
+        self.request_headers = Vec::new();
+        self.header_cursor = 0;
+        self.body_mode = BodyMode::Text;
+        self.body_textarea = TextArea::default();
+        self.body_json_pairs = Vec::new();
+        self.body_json_cursor = 0;
+        self.request_focus = RequestFocus::Response;
+        self.response_body = None;
+        self.response_status = None;
+        self.response_elapsed_ms = None;
+        self.response_headers = Vec::new();
+        self.response_cursor = 0;
+        self.response_scroll = 0;
+        self.response_folds = HashSet::new();
+        self.status_message = "New request — e: edit URL  S: save to collection  s: send  q: quit".into();
+    }
+
+    fn body_string(&self) -> Option<String> {
+        match self.body_mode {
+            BodyMode::Text => {
+                let text = self.body_textarea.lines().join("\n");
+                if text.trim().is_empty() { None } else { Some(text) }
+            }
+            BodyMode::Json => {
+                if self.body_json_pairs.is_empty() { None }
+                else { Some(serialize_body_json(&self.body_json_pairs)) }
+            }
+        }
+    }
+
+    fn save_request_to_collection(&mut self, name: String, collection_idx: usize, folder_idx: Option<usize>) -> Result<()> {
+        use std::collections::HashMap as HMap;
+        let url = if self.request_url_params.is_empty() {
+            self.request_url.clone()
+        } else {
+            let sep = if self.request_url.contains('?') { '&' } else { '?' };
+            let query = self.request_url_params.iter()
+                .filter(|(k, _)| !k.is_empty())
+                .map(|(k, v)| format!("{}={}", k, v))
+                .collect::<Vec<_>>()
+                .join("&");
+            format!("{}{}{}", self.request_url, sep, query)
+        };
+        let req = StoredRequest {
+            name,
+            method: METHODS[self.request_method_idx].to_string(),
+            url,
+            headers: self.request_headers.iter().cloned().collect::<HMap<_, _>>(),
+            body: self.body_string(),
+            description: None,
+        };
+        let col_name = self.stored_collections[collection_idx].collection.name.clone();
+        if let Some(fi) = folder_idx {
+            self.stored_collections[collection_idx].folders[fi].requests.push(req);
+        } else {
+            self.stored_collections[collection_idx].requests.push(req);
+        }
+        crate::storage::save_collection(&self.stored_collections[collection_idx])?;
+        self.status_message = format!("Saved to \"{}\"  —  S: save again  s: send  q: quit", col_name);
         Ok(())
     }
 

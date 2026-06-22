@@ -8,7 +8,7 @@ use ratatui::{
 
 use crate::app::{
     flatten_stored, sorted_vars, App, BodyMode, EnvFocus, InputField, ModalState, RequestFocus,
-    RequestTab, ResponseView, Tab, VarField, METHODS,
+    RequestTab, ResponseView, SaveField, Tab, VarField, METHODS,
 };
 use crate::json_highlight::{self, ValueType};
 
@@ -870,6 +870,88 @@ fn render_modal(frame: &mut Frame, app: &App) {
                     Block::default().borders(Borders::ALL)
                         .title(modal_title).title_alignment(Alignment::Center)
                         .border_style(Style::default().fg(Color::Yellow)),
+                ),
+                area,
+            );
+        }
+
+        Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field }) => {
+            let area = centered_rect(66, 13, frame.area());
+            frame.render_widget(Clear, area);
+
+            let name_style = if *active_field == SaveField::Name {
+                Style::default().fg(Color::Yellow)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            let name_cursor = if *active_field == SaveField::Name { "_" } else { "" };
+
+            let col_name = app.stored_collections
+                .get(*collection_idx)
+                .map(|c| c.collection.name.as_str())
+                .unwrap_or("—");
+            let n_cols = app.stored_collections.len();
+            let col_style = if *active_field == SaveField::Collection {
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            let col_nav = if *active_field == SaveField::Collection && n_cols > 1 {
+                format!("↑ {} ↓  ({}/{})", col_name, collection_idx + 1, n_cols)
+            } else {
+                col_name.to_string()
+            };
+
+            let n_folders = app.stored_collections
+                .get(*collection_idx)
+                .map_or(0, |c| c.folders.len());
+            let folder_label = if *folder_display_idx == 0 {
+                "(root)".to_string()
+            } else {
+                app.stored_collections[*collection_idx]
+                    .folders
+                    .get(folder_display_idx - 1)
+                    .map(|f| f.name.clone())
+                    .unwrap_or_else(|| "(root)".to_string())
+            };
+            let folder_style = if *active_field == SaveField::Folder {
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            let folder_nav = if *active_field == SaveField::Folder {
+                format!("↑ {} ↓  ({}/{})", folder_label, folder_display_idx, n_folders + 1)
+            } else {
+                folder_label.clone()
+            };
+
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("  Name:        "),
+                    Span::styled(format!("{}{}", name, name_cursor), name_style),
+                ]),
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("  Collection:  "),
+                    Span::styled(col_nav, col_style),
+                ]),
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("  Folder:      "),
+                    Span::styled(folder_nav, folder_style),
+                ]),
+                Line::from(""),
+                Line::from(Span::styled(
+                    "  Tab: next field   ↑/↓: navigate   Enter: save   Esc: cancel",
+                    Style::default().fg(Color::Gray),
+                )),
+            ];
+            frame.render_widget(
+                Paragraph::new(text).block(
+                    Block::default().borders(Borders::ALL)
+                        .title(" Save Request ").title_alignment(Alignment::Center)
+                        .border_style(Style::default().fg(Color::Green)),
                 ),
                 area,
             );

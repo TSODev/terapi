@@ -1,0 +1,253 @@
+[collection]
+name        = "SNCF API"
+description = "API horaires et itinéraires SNCF (Navitia). Requiert un token — inscription gratuite sur numerique.sncf.com/startup/api"
+
+# ── Authentification ──────────────────────────────────────────────────────────
+# L'API SNCF utilise le token comme identifiant HTTP Basic (mot de passe vide).
+# 1. Obtenez un token sur https://numerique.sncf.com/startup/api/
+# 2. Créez un environnement dans Terapi (onglet Env)
+# 3. Ajoutez la variable  SNCF_TOKEN = <votre_token>
+# 4. Activez l'environnement (Enter sur la ligne)
+# Limite gratuite : 5 000 req/jour — 150 000 req/mois
+#
+# IDs de gares fréquents :
+#   Paris Montparnasse  stop_area:SNCF:87391003
+#   Paris Gare de Lyon  stop_area:SNCF:87686006
+#   Paris Gare du Nord  stop_area:SNCF:87271007
+#   Paris Gare de l'Est stop_area:SNCF:87113001
+#   Lyon Part-Dieu      stop_area:SNCF:87723197
+#   Marseille St-Charles stop_area:SNCF:87751008
+#   Bordeaux St-Jean    stop_area:SNCF:87581009
+#   Nantes              stop_area:SNCF:87481002
+#   Lille-Europe        stop_area:SNCF:87223263
+#   Strasbourg          stop_area:SNCF:87212027
+
+# ── Couverture ────────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Couverture"
+
+[[folders.requests]]
+name   = "Racine de la couverture SNCF"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""
+
+[[folders.requests]]
+name   = "Informations réseau"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/networks"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""
+
+# ── Recherche de gares ────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Gares"
+
+[[folders.requests]]
+name   = "Recherche de gare (autocomplétion)"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/places?q=Lyon&type[]=stop_area&count=10"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""
+
+[[folders.requests]]
+name   = "Détail d'une gare — Paris Montparnasse"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/stop_areas/stop_area:SNCF:87391003"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""
+
+[[folders.requests]]
+name   = "Gares autour d'un point (Paris centre)"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/coords/2.3488;48.8534/stop_areas?count=10"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""
+
+[[folders.requests]]
+name   = "Lignes desservant une gare — Paris Gare de Lyon"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/stop_areas/stop_area:SNCF:87686006/lines"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""
+
+# ── Horaires ─────────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Horaires"
+
+[[folders.requests]]
+name   = "Prochains départs — Paris Montparnasse"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/stop_areas/stop_area:SNCF:87391003/departures?count=20"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""
+
+[[folders.requests]]
+name   = "Prochaines arrivées — Paris Gare de Lyon"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/stop_areas/stop_area:SNCF:87686006/arrivals?count=20"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""
+
+[[folders.requests]]
+name   = "Départs d'une date/heure donnée — Paris Nord"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/stop_areas/stop_area:SNCF:87271007/departures?from_datetime=20260701T080000&count=20"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""
+
+[[folders.requests]]
+name   = "Grille horaire d'une ligne"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/stop_areas/stop_area:SNCF:87391003/stop_schedules?count=10"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""
+
+# ── Itinéraires ───────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Itinéraires"
+
+[[folders.requests]]
+name   = "Paris Montparnasse → Bordeaux St-Jean"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/journeys?from=stop_area:SNCF:87391003&to=stop_area:SNCF:87581009&datetime=20260701T090000&count=5"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""
+
+[[folders.requests]]
+name   = "Paris Gare de Lyon → Lyon Part-Dieu"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/journeys?from=stop_area:SNCF:87686006&to=stop_area:SNCF:87723197&datetime=20260701T080000&count=5"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""
+
+[[folders.requests]]
+name   = "Lyon Part-Dieu → Marseille St-Charles"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/journeys?from=stop_area:SNCF:87723197&to=stop_area:SNCF:87751008&datetime=20260701T100000&count=5"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""
+
+[[folders.requests]]
+name   = "Itinéraire par coordonnées GPS"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/journeys?from=2.3488;48.8534&to=4.8357;45.7640&datetime=20260701T090000&count=3"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""
+
+# ── Réseau ────────────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Réseau"
+
+[[folders.requests]]
+name   = "Liste des lignes SNCF"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/lines?count=50"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""
+
+[[folders.requests]]
+name   = "Détail d'une ligne TGV Paris-Lyon"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/lines?q=TGV&count=20"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""
+
+[[folders.requests]]
+name   = "Routes (variantes de parcours)"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/routes?count=20"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""
+
+# ── Temps réel ────────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Temps réel"
+
+[[folders.requests]]
+name   = "Perturbations en cours"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/disruptions?count=20"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""
+
+[[folders.requests]]
+name   = "Perturbations sur une gare — Paris Nord"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/stop_areas/stop_area:SNCF:87271007/disruptions"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""
+
+[[folders.requests]]
+name   = "État du trafic (traffic_reports)"
+method = "GET"
+url    = "https://api.sncf.com/v1/coverage/sncf/traffic_reports?count=20"
+
+[folders.requests.auth]
+auth_type     = "basic"
+basic_username = "{{SNCF_TOKEN}}"
+basic_password = ""

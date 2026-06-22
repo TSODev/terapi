@@ -157,7 +157,7 @@ impl App {
                 };
                 self.status_message = match self.active_tab {
                     Tab::Request => "Tab: switch panel  ←/→: section  q: quit".into(),
-                    Tab::Collections => "Tab: switch panel  ↑/↓: navigate  Enter: expand  n: new collection  f: new folder  a: add request  d: delete  q: quit".into(),
+                    Tab::Collections => "Tab: switch panel  ↑/↓: navigate  Enter: expand/load  n: new  f: folder  a: add  e: edit  d: delete  q: quit".into(),
                     Tab::Env => "Tab: switch panel  ←/→: switch focus  ↑/↓: navigate  Enter: activate  n: new env  a: add var  d: delete  q: quit".into(),
                     Tab::History => "Tab: switch panel  q: quit".into(),
                 };
@@ -444,6 +444,33 @@ impl App {
                     self.status_message = "No collection selected — press n to create one first.".into();
                 }
             }
+            KeyCode::Char('e') if self.active_tab == Tab::Collections => {
+                let flat = flatten_stored(&self.stored_collections, &self.expanded_nodes);
+                if let Some(node) = flat.get(self.collection_cursor) {
+                    if !node.is_folder {
+                        let (ci, fi, ri) = match &node.address {
+                            NodeAddress::RootRequest(ci, ri) => (*ci, None, *ri),
+                            NodeAddress::FolderRequest(ci, fi, ri) => (*ci, Some(*fi), *ri),
+                            _ => return Ok(()),
+                        };
+                        let req = if let Some(fi) = fi {
+                            &self.stored_collections[ci].folders[fi].requests[ri]
+                        } else {
+                            &self.stored_collections[ci].requests[ri]
+                        };
+                        let method_idx = METHODS.iter().position(|&m| m == req.method).unwrap_or(0);
+                        self.modal = Some(ModalState::EditRequest {
+                            name: req.name.clone(),
+                            method_idx,
+                            url: req.url.clone(),
+                            active_field: InputField::Name,
+                            collection_idx: ci,
+                            folder_idx: fi,
+                            request_idx: ri,
+                        });
+                    }
+                }
+            }
             KeyCode::Char('d') if self.active_tab == Tab::Collections => {
                 self.open_delete_modal();
             }
@@ -587,6 +614,41 @@ impl App {
                     self.modal = Some(ModalState::NewRequest { name, method_idx, url, active_field, collection_idx, folder_idx });
                 }
                 _ => { self.modal = Some(ModalState::NewRequest { name, method_idx, url, active_field, collection_idx, folder_idx }); }
+            },
+
+            Some(ModalState::EditRequest {
+                mut name, mut method_idx, mut url, mut active_field,
+                collection_idx, folder_idx, request_idx,
+            }) => match key.code {
+                KeyCode::Esc => {}
+                KeyCode::Enter if !name.trim().is_empty() && !url.trim().is_empty() => {
+                    self.edit_request(name.trim().to_string(), method_idx, url.trim().to_string(), collection_idx, folder_idx, request_idx)?;
+                    self.status_message = "Request updated.  e: edit  Enter: load  d: delete  q: quit".into();
+                }
+                KeyCode::Tab => {
+                    active_field = match active_field {
+                        InputField::Name => InputField::Url,
+                        InputField::Url => InputField::Name,
+                    };
+                    self.modal = Some(ModalState::EditRequest { name, method_idx, url, active_field, collection_idx, folder_idx, request_idx });
+                }
+                KeyCode::Left => {
+                    method_idx = if method_idx == 0 { METHODS.len() - 1 } else { method_idx - 1 };
+                    self.modal = Some(ModalState::EditRequest { name, method_idx, url, active_field, collection_idx, folder_idx, request_idx });
+                }
+                KeyCode::Right => {
+                    method_idx = (method_idx + 1) % METHODS.len();
+                    self.modal = Some(ModalState::EditRequest { name, method_idx, url, active_field, collection_idx, folder_idx, request_idx });
+                }
+                KeyCode::Char(c) => {
+                    match active_field { InputField::Name => name.push(c), InputField::Url => url.push(c) }
+                    self.modal = Some(ModalState::EditRequest { name, method_idx, url, active_field, collection_idx, folder_idx, request_idx });
+                }
+                KeyCode::Backspace => {
+                    match active_field { InputField::Name => { name.pop(); } InputField::Url => { url.pop(); } }
+                    self.modal = Some(ModalState::EditRequest { name, method_idx, url, active_field, collection_idx, folder_idx, request_idx });
+                }
+                _ => { self.modal = Some(ModalState::EditRequest { name, method_idx, url, active_field, collection_idx, folder_idx, request_idx }); }
             },
 
             Some(ModalState::NewEnv { mut input }) => match key.code {

@@ -160,6 +160,27 @@ impl App {
         Ok(())
     }
 
+    pub(super) fn edit_request(
+        &mut self,
+        name: String,
+        method_idx: usize,
+        url: String,
+        ci: usize,
+        fi: Option<usize>,
+        ri: usize,
+    ) -> Result<()> {
+        let req = if let Some(fi) = fi {
+            &mut self.stored_collections[ci].folders[fi].requests[ri]
+        } else {
+            &mut self.stored_collections[ci].requests[ri]
+        };
+        req.name = name;
+        req.method = METHODS[method_idx].to_string();
+        req.url = url;
+        crate::storage::save_collection(&self.stored_collections[ci])?;
+        Ok(())
+    }
+
     pub(super) fn add_request(&mut self, req: StoredRequest, ci: usize, fi: Option<usize>) -> Result<()> {
         if let Some(fi) = fi {
             self.stored_collections[ci].folders[fi].requests.push(req);

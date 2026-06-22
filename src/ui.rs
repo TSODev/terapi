@@ -1005,6 +1005,49 @@ fn render_modal(frame: &mut Frame, app: &App) {
             );
         }
 
+        Some(ModalState::EditRequest { name, method_idx, url, active_field, .. }) => {
+            let area = centered_rect(60, 11, frame.area());
+            frame.render_widget(Clear, area);
+
+            let name_style = if *active_field == InputField::Name { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
+            let url_style  = if *active_field == InputField::Url  { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
+            let name_cursor = if *active_field == InputField::Name { "_" } else { "" };
+            let url_cursor  = if *active_field == InputField::Url  { "_" } else { "" };
+
+            let method = METHODS[*method_idx];
+            let max_url = 44usize;
+            let url_display = if url.len() > max_url {
+                format!("…{}", &url[url.len() - max_url..])
+            } else {
+                url.clone()
+            };
+
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![Span::raw("  Name:   "), Span::styled(format!("{}{}", name, name_cursor), name_style)]),
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("  Method: "),
+                    Span::styled("◀ ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(method, Style::default().fg(method_color(method)).add_modifier(Modifier::BOLD)),
+                    Span::styled(" ▶", Style::default().fg(Color::DarkGray)),
+                    Span::styled("  (←/→ to change)", Style::default().fg(Color::Gray)),
+                ]),
+                Line::from(""),
+                Line::from(vec![Span::raw("  URL:    "), Span::styled(format!("{}{}", url_display, url_cursor), url_style)]),
+                Line::from(""),
+                Line::from(Span::styled("  Tab: next field   Enter: save   Esc: cancel", Style::default().fg(Color::Gray))),
+            ];
+            frame.render_widget(
+                Paragraph::new(text).block(
+                    Block::default().borders(Borders::ALL)
+                        .title(" Edit Request ").title_alignment(Alignment::Center)
+                        .border_style(Style::default().fg(Color::Cyan)),
+                ),
+                area,
+            );
+        }
+
         Some(ModalState::NewEnv { input }) => {
             let area = centered_rect(52, 7, frame.area());
             frame.render_widget(Clear, area);

@@ -180,6 +180,28 @@ Authorization = "Bearer {{TOKEN}}"
 
 See `examples/collection.toml` for a fully annotated template.
 
+### Example collections
+
+Ready-to-use collections in `examples/collections/` — copy them to your terapi directory to get started immediately:
+
+| File | Contenu | Auth |
+|------|---------|------|
+| `public-rest.toml` | JSONPlaceholder, ReqRes, httpbin, PokeAPI, CoinGecko | Aucune |
+| `graphql.toml` | Countries API, Rick & Morty API (POST GraphQL) | Aucune |
+| `sncf.toml` | API SNCF — gares, horaires, itinéraires, perturbations | Basic `{{SNCF_TOKEN}}` |
+| `france-geo.toml` | API Géo + API Adresse IGN — communes, départements, régions, géocodage | Aucune |
+| `france-eau.toml` | Hub'Eau — hydrométrie, qualité rivières et nappes | Aucune |
+| `france-meteo.toml` | Météo-France — prévisions, observations, vigilance | Bearer `{{METEO_TOKEN}}` |
+
+```bash
+# Copier une collection dans le répertoire global
+cp examples/collections/france-geo.toml ~/.config/terapi/collections/
+
+# Ou dans un projet local
+mkdir -p .terapi/collections
+cp examples/collections/sncf.toml .terapi/collections/
+```
+
 ---
 
 ## Campaign runner

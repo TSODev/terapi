@@ -8,6 +8,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Example collections — open data français** (`examples/collections/`) :
+  - `sncf.toml` — API SNCF/Navitia : 6 dossiers, 20 requêtes (couverture, gares, horaires, itinéraires, réseau, temps réel) — auth Basic `{{SNCF_TOKEN}}`
+  - `france-geo.toml` — API Géo + API Adresse IGN : 4 dossiers, 19 requêtes (communes, départements, régions, géocodage, géocodage inverse) — sans authentification
+  - `france-eau.toml` — Hub'Eau (eaufrance.fr) : 3 dossiers, 19 requêtes (hydrométrie temps réel, qualité rivières, qualité nappes souterraines) — sans authentification
+  - `france-meteo.toml` — API Météo-France : 4 dossiers, 17 requêtes (prévisions horaires, observations, pluie radar, vigilance J/J+1) — Bearer `{{METEO_TOKEN}}`
+
 - **Request authentication** — Auth sub-tab is now fully interactive with four modes:
   - **No Auth** (default) — no authentication header added
   - **Bearer** — injects `Authorization: Bearer <token>`; token field editable via modal

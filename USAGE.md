@@ -666,6 +666,32 @@ Content-Type = "application/json"
 
 See `examples/collection.toml` for a fully annotated template.
 
+### Collections d'exemple
+
+Des collections prêtes à l'emploi sont disponibles dans `examples/collections/` :
+
+| Fichier | Contenu | Dossiers | Requêtes | Auth |
+|---------|---------|----------|----------|------|
+| `public-rest.toml` | JSONPlaceholder, ReqRes, httpbin, PokeAPI, CoinGecko | 5 | ~30 | Aucune |
+| `graphql.toml` | Countries API, Rick & Morty (POST GraphQL) | 2 | ~10 | Aucune |
+| `sncf.toml` | SNCF — gares, horaires, itinéraires, perturbations | 6 | 20 | Basic `{{SNCF_TOKEN}}` |
+| `france-geo.toml` | API Géo + IGN — communes, départements, régions, géocodage | 4 | 19 | Aucune |
+| `france-eau.toml` | Hub'Eau — hydrométrie, qualité rivières et nappes | 3 | 19 | Aucune |
+| `france-meteo.toml` | Météo-France — prévisions, observations, vigilance | 4 | 17 | Bearer `{{METEO_TOKEN}}` |
+
+**Installation rapide :**
+
+```bash
+# Global (~/.config/terapi/collections/)
+cp examples/collections/france-geo.toml ~/.config/terapi/collections/
+
+# Projet local (.terapi/collections/)
+mkdir -p .terapi/collections
+cp examples/collections/sncf.toml .terapi/collections/
+```
+
+Pour les collections avec authentification, créez un environnement dans l'onglet **Env** et ajoutez la variable correspondante (`SNCF_TOKEN` ou `METEO_TOKEN`), puis activez-le avec `Enter`.
+
 ---
 
 ## Demo mode

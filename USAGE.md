@@ -143,8 +143,55 @@ The response block title shows the **status code** (color-coded green/yellow/red
 | Headers | Request headers — common header picker + custom entry |
 | URL Params | Query string parameters |
 | Body | Raw JSON body editor |
-| Auth | Bearer token, API Key, OAuth2 |
+| Auth | Authentication — No Auth / Bearer / Basic / API Key |
 | Options | TLS verification, timeout, redirects |
+
+#### Auth sub-tab
+
+Navigate to the Auth sub-tab with `←` / `→`. The sub-tab shows an interactive type selector and the fields for the selected type.
+
+**Type selector** (always row 0):
+
+```
+ Type    No Auth    Bearer    Basic    API Key
+```
+
+The active type is highlighted in yellow. Press `Space` or `Enter` on this row to cycle through types.
+
+**Bearer**
+
+```
+ Type    No Auth   ●Bearer●   Basic    API Key
+
+ Token    eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…
+```
+
+`Enter` on the Token row opens an edit modal. The token is injected as `Authorization: Bearer <token>` at send time.
+
+**Basic**
+
+```
+ Type    No Auth    Bearer   ●Basic●   API Key
+
+ Username  admin
+ Password  ••••••••
+```
+
+Username and password are each editable in a modal. Password is always masked. At send time, `username:password` is Base64-encoded and sent as `Authorization: Basic …`.
+
+**API Key**
+
+```
+ Type    No Auth    Bearer    Basic   ●API Key●
+
+ Key Name   X-API-Key
+ Key Value  sk-…
+ Location   ●Header●   Query Param
+```
+
+`Enter` on Key Name / Key Value to edit. `Space` or `Enter` on the Location row toggles between **Header** (added as a request header) and **Query Param** (appended to the URL as `?<name>=<value>`).
+
+In all modes, `{{VAR}}` placeholders in auth field values are resolved from the active environment at send time. Auth config is saved with the request when using `S` (Save to collection).
 
 #### Saving a request (`S`)
 
@@ -485,6 +532,10 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `d` | Request panel (URL Params sub-tab) | Delete selected param |
 | `Enter` | Request panel (URL Params sub-tab) | Edit selected param |
 | `↑` / `↓` | Request panel (URL Params sub-tab) | Navigate params |
+| `↑` / `↓` | Request panel (Auth sub-tab) | Navigate between auth fields |
+| `Space` / `Enter` | Request panel (Auth sub-tab, Type row) | Cycle auth type |
+| `Enter` | Request panel (Auth sub-tab, field row) | Open edit modal for field value |
+| `Space` | Request panel (Auth sub-tab, Location row) | Toggle API Key location: Header ↔ Query Param |
 | `i` | Request panel (Body sub-tab) | Enter body editor mode |
 | `t` | Request panel (Body sub-tab, outside editor) | Toggle body mode: Text ↔ JSON |
 | `a` | Body editor (JSON mode) | Add field |

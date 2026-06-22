@@ -93,6 +93,9 @@ terapi --help
 | `Enter` | Send request (URL mode) / fold-unfold JSON node / edit body field (JSON mode) |
 | `Esc` | Finish URL edit / exit body editor |
 | `{{` | Open variable picker (any editable field) — insert `{{VAR}}` from active env |
+| `↑` / `↓` | Auth sub-tab — navigate fields |
+| `Space` / `Enter` | Auth sub-tab (Type row) — cycle auth type (No Auth → Bearer → Basic → API Key) |
+| `Enter` | Auth sub-tab (field row) — open edit modal for token / username / password / key |
 | `Space` / `Enter` | Options sub-tab — toggle selected option (e.g. Skip TLS verify) |
 | `r` | Cycle response view: JSON → Raw → HTTP exchange |
 | `-` / `=` | Resize Key column |
@@ -315,7 +318,8 @@ Campaign : Users API — smoke tests
 - [ ] Import from Postman collection (JSON v2.1)
 
 ### v1.0
-- [ ] Auth: Bearer token, API Key, OAuth2 (basic) — via the Auth tab
+- [x] Auth: No Auth / Bearer / Basic / API Key — interactive Auth sub-tab, persisted in collection TOML
+- [ ] Auth: OAuth 2.0 — Client Credentials flow (machine-to-machine)
 - [ ] Syntax highlighting (syntect)
 
 ---

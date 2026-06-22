@@ -8,6 +8,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Request authentication** — Auth sub-tab is now fully interactive with four modes:
+  - **No Auth** (default) — no authentication header added
+  - **Bearer** — injects `Authorization: Bearer <token>`; token field editable via modal
+  - **Basic** — prompts for username and password, encodes as Base64 and injects `Authorization: Basic …`; password masked with bullets in the UI
+  - **API Key** — key name and value configurable; location togglable between **Header** and **Query Param** (appended to URL at send time)
+  - `↑` / `↓` to navigate between fields, `Space` / `Enter` on the Type row to cycle auth type, `Enter` on a field to open an edit modal (cyan border)
+  - `{{VAR}}` substitution applied to all auth field values at send time
+  - Auth config persisted in `StoredRequest.auth` in the collection TOML (backward-compatible — existing files load as No Auth)
+
 - **Persistent request history** — every sent request is recorded in `<terapi_dir>/history.toml` (max 100 entries, newest first):
   - History tab replaces the placeholder with a live list showing: timestamp (UTC) / method / status / elapsed / URL
   - Status codes are colour-coded: green 2xx, yellow 3xx/4xx, red 5xx, gray for transport errors

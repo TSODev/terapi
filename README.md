@@ -298,53 +298,9 @@ Campaign : Users API — smoke tests
 
 ---
 
-## Roadmap
+## Coming next
 
-### v0.2 — REST basics *(complete)*
-- [x] Method selector — `m` to cycle, `←/→` in URL edit mode
-- [x] URL input — `e` to edit, `Enter` to send, `Esc` to cancel
-- [x] Send request — async via tokio, `{{VAR}}` resolved from active env
-- [x] Response viewer: status code (color-coded) + elapsed time in title
-- [x] Headers editor — `a`/`d`/`↑↓` in Headers sub-tab, `{{VAR}}` resolved before send
-- [x] URL Params editor — `a`/`d`/`Enter`/`↑↓`; appended to URL at send time; auto-parsed when loading from Collections
-- [x] New request (`n`) — clears all fields
-- [x] Save to collection (`S`) — modal: name + collection selector + folder selector
-- [x] Body editor — dual mode: Text (`tui-textarea`) and JSON key/value table; `t` to toggle, `i` to edit
-
-### v0.3 — Collections
-- [x] TOML-based collection format (one file per collection)
-- [x] Load collections from disk at startup
-- [x] Create / delete collections from the TUI (`n`, `d`)
-- [x] Create folders within a collection (`f`) — cursor follows automatically
-- [x] Add / delete requests from the TUI (`a`, `d`)
-- [x] Select a request from Collections to load into the Request tab (`Enter`)
-- [x] Edit an existing request — `e` loads the request into the Request tab (all fields editable including description); `S` saves back in place
-
-### v0.4 — Environment & History *(complete)*
-- [x] Environment tab — create / manage multiple environments (test, staging, prod…)
-- [x] Add variables per environment (`KEY = value`), activate with `Enter`
-- [x] Storage: one TOML file per environment in `<terapi_dir>/envs/`
-- [x] Active env indicator in Request panel URL bar (`· env: <name>`)
-- [x] Campaign: `env_file = "name"` loads a terapi env as base variable set
-- [x] Campaign: per-step `env = "name"` to switch environment for a single step
-- [x] `{{VAR}}` substitution in URL, headers and body when sending from TUI
-- [x] Request history — persistent TOML, colour-coded list, load/delete entries
-
-### v0.5 — GraphQL
-- [ ] GraphQL mode toggle
-- [ ] Schema introspection via `__schema`
-- [ ] Query editor with field autocompletion
-- [ ] Variables panel (JSON)
-- [ ] Mutations support
-
-### v0.6 — Automation / Scripting
-- [ ] Assertions (status code, body field values)
-- [ ] Import from Postman collection (JSON v2.1)
-
-### v1.0
-- [x] Auth: No Auth / Bearer / Basic / API Key — interactive Auth sub-tab, persisted in collection TOML
-- [ ] Auth: OAuth 2.0 — Client Credentials flow (machine-to-machine)
-- [ ] Syntax highlighting (syntect)
+Native **GraphQL support** is in active development — schema introspection, query editor with field autocompletion, variables panel, and mutations.
 
 ---
 

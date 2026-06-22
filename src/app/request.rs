@@ -47,7 +47,8 @@ impl App {
         let tx = self.response_tx.clone();
         let skip_tls = self.skip_tls_verify;
 
-        let body = self.body_string();
+        let body = self.body_string()
+            .map(|b| crate::storage::resolve_vars(&b, &env_vars));
 
         self.last_request_raw = Some(RawRequest {
             method: method.clone(),

@@ -102,7 +102,7 @@ fn render_request_panel(frame: &mut Frame, app: &App, area: Rect) {
             if editing {
                 Style::default().fg(Color::Yellow)
             } else if app.request_url.is_empty() {
-                Style::default().fg(Color::DarkGray)
+                Style::default().fg(Color::Indexed(244))
             } else {
                 Style::default().fg(Color::White)
             },
@@ -136,9 +136,9 @@ fn render_request_subtabs(frame: &mut Frame, app: &App, area: Rect) {
     let selected = RequestTab::all().into_iter().position(|t| t == app.active_request_tab).unwrap_or(0);
 
     let sub_tabs = Tabs::new(tabs)
-        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::DarkGray)))
+        .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(Color::Indexed(238))))
         .select(selected)
-        .style(Style::default().fg(Color::DarkGray))
+        .style(Style::default().fg(Color::Indexed(244)))
         .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
         .divider(Span::raw(" | "));
 
@@ -170,7 +170,7 @@ fn render_request_content(frame: &mut Frame, app: &App, area: Rect) {
                 .title(format!(" {title} "))
                 .border_style(Style::default().fg(Color::Yellow)),
         )
-        .style(Style::default().fg(Color::DarkGray))
+        .style(Style::default().fg(Color::Gray))
         .alignment(Alignment::Center);
 
     frame.render_widget(content, area);
@@ -207,7 +207,7 @@ fn render_headers_editor(frame: &mut Frame, app: &App, area: Rect) {
     let items: Vec<ListItem> = if app.request_headers.is_empty() {
         vec![ListItem::new(Line::from(Span::styled(
             "  No headers — press a to add one",
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(Color::Gray),
         )))]
     } else {
         app.request_headers.iter().enumerate().map(|(i, (k, v))| {
@@ -247,12 +247,12 @@ fn render_response(frame: &mut Frame, app: &App, area: Rect) {
     let json_style = if json_active {
         Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(Color::DarkGray)
+        Style::default().fg(Color::Indexed(244))
     };
     let raw_style = if !json_active {
         Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(Color::DarkGray)
+        Style::default().fg(Color::Indexed(244))
     };
 
     let title = if app.request_loading {
@@ -283,7 +283,7 @@ fn render_response(frame: &mut Frame, app: &App, area: Rect) {
             if let Some(ms) = app.response_elapsed_ms {
                 spans.push(Span::styled(
                     format!("  {}ms", ms),
-                    Style::default().fg(Color::DarkGray),
+                    Style::default().fg(Color::Indexed(244)),
                 ));
             }
         }
@@ -390,7 +390,7 @@ fn render_collections_panel(frame: &mut Frame, app: &App, area: Rect) {
     let items: Vec<ListItem> = if flat.is_empty() {
         vec![ListItem::new(Line::from(Span::styled(
             "  No collections — press n to create one",
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(Color::Gray),
         )))]
     } else {
         flat.iter().enumerate().map(|(i, node)| {
@@ -448,17 +448,17 @@ fn render_env_list(frame: &mut Frame, app: &App, area: Rect) {
     let border_style = if focused {
         Style::default().fg(Color::Yellow)
     } else {
-        Style::default().fg(Color::DarkGray)
+        Style::default().fg(Color::Indexed(238))
     };
 
     let items: Vec<ListItem> = if app.environments.is_empty() {
         vec![ListItem::new(Line::from(Span::styled(
             "  No environments",
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(Color::Gray),
         ))),
         ListItem::new(Line::from(Span::styled(
             "  Press n to create one",
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(Color::Gray),
         )))]
     } else {
         app.environments.iter().enumerate().map(|(i, env)| {
@@ -493,7 +493,7 @@ fn render_env_vars(frame: &mut Frame, app: &App, area: Rect) {
     let border_style = if focused {
         Style::default().fg(Color::Yellow)
     } else {
-        Style::default().fg(Color::DarkGray)
+        Style::default().fg(Color::Indexed(238))
     };
 
     let Some(env) = app.environments.get(app.env_cursor) else {
@@ -504,7 +504,7 @@ fn render_env_vars(frame: &mut Frame, app: &App, area: Rect) {
         frame.render_widget(
             Paragraph::new("Select an environment.")
                 .block(block)
-                .style(Style::default().fg(Color::DarkGray))
+                .style(Style::default().fg(Color::Gray))
                 .alignment(Alignment::Center),
             area,
         );
@@ -516,7 +516,7 @@ fn render_env_vars(frame: &mut Frame, app: &App, area: Rect) {
     let items: Vec<ListItem> = if vars.is_empty() {
         vec![ListItem::new(Line::from(Span::styled(
             "  No variables — press a to add one",
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(Color::Gray),
         )))]
     } else {
         vars.iter().enumerate().map(|(i, (k, v))| {
@@ -560,7 +560,7 @@ fn render_modal(frame: &mut Frame, app: &App) {
                     Span::styled(format!("{}_", input), Style::default().fg(Color::Yellow)),
                 ]),
                 Line::from(""),
-                Line::from(Span::styled("  Enter: save   Esc: cancel", Style::default().fg(Color::DarkGray))),
+                Line::from(Span::styled("  Enter: save   Esc: cancel", Style::default().fg(Color::Gray))),
             ];
             frame.render_widget(
                 Paragraph::new(text).block(
@@ -582,7 +582,7 @@ fn render_modal(frame: &mut Frame, app: &App) {
                     Span::styled(format!("{}_", input), Style::default().fg(Color::Cyan)),
                 ]),
                 Line::from(""),
-                Line::from(Span::styled("  Enter: save   Esc: cancel", Style::default().fg(Color::DarkGray))),
+                Line::from(Span::styled("  Enter: save   Esc: cancel", Style::default().fg(Color::Gray))),
             ];
             frame.render_widget(
                 Paragraph::new(text).block(
@@ -620,12 +620,12 @@ fn render_modal(frame: &mut Frame, app: &App) {
                     Span::styled("◀ ", Style::default().fg(Color::DarkGray)),
                     Span::styled(method, Style::default().fg(method_color(method)).add_modifier(Modifier::BOLD)),
                     Span::styled(" ▶", Style::default().fg(Color::DarkGray)),
-                    Span::styled("  (←/→ to change)", Style::default().fg(Color::DarkGray)),
+                    Span::styled("  (←/→ to change)", Style::default().fg(Color::Gray)),
                 ]),
                 Line::from(""),
                 Line::from(vec![Span::raw("  URL:    "), Span::styled(format!("{}{}", url_display, url_cursor), url_style)]),
                 Line::from(""),
-                Line::from(Span::styled("  Tab: next field   Enter: save   Esc: cancel", Style::default().fg(Color::DarkGray))),
+                Line::from(Span::styled("  Tab: next field   Enter: save   Esc: cancel", Style::default().fg(Color::Gray))),
             ];
             frame.render_widget(
                 Paragraph::new(text).block(
@@ -647,7 +647,7 @@ fn render_modal(frame: &mut Frame, app: &App) {
                     Span::styled(format!("{}_", input), Style::default().fg(Color::Yellow)),
                 ]),
                 Line::from(""),
-                Line::from(Span::styled("  Enter: save   Esc: cancel", Style::default().fg(Color::DarkGray))),
+                Line::from(Span::styled("  Enter: save   Esc: cancel", Style::default().fg(Color::Gray))),
             ];
             frame.render_widget(
                 Paragraph::new(text).block(
@@ -674,7 +674,7 @@ fn render_modal(frame: &mut Frame, app: &App) {
                 Line::from(""),
                 Line::from(vec![Span::raw("  Value: "), Span::styled(format!("{}{}", value, val_cursor), val_style)]),
                 Line::from(""),
-                Line::from(Span::styled("  Tab: next field   Enter: save   Esc: cancel", Style::default().fg(Color::DarkGray))),
+                Line::from(Span::styled("  Tab: next field   Enter: save   Esc: cancel", Style::default().fg(Color::Gray))),
             ];
             frame.render_widget(
                 Paragraph::new(text).block(
@@ -701,7 +701,7 @@ fn render_modal(frame: &mut Frame, app: &App) {
                 Line::from(""),
                 Line::from(vec![Span::raw("  Value: "), Span::styled(format!("{}{}", value, val_cursor), val_style)]),
                 Line::from(""),
-                Line::from(Span::styled("  Tab: next field   Enter: add   Esc: cancel", Style::default().fg(Color::DarkGray))),
+                Line::from(Span::styled("  Tab: next field   Enter: add   Esc: cancel", Style::default().fg(Color::Gray))),
             ];
             frame.render_widget(
                 Paragraph::new(text).block(
@@ -724,7 +724,7 @@ fn render_modal(frame: &mut Frame, app: &App) {
                     Span::raw("?"),
                 ]),
                 Line::from(""),
-                Line::from(Span::styled("  y / Enter: confirm   n / Esc: cancel", Style::default().fg(Color::DarkGray))),
+                Line::from(Span::styled("  y / Enter: confirm   n / Esc: cancel", Style::default().fg(Color::Gray))),
             ];
             frame.render_widget(
                 Paragraph::new(text).block(
@@ -750,14 +750,14 @@ fn render_placeholder(frame: &mut Frame, area: Rect, title: &str, msg: &str) {
                 .title(format!(" {title} "))
                 .border_style(Style::default().fg(Color::Cyan)),
         )
-        .style(Style::default().fg(Color::DarkGray))
+        .style(Style::default().fg(Color::Gray))
         .alignment(Alignment::Center);
     frame.render_widget(widget, area);
 }
 
 fn render_status(frame: &mut Frame, app: &App, area: Rect) {
     let status = Paragraph::new(app.status_message.as_str())
-        .style(Style::default().fg(Color::DarkGray));
+        .style(Style::default().fg(Color::Gray));
     frame.render_widget(status, area);
 }
 

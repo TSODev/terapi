@@ -20,7 +20,7 @@ pub fn render(frame: &mut Frame, app: &App) {
         .constraints([
             Constraint::Length(3),
             Constraint::Min(0),
-            Constraint::Length(1),
+            Constraint::Length(2),
         ])
         .split(area);
 
@@ -1003,9 +1003,71 @@ fn render_placeholder(frame: &mut Frame, area: Rect, title: &str, msg: &str) {
 }
 
 fn render_status(frame: &mut Frame, app: &App, area: Rect) {
-    let status = Paragraph::new(app.status_message.as_str())
-        .style(Style::default().fg(Color::Gray));
-    frame.render_widget(status, area);
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(1), Constraint::Length(1)])
+        .split(area);
+
+    // ── Context bar (top row) ──────────────────────────────────────────────
+    let ctx_cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Min(0), Constraint::Length(32)])
+        .split(rows[0]);
+
+    let breadcrumb = context_breadcrumb(app);
+    frame.render_widget(
+        Paragraph::new(breadcrumb).style(Style::default().fg(Color::Cyan)),
+        ctx_cols[0],
+    );
+
+    let (env_str, env_color) = env_indicator(app);
+    frame.render_widget(
+        Paragraph::new(env_str)
+            .style(Style::default().fg(env_color))
+            .alignment(Alignment::Right),
+        ctx_cols[1],
+    );
+
+    // ── Hints bar (bottom row) ─────────────────────────────────────────────
+    frame.render_widget(
+        Paragraph::new(app.status_message.as_str()).style(Style::default().fg(Color::Gray)),
+        rows[1],
+    );
+}
+
+fn context_breadcrumb(app: &App) -> String {
+    match &app.active_tab {
+        Tab::Request => {
+            let sub = app.active_request_tab.title();
+            let mode_suffix = if app.active_request_tab == RequestTab::Body {
+                match app.body_mode {
+                    BodyMode::Text => "  ›  Text",
+                    BodyMode::Json => "  ›  JSON",
+                }
+            } else {
+                ""
+            };
+            let focus_suffix = match app.request_focus {
+                RequestFocus::Url => "  ›  URL edit",
+                RequestFocus::Body => "  ›  editing",
+                RequestFocus::Response => "",
+            };
+            format!("Request  ›  {}{}{}", sub, mode_suffix, focus_suffix)
+        }
+        Tab::Collections => "Collections".to_string(),
+        Tab::Env => match app.env_focus {
+            EnvFocus::Envs => "Env  ›  Environments".to_string(),
+            EnvFocus::Vars => "Env  ›  Variables".to_string(),
+        },
+        Tab::History => "History".to_string(),
+    }
+}
+
+fn env_indicator(app: &App) -> (String, Color) {
+    match app.active_env_idx.and_then(|i| app.environments.get(i)) {
+        Some(env) => (format!("● env: {}", env.env.name), Color::Green),
+        None => ("○ no active env".to_string(), Color::Indexed(238)),
+    }
 }
 
 fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {

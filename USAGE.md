@@ -362,6 +362,20 @@ The panel is split into two columns:
 
 Placeholder — will show recent requests in v0.4.
 
+### Context bar
+
+A permanent two-line bar is always visible at the bottom of the screen:
+
+```
+Request  ›  Body  ›  JSON  ›  editing              ● env: Production
+Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
+```
+
+- **Top line** — breadcrumb of the current context (tab › sub-tab › mode › focus) on the left; active environment indicator on the right:
+  - `● env: <name>` in green when an environment is active
+  - `○ no active env` in dim grey when none is selected
+- **Bottom line** — contextual keybinding hints (change with every mode/tab switch)
+
 ### Keybindings
 
 | Key | Context | Action |

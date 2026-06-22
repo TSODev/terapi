@@ -17,6 +17,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - If the active environment has no variables: a status bar message says so
 
 ### Fixed
+- **Persistent context bar** — a permanent second status line now appears at the bottom of every screen:
+  - Left: breadcrumb of the current context (`Request › Body › JSON › editing`, `Env › Variables`, …)
+  - Right: active environment indicator — `● env: Production` (green) when an env is active, `○ no active env` (dim) otherwise
+  - The existing keybinding hints line is preserved below it
 - **Connection errors auto-switch to Raw view** — when a request fails at the transport layer (TLS, DNS, connection refused), the response area now automatically switches to Raw view so the full error message is visible immediately, instead of going through the JSON parser which only showed a generic parse error
 - **URL edit mode — method cycling moved to `↑/↓`** — `←` / `→` in URL edit mode now navigate sub-tabs (matching the behaviour outside URL mode), while `↑` / `↓` cycle the HTTP method; this removes the conflict where `←/→` blocked sub-tab navigation while in the URL bar
 

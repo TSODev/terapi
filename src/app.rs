@@ -536,6 +536,12 @@ impl App {
         });
         crate::storage::save_collection(&self.stored_collections[ci])?;
         self.expanded_nodes.insert(format!("c{}f{}", ci, fi));
+        let flat = flatten_stored(&self.stored_collections, &self.expanded_nodes);
+        if let Some(pos) = flat.iter().position(|n| {
+            matches!(&n.address, NodeAddress::Folder(c, f) if *c == ci && *f == fi)
+        }) {
+            self.collection_cursor = pos;
+        }
         Ok(())
     }
 

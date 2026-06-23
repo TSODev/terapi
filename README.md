@@ -39,7 +39,7 @@
 
 **terapi** aims to be all of the above in one tool:
 
-- **GraphQL native** — schema introspection, query autocompletion, variable editing
+- **GraphQL native** — schema introspection, variable editing, collections save/load
 - **Pipeline automation** — chain requests, extract variables, run campaigns headlessly
 - **Local-first** — collections stored as TOML, git-friendly, no account, no cloud
 - **Single binary** — `cargo install terapi`, instant startup, zero Electron
@@ -105,11 +105,25 @@ terapi --help
 | `↑` / `↓` | Options sub-tab — navigate between options |
 | `Space` / `Enter` | Options sub-tab — toggle (Skip TLS / Follow redirects / Cookie jar) or cycle timeout |
 | `r` | Cycle response view: JSON → Raw → HTTP exchange |
-| `g` | Toggle GraphQL mode (REST ↔ GraphQL) |
-| `f` | GraphQL Schema tab — fetch type list via introspection |
-| `Enter` | GraphQL Schema tab — load fields for selected type |
 | `-` / `=` | Resize Key column |
 | `q` `q` | Quit (press twice to confirm) |
+
+**GraphQL mode** (activate with `g`)
+
+| Key | Action |
+|-----|--------|
+| `g` | Toggle GraphQL mode (REST ↔ GraphQL) |
+| `←` / `→` | Navigate GraphQL sub-tabs (Query / Variables / Headers / Schema / Options) |
+| `i` | Query tab — enter query editor |
+| `Esc` | Query tab — exit query editor |
+| `a` / `d` | Variables tab — add / delete variable |
+| `Enter` | Variables tab — edit selected variable |
+| `↑` / `↓` | Variables tab — navigate variables |
+| `f` | Schema tab — fetch type list via introspection |
+| `↑` / `↓` | Schema tab — navigate type list |
+| `Enter` | Schema tab — load fields for selected type |
+| `s` | Send GraphQL request |
+| `S` | Save request to collection (query + variables preserved) |
 
 **Collections panel**
 
@@ -310,27 +324,58 @@ Campaign : Users API — smoke tests
 
 ## GraphQL mode
 
-Press `g` on the Request tab to switch to GraphQL mode. The URL bar shows a magenta `GQL` badge and the sub-tabs change:
+Press `g` on the Request tab to activate GraphQL mode. The URL bar shows a magenta **GQL** badge and the sub-tabs switch to GraphQL-specific tabs.
+
+```
+┌─────────────────────────── terapi ────────────────────────────┐
+│  Collections  |  Request  |  Env  |  History                   │
+├────────────────────────────────────────────────────────────────┤
+│ ┌─ GQL  https://countries.trevorblades.com/graphql ──────────┐ │
+│ └────────────────────────────────────────────────────────────┘ │
+│  Query | Variables | Headers | Schema | Options                │
+│ ┌─ Query — i: edit ─────────────────────────────────────────┐ │
+│ │ query CountryDetail($code: ID!) {                          │ │
+│ │   country(code: $code) {                                   │ │
+│ │     name  capital  currency  emoji                         │ │
+│ │     continent { name }                                     │ │
+│ │   }                                                        │ │
+│ │ }                                                          │ │
+│ └────────────────────────────────────────────────────────────┘ │
+│ ┌─ 200 OK · 84 ms ──────────────────────────────────────────┐ │
+│ │ ▼ data              Object                                 │ │
+│ │ ▼ country           Object                                 │ │
+│ │     name            String   "France"                      │ │
+│ │     capital         String   "Paris"                       │ │
+│ │     currency        String   "EUR"                         │ │
+│ └────────────────────────────────────────────────────────────┘ │
+├────────────────────────────────────────────────────────────────┤
+│ GraphQL  ›  Query                    ● env: Production         │
+│ i: edit query  s: send  S: save  ←/→: section  g: REST mode   │
+└────────────────────────────────────────────────────────────────┘
+```
 
 | Sub-tab | Purpose |
 |---------|---------|
-| Query | Multi-line query editor — `i` to edit, `Esc` to exit |
-| Variables | Key/value pairs sent as the `variables` JSON object |
+| Query | Multi-line query editor — `i` to edit, `Esc` to exit; `{{VAR}}` picker works here |
+| Variables | Key/value pairs serialised as the `variables` JSON object |
 | Headers | Same header picker as REST mode |
 | Schema | Schema browser — `f` fetch types, `↑/↓` navigate, `Enter` load fields |
-| Options | Same options as REST mode |
+| Options | Same options as REST mode (TLS, redirects, timeout, cookies) |
 
 **Sending a GraphQL request:**
-1. Press `e` to edit the endpoint URL (e.g. `https://countries.trevorblades.com/graphql`)
-2. Press `←`/`→` to switch to the **Query** sub-tab, then `i` to write the query
-3. Optionally switch to **Variables** and press `a` to add variables
-4. Press `s` to send — terapi posts `{"query": "...", "variables": {...}}` with `Content-Type: application/json` automatically
+1. Press `e` to edit the endpoint URL
+2. Press `←`/`→` to reach the **Query** tab, then `i` to write the query
+3. Optionally switch to **Variables** (`←`/`→`) and press `a` to add variables
+4. Press `s` — terapi posts `{"query": "...", "variables": {...}}` with `Content-Type: application/json` injected automatically
 
-**Browsing the schema** (Schema sub-tab):
-1. Press `f` to fetch the type list — all user-defined types appear on the left (OBJ / ENM / INP badges)
-2. Navigate with `↑`/`↓`, press `Enter` on a type to load its fields and arg types on the right
+**Browsing the schema** (Schema tab):
+1. Press `f` — fetches `{ __schema { types { name kind } } }` and shows all user-defined types on the left (OBJ / ENM / INP / INT / UNI badges)
+2. Navigate with `↑`/`↓`, press `Enter` to load fields, arg types and return types on the right
+3. Uses two shallow queries (depth ≤ 3) — works even on APIs with CDN query depth limits
 
-Save to a collection with `S` — `graphql = true`, the query, and variables are all preserved in TOML. Press `g` again to return to REST mode.
+**Collections** — press `S` to save. The TOML stores `graphql = true`, `graphql_query`, and `graphql_variables`. Loading a GQL request from Collections (`Enter` on the node) restores everything and activates GraphQL mode automatically. The node shows a magenta `GQL` badge in the tree.
+
+Press `g` again to return to REST mode (URL and headers are preserved).
 
 **Example GraphQL collections** in `examples/collections/`:
 - `rick-morty-graphql.toml` — Rick & Morty API — 6 folders, 17 requests: variables, pagination, multi-ID, aliases, filters, introspection

@@ -2252,14 +2252,18 @@ fn render_step_result_line(sr: &crate::campaign::StepResult) -> Line<'static> {
         .unwrap_or(if sr.error.is_some() { Color::Red } else { Color::Indexed(242) });
     let method_c = method_color(&sr.method);
     let name = if sr.name.len() > 22 { format!("{}…", &sr.name[..21]) } else { sr.name.clone() };
-    let err = sr.error.as_deref().unwrap_or("").chars().take(30).collect::<String>();
+    let err = sr.error.as_deref().unwrap_or("").chars().take(28).collect::<String>();
 
-    Line::from(vec![
+    let mut spans = vec![
         Span::styled(format!("  {} ", mark), Style::default().fg(mark_color)),
         Span::styled(format!("{:<23}", name), Style::default().fg(Color::White)),
         Span::styled(format!("{:<7}", sr.method), Style::default().fg(method_c).add_modifier(Modifier::BOLD)),
         Span::styled(format!("{:<5}", status_str), Style::default().fg(status_color)),
         Span::styled(format!("{:>6}ms  ", sr.duration_ms), Style::default().fg(Color::Indexed(242))),
         Span::styled(err, Style::default().fg(Color::Red)),
-    ])
+    ];
+    if !sr.success && sr.non_blocking {
+        spans.push(Span::styled("  [↷]", Style::default().fg(Color::Indexed(242))));
+    }
+    Line::from(spans)
 }

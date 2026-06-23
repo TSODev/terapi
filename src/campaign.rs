@@ -23,6 +23,8 @@ pub struct Campaign {
     pub connectors: Vec<ConnectorConfig>,
     #[serde(default)]
     pub steps: Vec<Step>,
+    #[serde(default)]
+    pub continue_on_error: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -53,6 +55,8 @@ pub struct Step {
     pub assert: Vec<Assertion>,
     #[serde(default)]
     pub transforms: Vec<Transform>,
+    #[serde(default)]
+    pub continue_on_error: Option<bool>,
 }
 
 fn default_http() -> String { "http".into() }
@@ -114,6 +118,7 @@ pub struct StepResult {
     pub status: Option<u16>,
     pub duration_ms: u64,
     pub success: bool,
+    pub non_blocking: bool,
     pub error: Option<String>,
     pub extracted: HashMap<String, String>,
     pub assertion_failures: Vec<String>,
@@ -242,7 +247,7 @@ pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<Campaig
             let _ = tx.send(CampaignEvent::IterationStarted { idx, total, row_summary });
         }
 
-        let step_results = run_steps_streaming(&client, &campaign.steps, &env, &tx).await;
+        let step_results = run_steps_streaming(&client, &campaign.steps, campaign.continue_on_error, &env, &tx).await;
 
         all.push(IterationResult {
             row_index: if multi { Some(idx) } else { None },
@@ -307,6 +312,7 @@ pub async fn run(campaign: &Campaign, silent: bool) -> Result<()> {
 async fn run_steps_streaming(
     client: &reqwest::Client,
     steps: &[Step],
+    campaign_coe: bool,
     base_env: &HashMap<String, String>,
     tx: &mpsc::UnboundedSender<CampaignEvent>,
 ) -> Vec<StepResult> {
@@ -314,6 +320,7 @@ async fn run_steps_streaming(
     let mut results = Vec::new();
 
     for step in steps {
+        let effective_coe = step.continue_on_error.unwrap_or(campaign_coe);
         let mut effective = base_env.clone();
         if let Some(ref env_name) = step.env {
             match crate::storage::load_env_by_name(env_name) {
@@ -345,6 +352,7 @@ async fn run_steps_streaming(
                         status: None,
                         duration_ms: t0.elapsed().as_millis() as u64,
                         success: true,
+                        non_blocking: effective_coe,
                         error: None,
                         extracted: produced,
                         assertion_failures: vec![],
@@ -357,6 +365,7 @@ async fn run_steps_streaming(
                     status: None,
                     duration_ms: t0.elapsed().as_millis() as u64,
                     success: false,
+                    non_blocking: effective_coe,
                     error: Some(e.to_string()),
                     extracted: HashMap::new(),
                     assertion_failures: vec![],
@@ -397,6 +406,7 @@ async fn run_steps_streaming(
                         status: Some(http.status),
                         duration_ms,
                         success,
+                        non_blocking: effective_coe,
                         error,
                         extracted: if success { http.extracted } else { HashMap::new() },
                         assertion_failures,
@@ -409,6 +419,7 @@ async fn run_steps_streaming(
                     status: None,
                     duration_ms: t0.elapsed().as_millis() as u64,
                     success: false,
+                    non_blocking: effective_coe,
                     error: Some(e.to_string()),
                     extracted: HashMap::new(),
                     assertion_failures: vec![],
@@ -419,7 +430,7 @@ async fn run_steps_streaming(
         let failed = !result.success;
         let _ = tx.send(CampaignEvent::StepDone(result.clone()));
         results.push(result);
-        if failed { break; }
+        if failed && !effective_coe { break; }
     }
 
     results
@@ -638,9 +649,10 @@ fn print_step_result(sr: &StepResult) {
         .map(|s| s.to_string())
         .unwrap_or_else(|| if sr.error.is_some() { "ERR".into() } else { "-".into() });
     let mark = if sr.success { "✓" } else { "✗" };
-    println!("  {} {:<22} {:<7} {}  {:>6} ms  {}",
+    let suffix = if !sr.success && sr.non_blocking { "  [continu]" } else { "" };
+    println!("  {} {:<22} {:<7} {}  {:>6} ms  {}{}",
         mark, sr.name, sr.method, status_str, sr.duration_ms,
-        sr.error.as_deref().unwrap_or(""));
+        sr.error.as_deref().unwrap_or(""), suffix);
     for (var, val) in &sr.extracted {
         println!("      ↳ {} = {}", var, truncate(val, 60));
     }

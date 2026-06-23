@@ -357,52 +357,69 @@ An empty body (no text / no fields) sends no request body.
 
 #### GraphQL mode
 
-Press `g` on the Request tab to switch to **GraphQL mode**. The URL bar shows a magenta `GQL` badge instead of the method selector, and the sub-tabs switch to GraphQL-specific tabs.
+Press `g` on the Request tab to switch to **GraphQL mode**. The URL bar shows a magenta `GQL` badge instead of the method selector, and the sub-tabs switch to GraphQL-specific tabs. Press `g` again to return to REST mode (URL, headers, and auth are preserved).
 
 **GraphQL sub-tabs** (navigate with `←`/`→`):
 
 | Sub-tab | Purpose |
 |---------|---------|
-| Query | Multi-line query editor (tui-textarea) |
+| Query | Multi-line query editor — `i` to edit, `Esc` to exit; `{{VAR}}` picker works here |
 | Variables | Key/value pairs serialised as the `variables` JSON object |
-| Headers | Same header picker as REST mode |
-| Schema | Schema browser — `f` to fetch type list, `Enter` to load fields |
-| Options | Same options as REST mode |
+| Headers | Same header picker as REST mode (`a` add, `d` delete) |
+| Schema | Schema browser — `f` fetch types, `↑/↓` navigate, `Enter` load fields |
+| Options | Same options as REST mode (TLS, redirects, timeout, cookies) |
 
 **Writing a query** (Query tab):
-- Press `i` to enter the editor (magenta border)
+- Press `i` to enter the editor (border turns magenta)
 - Full multi-line editing: arrows, Home/End, Backspace, Enter for new line
-- `{{VAR}}` placeholders work here — type `{{` to open the variable picker
+- Type `{{` to open the variable picker and insert `{{VAR_NAME}}` from the active environment
 - Press `Esc` to exit the editor
 
 **Managing variables** (Variables tab):
 
 | Key | Action |
 |-----|--------|
-| `a` | Add a variable (Key + Value modal) |
+| `a` | Add a variable (Key + Value modal, `Tab` switches fields) |
 | `d` | Delete the selected variable |
 | `Enter` | Edit the selected variable |
 | `↑` / `↓` | Navigate variables |
 
-Variables are serialised as a flat JSON object and merged into the request body at send time.
+Variables are serialised as a flat JSON object (`{"key": "value", …}`) and sent as the `variables` field alongside the query.
 
-**Sending** — press `s` or `Enter` in URL mode. Terapi builds `{"query": "...", "variables": {...}}` and posts it as JSON. `Content-Type: application/json` is added automatically if not present.
-
-**Saving** — `S` saves the full GraphQL request (query + variables + headers) in the collection TOML using `graphql = true`, `graphql_query`, and `graphql_variables` fields. Backward-compatible — existing REST collections are unaffected.
-
-**Loading from Collections** — pressing `Enter` on a request node with `graphql = true` restores the query, variables, and activates GraphQL mode automatically. The request shows a magenta `GQL` badge in the tree.
+**Sending** — press `s` (or `Enter` in URL mode). Terapi builds `{"query": "...", "variables": {...}}` and posts it as JSON. `Content-Type: application/json` is added automatically if absent.
 
 **Browsing the schema** (Schema tab):
 
-Switch to the Schema sub-tab with `←`/`→`, then:
+1. Press `f` — sends `{ __schema { types { name kind } } }` and displays all user-defined types in the left panel with colour-coded kind badges:
 
-1. Press `f` to send a `__schema` introspection query — the type list appears in the left panel (OBJ / ENM / INP / INT / UNI badges with colour coding)
+   | Badge | Kind |
+   |-------|------|
+   | `OBJ` (cyan) | Object |
+   | `ENM` (yellow) | Enum |
+   | `INP` (green) | Input object |
+   | `INT` (blue) | Interface |
+   | `UNI` (magenta) | Union |
+
 2. Navigate with `↑`/`↓`
-3. Press `Enter` on any type to load its fields, return types, and arguments in the right panel
+3. Press `Enter` on a type — sends `{ __type(name: "X") { fields args enumValues } }` and displays fields, return types, and arg types in the right panel
 
-The fetch uses two shallow queries (depth ≤ 3) to work even with APIs that enforce a CDN query depth limit.
+Two-phase design (depth ≤ 3 per query) passes CDN depth limits enforced by proxies like Netlify GCDN.
 
-Press `g` to return to REST mode (URL and headers are preserved).
+**Saving to a collection** — press `S`. The TOML stores three extra fields:
+
+```toml
+graphql      = true
+graphql_query = """
+query FilmDetail($id: ID!) {
+  film(filmID: $id) { title director }
+}
+"""
+graphql_variables = {id = "ZmlsbXM6MQ=="}
+```
+
+Existing REST collections are unaffected (`#[serde(default)]`).
+
+**Loading from Collections** — pressing `Enter` on a request node with `graphql = true` restores the query, variables, headers, and activates GraphQL mode automatically. The node displays a magenta `GQL` badge in the tree instead of the HTTP method.
 
 **Response viewer** (bottom half of the Request panel):
 
@@ -751,6 +768,47 @@ Content-Type = "application/json"
 ```
 
 See `examples/collection.toml` for a fully annotated template.
+
+**GraphQL request fields** — add these to any `[[requests]]` or `[[folders.requests]]` block:
+
+```toml
+[[folders.requests]]
+name         = "Tous les pays"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+graphql      = true
+graphql_query = """
+{
+  countries {
+    code
+    name
+    capital
+    emoji
+  }
+}
+"""
+```
+
+Variables are stored as an inline table:
+
+```toml
+[[folders.requests]]
+name         = "Détail d'un pays"
+method       = "POST"
+url          = "https://countries.trevorblades.com/graphql"
+graphql      = true
+graphql_query = """
+query CountryDetail($code: ID!) {
+  country(code: $code) {
+    name  capital  currency
+    continent { name }
+  }
+}
+"""
+graphql_variables = {code = "FR"}
+```
+
+At send time terapi builds `{"query": "...", "variables": {"code": "FR"}}` and injects `Content-Type: application/json`. `{{VAR}}` placeholders in the query and variable values are resolved from the active environment.
 
 ### Collections d'exemple
 

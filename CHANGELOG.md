@@ -23,6 +23,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Collections tree** — GraphQL requests display a magenta `GQL` badge instead of the HTTP method
 - **Breadcrumb** — `GraphQL › Query` (etc.) shown in the context bar when GraphQL mode is active
 - **`g` to return to REST** — pressing `g` in GraphQL mode switches back to REST without clearing the URL or headers
+- **Schema introspection** — Schema sub-tab now live: `f` sends a shallow `{ __schema { types { name kind } } }` query and displays all user-defined types in a scrollable list (left panel); `Enter` on a selected type fires a `__type` detail query and shows its fields, arg types, and enum values in the right panel; two-phase design keeps each query at depth ≤ 3 to pass CDN depth limits
 - **New example collections** — `examples/collections/rick-morty-graphql.toml` (6 folders, 17 requests; Rick & Morty API — variables, pagination, multi-ID, aliases, filters, introspection) and `examples/collections/countries-graphql.toml` (5 folders, 19 requests; Countries API — filters, glob, inline fragments, introspection)
 
 ---

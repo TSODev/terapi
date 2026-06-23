@@ -9,6 +9,7 @@ use crate::storage::{HistoryEntry, StoredCollection, StoredEnv, StoredRequest};
 mod campaigns_tab;
 mod collections;
 mod envs;
+mod gql_completion;
 mod http;
 mod request;
 mod response;
@@ -38,6 +39,7 @@ pub struct App {
     // Modal
     pub modal: Option<ModalState>,
     pub var_picker: Option<VarPickerState>,
+    pub gql_completion: Option<GqlCompletionState>,
     // Request builder
     pub request_url: String,
     pub request_method_idx: usize,
@@ -138,6 +140,7 @@ impl App {
             env_focus: EnvFocus::Envs,
             modal: None,
             var_picker: None,
+            gql_completion: None,
             request_url: String::new(),
             request_method_idx: 0,
             request_url_params: Vec::new(),
@@ -221,6 +224,10 @@ impl App {
         let was_confirming_quit = self.confirm_quit;
         if key.code != KeyCode::Char('q') {
             self.confirm_quit = false;
+        }
+
+        if self.gql_completion.is_some() {
+            return self.handle_gql_completion_key(key);
         }
 
         if self.var_picker.is_some() {

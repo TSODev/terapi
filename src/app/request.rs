@@ -326,6 +326,12 @@ impl App {
             return Ok(());
         }
         if self.graphql_mode {
+            if key.code == KeyCode::Char(' ')
+                && key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL)
+            {
+                self.open_gql_completion();
+                return Ok(());
+            }
             self.graphql_query_textarea.input(tui_textarea::Input::from(key));
             if key.code == KeyCode::Char('{') {
                 let last = self.graphql_query_textarea.lines().last().cloned().unwrap_or_default();

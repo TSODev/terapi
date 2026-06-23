@@ -35,6 +35,9 @@ pub fn render(frame: &mut Frame, app: &App) {
     if app.var_picker.is_some() {
         render_var_picker(frame, app);
     }
+    if app.gql_completion.is_some() {
+        render_gql_completion(frame, app);
+    }
 }
 
 fn render_tabs(frame: &mut Frame, app: &App, area: Rect) {
@@ -2031,6 +2034,72 @@ fn render_var_picker(frame: &mut Frame, app: &App) {
             format!("{{{{{}}}}}  = {}", name, preview)
         };
         ListItem::new(label).style(style)
+    }).collect();
+
+    let list = List::new(items);
+    frame.render_widget(list, list_area);
+}
+
+fn render_gql_completion(frame: &mut Frame, app: &App) {
+    let Some(state) = &app.gql_completion else { return };
+    use crate::app::App as A;
+    let filtered = A::filter_completions(&state.items, &state.prefix);
+
+    let inner_h = (filtered.len().max(1) as u16).min(12);
+    let total_h = inner_h + 4;
+    let width: u16 = 52;
+    let area = centered_rect(width, total_h, frame.area());
+
+    let title = if state.prefix.is_empty() {
+        " GQL completion ".to_string()
+    } else {
+        format!(" GQL completion · {} ", state.prefix)
+    };
+
+    let block = Block::default()
+        .title(title)
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Magenta));
+
+    frame.render_widget(Clear, area);
+    frame.render_widget(block, area);
+
+    let inner = Rect {
+        x: area.x + 1,
+        y: area.y + 1,
+        width: area.width.saturating_sub(2),
+        height: area.height.saturating_sub(2),
+    };
+
+    let hint_area = Rect { x: inner.x, y: inner.y + inner.height - 1, width: inner.width, height: 1 };
+    let hint = Paragraph::new("↑/↓: navigate  Enter/Tab: insert  Esc: cancel")
+        .style(Style::default().fg(Color::Indexed(245)));
+    frame.render_widget(hint, hint_area);
+
+    let list_area = Rect { x: inner.x, y: inner.y, width: inner.width, height: inner.height.saturating_sub(1) };
+
+    if filtered.is_empty() {
+        let msg = Paragraph::new("No matches")
+            .style(Style::default().fg(Color::Indexed(245)));
+        frame.render_widget(msg, list_area);
+        return;
+    }
+
+    let max_label = filtered.iter().map(|i| i.label.len()).max().unwrap_or(0).min(28);
+    let items: Vec<ListItem> = filtered.iter().enumerate().map(|(i, item)| {
+        let selected = i == state.cursor;
+        let (label_style, detail_style) = if selected {
+            (Style::default().fg(Color::Black).bg(Color::Magenta).add_modifier(Modifier::BOLD),
+             Style::default().fg(Color::Black).bg(Color::Magenta))
+        } else {
+            (Style::default().fg(Color::White),
+             Style::default().fg(Color::Indexed(245)))
+        };
+        let line = Line::from(vec![
+            Span::styled(format!("{:<width$}", item.label, width = max_label + 1), label_style),
+            Span::styled(format!("  {}", item.detail), detail_style),
+        ]);
+        ListItem::new(line)
     }).collect();
 
     let list = List::new(items);

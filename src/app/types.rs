@@ -135,6 +135,21 @@ pub enum SchemaMsg {
 
 pub type SchemaOutcome = Result<SchemaMsg, String>;
 
+// ── GQL completion ────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone)]
+pub struct GqlCompletionItem {
+    pub label: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct GqlCompletionState {
+    pub items: Vec<GqlCompletionItem>,
+    pub prefix: String,
+    pub cursor: usize,
+}
+
 // ── GraphQL ───────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, PartialEq)]

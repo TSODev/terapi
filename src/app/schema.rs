@@ -48,24 +48,17 @@ const INTROSPECTION_QUERY: &str = r#"{
     types {
       name
       kind
-      description
       fields(includeDeprecated: false) {
         name
-        description
-        type { name kind ofType { name kind ofType { name kind } } }
-        args {
-          name
-          type { name kind ofType { name kind } }
-        }
+        type { name kind ofType { name kind } }
+        args { name type { name kind } }
       }
       inputFields {
         name
-        description
         type { name kind ofType { name kind } }
       }
       enumValues(includeDeprecated: false) {
         name
-        description
       }
     }
   }

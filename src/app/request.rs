@@ -400,25 +400,25 @@ impl App {
 
     pub fn update_graphql_status_hint(&mut self) {
         self.status_message = match self.active_graphql_tab {
-            GraphqlTab::Query     => "GraphQL — i: edit query  ←/→: section  s: send  S: save  g: REST mode  q: quit".into(),
-            GraphqlTab::Variables => "GraphQL — a: add var  d: delete  Enter: edit  ↑/↓: navigate  ←/→: section  s: send  g: REST mode  q: quit".into(),
-            GraphqlTab::Headers   => "GraphQL — a: add  d: delete  ↑/↓: navigate  ←/→: section  s: send  g: REST mode  q: quit".into(),
-            GraphqlTab::Schema    => "GraphQL — f: fetch schema  ↑/↓: navigate types  ←/→: section  g: REST mode  q: quit".into(),
-            GraphqlTab::Options   => "GraphQL — ↑/↓: navigate  Space/Enter: toggle/cycle  ←/→: section  s: send  g: REST mode  q: quit".into(),
+            GraphqlTab::Query     => "GQL  i: edit  Ctrl+Space: complete  ←/→: section  s: send  S: save  g: REST  q: quit".into(),
+            GraphqlTab::Variables => "GQL Variables  a: add  d: delete  Enter: edit  ↑/↓: nav  ←/→: section  s: send  g: REST  q: quit".into(),
+            GraphqlTab::Headers   => "GQL Headers  a: add  d: delete  ↑/↓: nav  ←/→: section  s: send  g: REST  q: quit".into(),
+            GraphqlTab::Schema    => "GQL Schema  f: fetch  ↑/↓: types  Enter: load fields  ←/→: section  g: REST  q: quit".into(),
+            GraphqlTab::Options   => "GQL Options  ↑/↓: nav  Space/Enter: toggle/cycle  ←/→: section  s: send  g: REST  q: quit".into(),
         };
     }
 
     pub fn update_request_status_hint(&mut self) {
         self.status_message = match self.active_request_tab {
-            RequestTab::UrlParams => "Tab: panels  a: add  d: delete  Enter: edit  ↑/↓: navigate  ←/→: section  s: send  S: save  q: quit".into(),
-            RequestTab::Headers => "Tab: panels  a: add  d: delete  ↑/↓: navigate  ←/→: section  e: edit URL  s: send  S: save  q: quit".into(),
+            RequestTab::Description => "e: edit URL  m: method  g: GraphQL  n: new  ←/→: section  i: edit description  s: send  S: save  q: quit".into(),
+            RequestTab::Headers     => "e: edit URL  m: method  a: add header  d: delete  ↑/↓: nav  ←/→: section  s: send  S: save  q: quit".into(),
+            RequestTab::UrlParams   => "e: edit URL  m: method  a: add  d: delete  Enter: edit  ↑/↓: nav  ←/→: section  s: send  S: save  q: quit".into(),
             RequestTab::Body => match self.body_mode {
-                BodyMode::Text => "Tab: panels  i: edit body  t: JSON mode  ←/→: section  s: send  S: save  q: quit".into(),
-                BodyMode::Json => "Tab: panels  i: edit fields  t: text mode  ←/→: section  s: send  S: save  q: quit".into(),
+                BodyMode::Text => "e: edit URL  m: method  i: edit body  t: JSON mode  ←/→: section  s: send  S: save  q: quit".into(),
+                BodyMode::Json => "e: edit URL  m: method  i: edit fields  t: text mode  ←/→: section  s: send  S: save  q: quit".into(),
             },
-            RequestTab::Options => "Tab: panels  ↑/↓: navigate  Space/Enter: toggle/cycle  ←/→: section  s: send  S: save  q: quit".into(),
-            RequestTab::Auth => "Tab: panels  ↑/↓: field  Space/Enter: cycle type or edit  ←/→: section  s: send  S: save  q: quit".into(),
-            RequestTab::Description => "Tab: panels  i: edit description  ←/→: section  s: send  S: save  q: quit".into(),
+            RequestTab::Auth        => "e: edit URL  ↑/↓: field  Space/Enter: type or edit  ←/→: section  s: send  S: save  q: quit".into(),
+            RequestTab::Options     => "e: edit URL  ↑/↓: nav  Space/Enter: toggle/cycle  ←/→: section  s: send  S: save  q: quit".into(),
         };
     }
 

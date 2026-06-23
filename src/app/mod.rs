@@ -280,12 +280,12 @@ impl App {
                     Tab::History     => Tab::Campaigns,
                     Tab::Campaigns   => Tab::Collections,
                 };
-                self.status_message = match self.active_tab {
-                    Tab::Request     => "Tab: switch panel  ←/→: section  q: quit".into(),
-                    Tab::Collections => "Tab: switch panel  ↑/↓: navigate  Enter: expand/load  n: new  f: folder  a: add  e: edit  d: delete  q: quit".into(),
-                    Tab::Env         => "Tab: switch panel  ←/→: switch focus  ↑/↓: navigate  Enter: activate  n: new env  a: add var  d: delete  q: quit".into(),
-                    Tab::History     => "Tab: switch panel  ↑/↓: navigate  Enter: load  d: delete  q: quit".into(),
-                    Tab::Campaigns   => "Tab: switch panel  ↑/↓: navigate  r: run  Esc: clear  q: quit".into(),
+                match self.active_tab {
+                    Tab::Request     => self.update_request_status_hint(),
+                    Tab::Collections => self.status_message = "Tab: switch panel  ↑/↓: navigate  Enter: expand/load  n: new  f: folder  a: add  e: edit  d: delete  q: quit".into(),
+                    Tab::Env         => self.status_message = "Tab: switch panel  ←/→: switch focus  ↑/↓: navigate  Enter: activate  n: new env  a: add var  d: delete  q: quit".into(),
+                    Tab::History     => self.status_message = "Tab: switch panel  ↑/↓: navigate  Enter: load  d: delete  q: quit".into(),
+                    Tab::Campaigns   => self.status_message = "Tab: switch panel  ↑/↓: navigate  r: run  Esc: clear  q: quit".into(),
                 };
             }
 

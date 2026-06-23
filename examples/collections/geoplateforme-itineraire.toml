@@ -3,9 +3,9 @@ name        = "Géoplateforme — Calcul d'itinéraire"
 description = "Exploration de l'API Itinéraire IGN (data.geopf.fr). Tester dans l'ordre : géocodage → récupération des coordonnées → calcul d'itinéraire."
 
 # ── Dossier 1 : Géocodage ──────────────────────────────────────────────────
-# Permet de convertir un nom de ville en coordonnées lon,lat
-# La réponse est un GeoJSON : les coordonnées sont dans
-# features.0.geometry.coordinates → [longitude, latitude]
+# Convertit un nom de ville en coordonnées lon,lat.
+# La réponse est un GeoJSON :
+#   features.0.geometry.coordinates → [longitude, latitude]
 
 [[folders]]
 name = "Géocodage"
@@ -13,62 +13,45 @@ name = "Géocodage"
 [[folders.requests]]
 name        = "Recherche ville — Paris"
 method      = "GET"
-url         = "https://data.geopf.fr/geocodage/search"
-description = "Géocode 'Paris' en tant que municipality. Relever features.0.geometry.coordinates pour obtenir [lon, lat]."
-
-[folders.requests.url_params]
-q     = "Paris"
-type  = "municipality"
-limit = "1"
+url         = "https://data.geopf.fr/geocodage/search?q=Paris&type=municipality&limit=1"
+description = "Géocode 'Paris'. Relever features.0.geometry.coordinates pour obtenir [lon, lat]. Attendu : ~[2.3488, 48.8534]"
 
 [[folders.requests]]
 name        = "Recherche ville — Lyon"
 method      = "GET"
-url         = "https://data.geopf.fr/geocodage/search"
+url         = "https://data.geopf.fr/geocodage/search?q=Lyon&type=municipality&limit=1"
 description = "Géocode 'Lyon'. Coordonnées attendues : ~[4.8357, 45.7640]"
-
-[folders.requests.url_params]
-q     = "Lyon"
-type  = "municipality"
-limit = "1"
 
 [[folders.requests]]
 name        = "Recherche ville — Bordeaux"
 method      = "GET"
-url         = "https://data.geopf.fr/geocodage/search"
+url         = "https://data.geopf.fr/geocodage/search?q=Bordeaux&type=municipality&limit=1"
 description = "Géocode 'Bordeaux'. Coordonnées attendues : ~[-0.5792, 44.8378]"
 
-[folders.requests.url_params]
-q     = "Bordeaux"
-type  = "municipality"
-limit = "1"
+[[folders.requests]]
+name        = "Recherche ville — Marseille"
+method      = "GET"
+url         = "https://data.geopf.fr/geocodage/search?q=Marseille&type=municipality&limit=1"
+description = "Géocode 'Marseille'. Coordonnées attendues : ~[5.3698, 43.2965]"
 
 [[folders.requests]]
 name        = "Recherche adresse"
 method      = "GET"
-url         = "https://data.geopf.fr/geocodage/search"
-description = "Géocode une adresse complète. Ajuster q= pour tester une adresse réelle."
-
-[folders.requests.url_params]
-q     = "20 avenue de Ségur Paris"
-limit = "1"
+url         = "https://data.geopf.fr/geocodage/search?q=20+avenue+de+Segur+Paris&limit=1"
+description = "Géocode une adresse complète. Modifier q= pour tester."
 
 [[folders.requests]]
 name        = "Géocodage inverse"
 method      = "GET"
-url         = "https://data.geopf.fr/geocodage/reverse"
-description = "Adresse à partir de coordonnées (lon, lat). Modifier lon= et lat= selon les besoins."
-
-[folders.requests.url_params]
-lon = "2.3088"
-lat = "48.8738"
+url         = "https://data.geopf.fr/geocodage/reverse?lon=2.3088&lat=48.8738"
+description = "Retourne l'adresse la plus proche d'un point GPS. Modifier lon= et lat=."
 
 # ── Dossier 2 : Itinéraire — Voiture ──────────────────────────────────────
-# Endpoint à confirmer : https://data.geopf.fr/navigation/itineraire
-# Paramètres supposés (à valider depuis le TUI) :
+# Endpoint : https://data.geopf.fr/navigation/itineraire
+# Paramètres à valider depuis le TUI :
 #   resource     = bdtopo-pgr  (réseau routier IGN)
-#   start        = lon,lat     (départ)
-#   end          = lon,lat     (arrivée)
+#   start        = lon,lat
+#   end          = lon,lat
 #   profile      = car / pedestrian / cyclist
 #   optimization = fastest / shortest
 
@@ -78,54 +61,26 @@ name = "Itinéraire — Voiture"
 [[folders.requests]]
 name        = "Paris → Lyon (plus rapide)"
 method      = "GET"
-url         = "https://data.geopf.fr/navigation/itineraire"
+url         = "https://data.geopf.fr/navigation/itineraire?resource=bdtopo-pgr&start=2.3488,48.8534&end=4.8357,45.7640&profile=car&optimization=fastest"
 description = "Itinéraire voiture Paris→Lyon optimisé temps. Vérifier la structure de la réponse : distance (m ?), duration (s ?), geometry."
-
-[folders.requests.url_params]
-resource     = "bdtopo-pgr"
-start        = "2.3488,48.8534"
-end          = "4.8357,45.7640"
-profile      = "car"
-optimization = "fastest"
 
 [[folders.requests]]
 name        = "Paris → Lyon (plus court)"
 method      = "GET"
-url         = "https://data.geopf.fr/navigation/itineraire"
+url         = "https://data.geopf.fr/navigation/itineraire?resource=bdtopo-pgr&start=2.3488,48.8534&end=4.8357,45.7640&profile=car&optimization=shortest"
 description = "Même trajet, optimisé distance. Comparer avec le plus rapide."
-
-[folders.requests.url_params]
-resource     = "bdtopo-pgr"
-start        = "2.3488,48.8534"
-end          = "4.8357,45.7640"
-profile      = "car"
-optimization = "shortest"
 
 [[folders.requests]]
 name        = "Paris → Bordeaux (plus rapide)"
 method      = "GET"
-url         = "https://data.geopf.fr/navigation/itineraire"
-description = "Itinéraire Paris→Bordeaux. Bordeaux : lon=-0.5792, lat=44.8378"
-
-[folders.requests.url_params]
-resource     = "bdtopo-pgr"
-start        = "2.3488,48.8534"
-end          = "-0.5792,44.8378"
-profile      = "car"
-optimization = "fastest"
+url         = "https://data.geopf.fr/navigation/itineraire?resource=bdtopo-pgr&start=2.3488,48.8534&end=-0.5792,44.8378&profile=car&optimization=fastest"
+description = "Itinéraire Paris→Bordeaux."
 
 [[folders.requests]]
 name        = "Lyon → Marseille (plus rapide)"
 method      = "GET"
-url         = "https://data.geopf.fr/navigation/itineraire"
-description = "Lyon→Marseille. Marseille : lon=5.3698, lat=43.2965"
-
-[folders.requests.url_params]
-resource     = "bdtopo-pgr"
-start        = "4.8357,45.7640"
-end          = "5.3698,43.2965"
-profile      = "car"
-optimization = "fastest"
+url         = "https://data.geopf.fr/navigation/itineraire?resource=bdtopo-pgr&start=4.8357,45.7640&end=5.3698,43.2965&profile=car&optimization=fastest"
+description = "Itinéraire Lyon→Marseille."
 
 # ── Dossier 3 : Itinéraire — Piéton ───────────────────────────────────────
 
@@ -133,30 +88,16 @@ optimization = "fastest"
 name = "Itinéraire — Piéton"
 
 [[folders.requests]]
-name        = "Paris centre → Tour Eiffel (piéton)"
+name        = "Louvre → Tour Eiffel (piéton)"
 method      = "GET"
-url         = "https://data.geopf.fr/navigation/itineraire"
-description = "Courte distance piéton dans Paris. Louvre→Tour Eiffel."
-
-[folders.requests.url_params]
-resource     = "bdtopo-pgr"
-start        = "2.3364,48.8606"
-end          = "2.2945,48.8584"
-profile      = "pedestrian"
-optimization = "fastest"
+url         = "https://data.geopf.fr/navigation/itineraire?resource=bdtopo-pgr&start=2.3364,48.8606&end=2.2945,48.8584&profile=pedestrian&optimization=fastest"
+description = "Courte distance piéton dans Paris."
 
 [[folders.requests]]
 name        = "Lyon Bellecour → Fourvière (piéton)"
 method      = "GET"
-url         = "https://data.geopf.fr/navigation/itineraire"
-description = "Montée à pied vers la basilique de Fourvière depuis Bellecour."
-
-[folders.requests.url_params]
-resource     = "bdtopo-pgr"
-start        = "4.8320,45.7577"
-end          = "4.8220,45.7622"
-profile      = "pedestrian"
-optimization = "fastest"
+url         = "https://data.geopf.fr/navigation/itineraire?resource=bdtopo-pgr&start=4.8320,45.7577&end=4.8220,45.7622&profile=pedestrian&optimization=fastest"
+description = "Montée à pied vers la basilique de Fourvière."
 
 # ── Dossier 4 : Itinéraire — Vélo ─────────────────────────────────────────
 
@@ -166,45 +107,29 @@ name = "Itinéraire — Vélo"
 [[folders.requests]]
 name        = "Paris → Versailles (vélo)"
 method      = "GET"
-url         = "https://data.geopf.fr/navigation/itineraire"
+url         = "https://data.geopf.fr/navigation/itineraire?resource=bdtopo-pgr&start=2.3488,48.8534&end=2.1301,48.8014&profile=cyclist&optimization=fastest"
 description = "~20 km à vélo. Versailles : lon=2.1301, lat=48.8014"
 
-[folders.requests.url_params]
-resource     = "bdtopo-pgr"
-start        = "2.3488,48.8534"
-end          = "2.1301,48.8014"
-profile      = "cyclist"
-optimization = "fastest"
-
 # ── Dossier 5 : Exploration réponse ───────────────────────────────────────
-# Requêtes pour explorer la structure exacte des réponses
-# et identifier les champs à extraire dans la campagne
+# Requêtes pour identifier les chemins JSON exacts
+# à utiliser dans [steps.extract] de la future campagne.
 
 [[folders]]
 name = "Exploration réponse"
 
 [[folders.requests]]
-name        = "Itinéraire court — vérifier structure"
+name        = "Itinéraire court — explorer la structure"
 method      = "GET"
-url         = "https://data.geopf.fr/navigation/itineraire"
-description = """Trajet très court pour avoir une réponse légère et explorer la structure.
-Champs à identifier dans la réponse JSON :
-  - Chemin vers la distance totale  (ex: distance, properties.distance ?)
-  - Chemin vers la durée totale     (ex: duration, properties.duration ?)
+url         = "https://data.geopf.fr/navigation/itineraire?resource=bdtopo-pgr&start=2.3364,48.8606&end=2.3400,48.8650&profile=car&optimization=fastest"
+description = """Trajet très court pour avoir une réponse légère.
+Champs à identifier via la barre ↳ (JSON view) :
+  - Chemin vers la distance totale  → à noter pour [steps.extract]
+  - Chemin vers la durée totale     → à noter pour [steps.extract]
   - Format des valeurs (mètres ? km ? secondes ? minutes ?)
-  - Chemin vers la géométrie        (ex: geometry.coordinates ?)
-  - Chemin vers les étapes/legs     (ex: legs ? steps ?)
-Ces chemins seront utilisés dans [steps.extract] de la campagne."""
-
-[folders.requests.url_params]
-resource     = "bdtopo-pgr"
-start        = "2.3364,48.8606"
-end          = "2.3400,48.8650"
-profile      = "car"
-optimization = "fastest"
+  - Chemin vers la géométrie si nécessaire"""
 
 [[folders.requests]]
-name        = "Ressources disponibles (si endpoint existe)"
+name        = "Ressources disponibles"
 method      = "GET"
 url         = "https://data.geopf.fr/navigation/resources"
-description = "Tenter de lister les ressources disponibles pour l'API navigation. Peut renvoyer 404 — à tester."
+description = "Tenter de lister les ressources disponibles. Peut renvoyer 404 — à tester."

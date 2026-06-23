@@ -2068,6 +2068,9 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
         .split(area);
 
     // ── Left: campaign list ───────────────────────────────────────────────────
+    let dim = Color::Indexed(250);
+    let hint = Color::Indexed(245);
+
     let list_items: Vec<ListItem> = app.campaigns.iter().enumerate().map(|(i, entry)| {
         let selected = i == app.campaign_cursor;
         let bg = if selected { Color::Indexed(236) } else { Color::Reset };
@@ -2080,7 +2083,7 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
             ),
             Span::styled(
                 format!("  ({} steps)", steps),
-                Style::default().fg(Color::Indexed(242)).bg(bg),
+                Style::default().fg(dim).bg(bg),
             ),
         ]);
         ListItem::new(line)
@@ -2102,25 +2105,25 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
                 let c = &entry.campaign;
                 let mut lines: Vec<Line> = vec![
                     Line::from(vec![
-                        Span::styled("  Name       ", Style::default().fg(Color::Indexed(242))),
+                        Span::styled("  Name       ", Style::default().fg(dim)),
                         Span::styled(c.campaign.name.clone(), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
                     ]),
                 ];
                 if !c.campaign.description.is_empty() {
                     lines.push(Line::from(vec![
-                        Span::styled("  Description", Style::default().fg(Color::Indexed(242))),
-                        Span::styled(format!("  {}", c.campaign.description), Style::default().fg(Color::Gray)),
+                        Span::styled("  Description", Style::default().fg(dim)),
+                        Span::styled(format!("  {}", c.campaign.description), Style::default().fg(Color::White)),
                     ]));
                 }
                 if let Some(ref ef) = c.env_file {
                     lines.push(Line::from(vec![
-                        Span::styled("  Env file   ", Style::default().fg(Color::Indexed(242))),
-                        Span::styled(format!("  {}", ef), Style::default().fg(Color::Gray)),
+                        Span::styled("  Env file   ", Style::default().fg(dim)),
+                        Span::styled(format!("  {}", ef), Style::default().fg(Color::White)),
                     ]));
                 }
                 lines.push(Line::from(""));
                 lines.push(Line::from(vec![
-                    Span::styled("  Steps", Style::default().fg(Color::Indexed(242))),
+                    Span::styled("  Steps", Style::default().fg(dim)),
                 ]));
                 for step in &c.steps {
                     let (method_str, method_color) = if step.kind == "transform" {
@@ -2136,20 +2139,20 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
                     for a in &step.assert {
                         let label = crate::campaign::assertion_label(a);
                         lines.push(Line::from(vec![
-                            Span::styled("          ? ", Style::default().fg(Color::Indexed(242))),
-                            Span::styled(label, Style::default().fg(Color::Indexed(238))),
+                            Span::styled("          ? ", Style::default().fg(hint)),
+                            Span::styled(label, Style::default().fg(hint)),
                         ]));
                     }
                 }
                 lines.push(Line::from(""));
                 lines.push(Line::from(vec![
                     Span::styled("  r", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                    Span::styled(" to run this campaign", Style::default().fg(Color::Indexed(242))),
+                    Span::styled(" to run this campaign", Style::default().fg(dim)),
                 ]));
                 let p = Paragraph::new(lines)
                     .block(Block::default().borders(Borders::ALL)
                         .title(format!(" {} ", entry.name))
-                        .border_style(Style::default().fg(Color::Indexed(242))));
+                        .border_style(Style::default().fg(hint)));
                 frame.render_widget(p, chunks[1]);
             }
         }
@@ -2157,7 +2160,7 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
         CampaignRunState::Running { name, step_results, current_step } => {
             let mut lines: Vec<Line> = vec![
                 Line::from(vec![
-                    Span::styled("  Running: ", Style::default().fg(Color::Indexed(242))),
+                    Span::styled("  Running: ", Style::default().fg(dim)),
                     Span::styled(name.clone(), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
                 ]),
                 Line::from(""),
@@ -2176,7 +2179,7 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
                 lines.push(Line::from(vec![
                     Span::styled("  ⟳ ", Style::default().fg(Color::Yellow)),
                     Span::styled(step.clone(), Style::default().fg(Color::Yellow)),
-                    Span::styled("…", Style::default().fg(Color::Indexed(242))),
+                    Span::styled("…", Style::default().fg(hint)),
                 ]));
             }
             let p = Paragraph::new(lines)
@@ -2199,11 +2202,11 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
                     Span::styled(format!("  {}", verdict), Style::default().fg(verdict_color).add_modifier(Modifier::BOLD)),
                 ]),
                 Line::from(vec![
-                    Span::styled("  Steps: ", Style::default().fg(Color::Indexed(242))),
+                    Span::styled("  Steps: ", Style::default().fg(dim)),
                     Span::styled(format!("{} ok", total_ok), Style::default().fg(Color::Green)),
-                    Span::styled("  /  ", Style::default().fg(Color::Indexed(242))),
-                    Span::styled(format!("{} failed", total_fail), Style::default().fg(if total_fail > 0 { Color::Red } else { Color::Indexed(242) })),
-                    Span::styled(format!("  ({} total)  {}ms", total_steps, total_ms), Style::default().fg(Color::Indexed(242))),
+                    Span::styled("  /  ", Style::default().fg(dim)),
+                    Span::styled(format!("{} failed", total_fail), Style::default().fg(if total_fail > 0 { Color::Red } else { dim })),
+                    Span::styled(format!("  ({} total)  {}ms", total_steps, total_ms), Style::default().fg(dim)),
                 ]),
                 Line::from(""),
             ];
@@ -2214,7 +2217,7 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
                         .map(|(k, v)| format!("{}={}", k, if v.len() > 15 { &v[..15] } else { v }))
                         .collect::<Vec<_>>().join("  ");
                     lines.push(Line::from(vec![
-                        Span::styled(format!("  Row {} — ", iter.row_index.map_or(0, |i| i + 1)), Style::default().fg(Color::Indexed(242))),
+                        Span::styled(format!("  Row {} — ", iter.row_index.map_or(0, |i| i + 1)), Style::default().fg(dim)),
                         Span::styled(row_label, Style::default().fg(Color::White)),
                     ]));
                 }
@@ -2223,7 +2226,7 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
                     for (var, val) in &sr.extracted {
                         let v = if val.len() > 40 { format!("{}…", &val[..40]) } else { val.clone() };
                         lines.push(Line::from(vec![
-                            Span::styled(format!("      ↳ {} = {}", var, v), Style::default().fg(Color::Indexed(242))),
+                            Span::styled(format!("      ↳ {} = {}", var, v), Style::default().fg(hint)),
                         ]));
                     }
                     for (desc, ok) in &sr.assertion_results {
@@ -2239,7 +2242,7 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
             lines.push(Line::from(""));
             lines.push(Line::from(vec![
                 Span::styled("  Esc", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                Span::styled(" to clear  r to re-run", Style::default().fg(Color::Indexed(242))),
+                Span::styled(" to clear  r to re-run", Style::default().fg(dim)),
             ]));
 
             let p = Paragraph::new(lines)
@@ -2258,7 +2261,7 @@ fn render_step_result_line(sr: &crate::campaign::StepResult) -> Line<'static> {
         .map(|s| format!("{}", s))
         .unwrap_or_else(|| if sr.error.is_some() { "ERR".into() } else { "-".into() });
     let status_color = sr.status.map(|s| if s < 400 { Color::Green } else { Color::Red })
-        .unwrap_or(if sr.error.is_some() { Color::Red } else { Color::Indexed(242) });
+        .unwrap_or(if sr.error.is_some() { Color::Red } else { Color::Indexed(250) });
     let method_c = method_color(&sr.method);
     let name = if sr.name.len() > 22 { format!("{}…", &sr.name[..21]) } else { sr.name.clone() };
     let err = sr.error.as_deref().unwrap_or("").chars().take(28).collect::<String>();
@@ -2268,11 +2271,11 @@ fn render_step_result_line(sr: &crate::campaign::StepResult) -> Line<'static> {
         Span::styled(format!("{:<23}", name), Style::default().fg(Color::White)),
         Span::styled(format!("{:<7}", sr.method), Style::default().fg(method_c).add_modifier(Modifier::BOLD)),
         Span::styled(format!("{:<5}", status_str), Style::default().fg(status_color)),
-        Span::styled(format!("{:>6}ms  ", sr.duration_ms), Style::default().fg(Color::Indexed(242))),
+        Span::styled(format!("{:>6}ms  ", sr.duration_ms), Style::default().fg(Color::Indexed(250))),
         Span::styled(err, Style::default().fg(Color::Red)),
     ];
     if !sr.success && sr.non_blocking {
-        spans.push(Span::styled("  [↷]", Style::default().fg(Color::Indexed(242))));
+        spans.push(Span::styled("  [↷]", Style::default().fg(Color::Indexed(245))));
     }
     Line::from(spans)
 }

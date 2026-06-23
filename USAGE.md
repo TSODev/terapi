@@ -1107,18 +1107,19 @@ By default a failing step stops the pipeline immediately. Set `continue_on_error
 **Campaign-level default** — applies to every step that does not override it:
 
 ```toml
+continue_on_error = true   # all steps are non-blocking by default
+
 [campaign]
 name = "Full smoke suite"
-
-continue_on_error = true   # all steps are non-blocking by default
 ```
 
 **Step-level override** — takes priority over the campaign default:
 
 ```toml
-[campaign]
-name             = "Mixed suite"
 continue_on_error = true        # non-blocking by default
+
+[campaign]
+name = "Mixed suite"
 
 [[steps]]
 name   = "Login (must succeed)"

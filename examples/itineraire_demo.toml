@@ -1,0 +1,87 @@
+# Campagne — Calcul d'itinéraire entre deux villes
+#
+# Utilise l'API Géoplateforme IGN (data.geopf.fr) :
+#   - Géocodage (search) : nom de ville → coordonnées lon,lat
+#   - Navigation         : coordonnées → itinéraire (distance, durée)
+#
+# Aucune clé API requise.
+#
+# Usage :
+#   terapi run examples/itineraire_demo.toml
+#
+# Personnalisation :
+#   Modifier DEPART, ARRIVEE, PROFILE et OPTIMIZATION dans [env].
+
+[campaign]
+name        = "Itinéraire — Géoplateforme IGN"
+description = "Géocode deux villes puis calcule l'itinéraire entre elles"
+
+[env]
+DEPART       = "Paris"
+ARRIVEE      = "Lyon"
+PROFILE      = "car"        # car | pedestrian | cyclist
+OPTIMIZATION = "fastest"    # fastest | shortest
+RESOURCE     = "bdtopo-valhalla"
+GEOCODE_URL  = "https://data.geopf.fr/geocodage/search"
+NAV_URL      = "https://data.geopf.fr/navigation/itineraire"
+
+# ── Étape 1 : géocodage de la ville de départ ─────────────────────────────
+
+[[steps]]
+name   = "Géocodage départ"
+method = "GET"
+url    = "{{GEOCODE_URL}}?q={{DEPART}}&type=municipality&limit=1"
+
+assert = [
+  { on = "status",                        eq = 200  },
+  { on = "body.features.0.geometry.type", eq = "Point" },
+]
+
+[steps.extract]
+lon_depart  = "features.0.geometry.coordinates.0"
+lat_depart  = "features.0.geometry.coordinates.1"
+nom_depart  = "features.0.properties.name"
+
+# ── Étape 2 : géocodage de la ville d'arrivée ─────────────────────────────
+
+[[steps]]
+name   = "Géocodage arrivée"
+method = "GET"
+url    = "{{GEOCODE_URL}}?q={{ARRIVEE}}&type=municipality&limit=1"
+
+assert = [
+  { on = "status",                        eq = 200  },
+  { on = "body.features.0.geometry.type", eq = "Point" },
+]
+
+[steps.extract]
+lon_arrivee = "features.0.geometry.coordinates.0"
+lat_arrivee = "features.0.geometry.coordinates.1"
+nom_arrivee = "features.0.properties.name"
+
+# ── Étape 3 : composition des coordonnées au format "lon,lat" ─────────────
+
+[[steps]]
+name = "Composition coordonnées"
+kind = "transform"
+transforms = [
+  { type = "template", input = "{{lon_depart}},{{lat_depart}}",   output = "COORD_START" },
+  { type = "template", input = "{{lon_arrivee}},{{lat_arrivee}}", output = "COORD_END"   },
+]
+
+# ── Étape 4 : calcul de l'itinéraire ──────────────────────────────────────
+
+[[steps]]
+name   = "Calcul itinéraire"
+method = "GET"
+url    = "{{NAV_URL}}?resource={{RESOURCE}}&start={{COORD_START}}&end={{COORD_END}}&profile={{PROFILE}}&optimization={{OPTIMIZATION}}"
+
+assert = [
+  { on = "status",   eq     = 200 },
+  { on = "body.distance", exists = true },
+  { on = "body.duration", exists = true },
+]
+
+[steps.extract]
+distance_m = "distance"
+duration_s = "duration"

@@ -1301,6 +1301,27 @@ Authorization = "Bearer {{JWT}}"
 
 The boxed report still lists all failures — `continue_on_error` only controls flow, not visibility.
 
+### Pause steps
+
+A `kind = "pause"` step waits for a fixed duration without making any HTTP request. Use it between steps to respect API rate limits.
+
+```toml
+[[steps]]
+name    = "Rate limit pause"
+kind    = "pause"
+wait_ms = 1000   # wait 1 000 ms (1 second) before the next step
+```
+
+The step appears as `WAIT` in the CLI output and the TUI Campaigns panel, with the actual elapsed time shown:
+
+```
+  ✓ Rate limit pause    WAIT    -     1002 ms
+```
+
+`continue_on_error` applies to pause steps like any other: if set to `true` at campaign level, a hypothetical failure (impossible in practice) would be non-blocking.
+
+---
+
 ### Transform steps
 
 A `kind = "transform"` step processes variables without making an HTTP request. Use it to reshape data between steps — regex extraction from a header, string composition, case normalization, etc.

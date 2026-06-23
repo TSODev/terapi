@@ -24,6 +24,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Output connector** (`[[outputs]]`) — after all iterations complete, writes a JSON array of step response bodies to disk. Fields: `from_step` (step name to collect), `path` (destination file), `select` (optional dot-path into each response body). Failed iterations are skipped. Parent directories created if needed. Multiple `[[outputs]]` blocks supported per campaign. CLI confirms each written file at the end of the report.
 - **New campaign examples** — `examples/json_connector_demo.toml` (JSON file connector, JSONPlaceholder), `examples/seed_step_demo.toml` (seed step + output connector, French geo API), `examples/users.json` (sample data).
 
+- **Pause step** (`kind = "pause"`) — inserts a deliberate wait between steps without making an HTTP request. `wait_ms` sets the delay in milliseconds. Appears as `WAIT` in CLI output and TUI. Useful for rate-limiting: avoid being throttled by APIs that cap requests per second.
+
+  ```toml
+  [[steps]]
+  name    = "Rate limit pause"
+  kind    = "pause"
+  wait_ms = 1000   # wait 1 second before the next step
+  ```
+
 ### Fixed
 - **Request tab status hints** — switching to the Request tab via `Tab` now shows the full context-aware hint for the active sub-tab instead of the generic `Tab: switch panel ←/→: section q: quit`. Each sub-tab now exposes its key actions: `e`, `m`, `g`, `n`, `i`, `a`, `d`, `s`, `S` as appropriate.
 - **Stale URL params when loading GraphQL from History** — loading a GraphQL History entry now resets the URL params list before parsing, preventing parameters from a previous REST request from polluting the GQL URL.

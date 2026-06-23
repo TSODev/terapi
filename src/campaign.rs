@@ -58,6 +58,8 @@ pub struct Step {
     #[serde(default)]
     pub body: Option<String>,
     #[serde(default)]
+    pub wait_ms: u64,
+    #[serde(default)]
     pub env: Option<String>,
     #[serde(default)]
     pub extract: HashMap<String, String>,
@@ -444,13 +446,33 @@ async fn run_steps_streaming(
         }
         effective.extend(extracted.clone());
 
-        let method_display = if step.kind == "transform" { "TRSF".into() } else { step.method.clone() };
+        let method_display = match step.kind.as_str() {
+            "transform" => "TRSF".into(),
+            "pause"     => "WAIT".into(),
+            _           => step.method.clone(),
+        };
         let _ = tx.send(CampaignEvent::StepStarted {
             name: step.name.clone(),
             method: method_display,
         });
 
-        let result = if step.kind == "transform" {
+        let result = if step.kind == "pause" {
+            let t0 = Instant::now();
+            tokio::time::sleep(std::time::Duration::from_millis(step.wait_ms)).await;
+            StepResult {
+                name: step.name.clone(),
+                method: "WAIT".into(),
+                url: String::new(),
+                status: None,
+                duration_ms: t0.elapsed().as_millis() as u64,
+                success: true,
+                non_blocking: effective_coe,
+                error: None,
+                extracted: HashMap::new(),
+                assertion_results: vec![],
+                body_json: None,
+            }
+        } else if step.kind == "transform" {
             let t0 = Instant::now();
             match run_transform_step(step, &effective) {
                 Ok(produced) => {

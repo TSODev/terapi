@@ -93,6 +93,17 @@ fn render_request_panel(frame: &mut Frame, app: &App, area: Rect) {
     let method_label = if app.graphql_mode { "GQL" } else { app.active_method() };
     let method_col = method_color(method_label);
     let url_cursor = if editing { "_" } else { "" };
+    // In read mode, show the full URL with query params reconstructed from the params list.
+    // In edit mode, show only what the user is typing (params are parsed on Esc/Enter).
+    let url_display = if editing || app.request_url_params.is_empty() {
+        app.request_url.clone()
+    } else {
+        let query = app.request_url_params.iter()
+            .map(|(k, v)| format!("{}={}", k, v))
+            .collect::<Vec<_>>()
+            .join("&");
+        format!("{}?{}", app.request_url, query)
+    };
     let url_text = Line::from(vec![
         Span::raw(" "),
         if editing && !app.graphql_mode {
@@ -107,10 +118,10 @@ fn render_request_panel(frame: &mut Frame, app: &App, area: Rect) {
             Span::raw("  ")
         },
         Span::styled(
-            format!("{}{}", app.request_url, url_cursor),
+            format!("{}{}", url_display, url_cursor),
             if editing {
                 Style::default().fg(Color::Yellow)
-            } else if app.request_url.is_empty() {
+            } else if url_display.is_empty() {
                 Style::default().fg(Color::Indexed(244))
             } else {
                 Style::default().fg(Color::White)

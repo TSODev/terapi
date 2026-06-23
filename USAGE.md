@@ -442,11 +442,57 @@ The JSON view displays a 3-column table: **Key / Type / Value**.
 - Use `-` / `=` to shrink or grow the Key column width.
 - Use `↑` / `↓` to move the cursor row by row (JSON view) or scroll (Raw / HTTP views).
 
+**Extraction path bar:**
+
+A line permanently displayed just below the JSON table shows the dot-notation path of the currently selected row:
+
+```
+┌─ JSON ────────────────────────────────────────────────┐
+│  Key              Type     Value                       │
+│  ▼ features       Array                               │
+│    ▼ [0]          Object                              │
+│      ▼ properties Object                              │
+│▶       city       String   "Paris"                    │
+│        zip        String   "75001"                    │
+│        ...                                            │
+├───────────────────────────────────────────────────────┤
+│  ↳ features.0.properties.city                         │
+└───────────────────────────────────────────────────────┘
+```
+
+The path shown (`features.0.properties.city`) is exactly the dot-path to paste into `[steps.extract]` in a campaign. See [Variable extraction](#variable-extraction).
+
+**JSON search:**
+
+Press `/` in the JSON view to open a search bar at the bottom. Type to filter — all rows whose **key** or **value** match are highlighted in yellow and bold. The cursor jumps to the first match automatically.
+
+```
+┌─ JSON ────────────────────────────────────────────────┐
+│  ▼ (root)         Object                              │
+│    id             Number   42                         │
+│    **name**       String   **"Paris"**                │ ← highlighted
+│    latitude       Number   48.8566                    │
+│    **name**       String   **"Île-de-France"**        │ ← highlighted
+│  ↳ features.0.properties.name                        │
+├───────────────────────────────────────────────────────┤
+│  / name█ 2 matches   >: next  <: prev  Esc: close    │
+└───────────────────────────────────────────────────────┘
+```
+
+| Key | Action |
+|-----|--------|
+| `/` | Open search bar |
+| type | Filter by key or value (case-insensitive) |
+| `Backspace` | Delete last character |
+| `>` | Jump to next match (wraps) |
+| `<` | Jump to previous match (wraps) |
+| `Esc` | Close search and clear filter |
+
 **Response views:**
 
 | View | Content |
 |------|---------|
-| JSON | Parsed JSON tree — foldable, colour-coded, cursor navigation |
+| JSON | Parsed JSON tree — foldable, colour-coded, cursor navigation, path bar, search |
 | Raw | Plain response body text |
 | HTTP | Full HTTP exchange: request line + headers + body, then response status + headers + body |
 
@@ -705,6 +751,10 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `↑` / `↓` | Request panel | Move response cursor (JSON) / scroll (Raw) |
 | `Enter` | Request panel (response mode) | Fold / unfold selected JSON node |
 | `r` | Request panel | Cycle response view: JSON → Raw → HTTP exchange |
+| `/` | Request panel (JSON view) | Open search bar — filter rows by key or value |
+| `>` | JSON search | Jump to next match |
+| `<` | JSON search | Jump to previous match |
+| `Esc` | JSON search | Close search and clear filter |
 | `-` | Request panel | Shrink Key column |
 | `=` | Request panel | Grow Key column |
 | `↑` / `↓` | Collections panel | Move cursor |
@@ -1047,6 +1097,13 @@ Use dot-path notation in `[steps.extract]` to pull values out of a JSON response
 | `data.items.0.name` | `response["data"]["items"][0]["name"]` |
 
 Extracted values are injected into all subsequent steps.
+
+> **Tip — find the right path in the TUI:** send the request in the Request panel, navigate to the key you want in the JSON view with `↑`/`↓`, and read the dot-path shown in the `↳` bar at the bottom of the response. That string is the exact value to use in `[steps.extract]`.
+>
+> ```toml
+> [steps.extract]
+> CITY = "features.0.properties.city"   # ← copied from the ↳ bar
+> ```
 
 ### Assertions
 

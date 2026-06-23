@@ -106,6 +106,8 @@ terapi --help
 | `Space` / `Enter` | Options sub-tab — toggle (Skip TLS / Follow redirects / Cookie jar) or cycle timeout |
 | `r` | Cycle response view: JSON → Raw → HTTP exchange |
 | `g` | Toggle GraphQL mode (REST ↔ GraphQL) |
+| `f` | GraphQL Schema tab — fetch type list via introspection |
+| `Enter` | GraphQL Schema tab — load fields for selected type |
 | `-` / `=` | Resize Key column |
 | `q` `q` | Quit (press twice to confirm) |
 
@@ -315,7 +317,7 @@ Press `g` on the Request tab to switch to GraphQL mode. The URL bar shows a mage
 | Query | Multi-line query editor — `i` to edit, `Esc` to exit |
 | Variables | Key/value pairs sent as the `variables` JSON object |
 | Headers | Same header picker as REST mode |
-| Schema | Schema browser — placeholder (introspection coming in v0.5) |
+| Schema | Schema browser — `f` fetch types, `↑/↓` navigate, `Enter` load fields |
 | Options | Same options as REST mode |
 
 **Sending a GraphQL request:**
@@ -323,6 +325,10 @@ Press `g` on the Request tab to switch to GraphQL mode. The URL bar shows a mage
 2. Press `←`/`→` to switch to the **Query** sub-tab, then `i` to write the query
 3. Optionally switch to **Variables** and press `a` to add variables
 4. Press `s` to send — terapi posts `{"query": "...", "variables": {...}}` with `Content-Type: application/json` automatically
+
+**Browsing the schema** (Schema sub-tab):
+1. Press `f` to fetch the type list — all user-defined types appear on the left (OBJ / ENM / INP badges)
+2. Navigate with `↑`/`↓`, press `Enter` on a type to load its fields and arg types on the right
 
 Save to a collection with `S` — `graphql = true`, the query, and variables are all preserved in TOML. Press `g` again to return to REST mode.
 

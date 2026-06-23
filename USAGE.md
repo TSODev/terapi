@@ -366,7 +366,7 @@ Press `g` on the Request tab to switch to **GraphQL mode**. The URL bar shows a 
 | Query | Multi-line query editor (tui-textarea) |
 | Variables | Key/value pairs serialised as the `variables` JSON object |
 | Headers | Same header picker as REST mode |
-| Schema | Placeholder — schema introspection coming in v0.5 |
+| Schema | Schema browser — `f` to fetch type list, `Enter` to load fields |
 | Options | Same options as REST mode |
 
 **Writing a query** (Query tab):
@@ -391,6 +391,16 @@ Variables are serialised as a flat JSON object and merged into the request body 
 **Saving** — `S` saves the full GraphQL request (query + variables + headers) in the collection TOML using `graphql = true`, `graphql_query`, and `graphql_variables` fields. Backward-compatible — existing REST collections are unaffected.
 
 **Loading from Collections** — pressing `Enter` on a request node with `graphql = true` restores the query, variables, and activates GraphQL mode automatically. The request shows a magenta `GQL` badge in the tree.
+
+**Browsing the schema** (Schema tab):
+
+Switch to the Schema sub-tab with `←`/`→`, then:
+
+1. Press `f` to send a `__schema` introspection query — the type list appears in the left panel (OBJ / ENM / INP / INT / UNI badges with colour coding)
+2. Navigate with `↑`/`↓`
+3. Press `Enter` on any type to load its fields, return types, and arguments in the right panel
+
+The fetch uses two shallow queries (depth ≤ 3) to work even with APIs that enforce a CDN query depth limit.
 
 Press `g` to return to REST mode (URL and headers are preserved).
 
@@ -643,6 +653,9 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `d` | GraphQL Variables tab | Delete selected variable |
 | `Enter` | GraphQL Variables tab | Edit selected variable |
 | `←` / `→` | GraphQL mode | Navigate GraphQL sub-tabs |
+| `f` | GraphQL Schema tab | Fetch type list via introspection |
+| `↑` / `↓` | GraphQL Schema tab | Navigate type list |
+| `Enter` | GraphQL Schema tab | Load fields for selected type |
 | `Tab` | Modal | Cycle input fields (Name ↔ URL, Key ↔ Value) |
 | `←` / `→` | Modal (New Request) | Cycle HTTP method |
 | `Enter` | Modal | Confirm |

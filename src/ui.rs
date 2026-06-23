@@ -975,45 +975,81 @@ fn render_response(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_response_json(frame: &mut Frame, app: &App, area: Rect) {
+    // Split 1 line at the bottom for the search bar when active
+    let (table_area, search_area) = if app.json_search.is_some() {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(1), Constraint::Length(1)])
+            .split(area);
+        (chunks[0], Some(chunks[1]))
+    } else {
+        (area, None)
+    };
+
+    let term = app.json_search.as_deref().unwrap_or("").to_lowercase();
+    let has_term = !term.is_empty();
+
     let json_rows = match &app.response_body {
         Some(json) => json_highlight::rows(json, &app.response_folds),
         None => vec![],
     };
 
+    let match_count = if has_term {
+        json_rows.iter().filter(|r| {
+            r.key.to_lowercase().contains(&term) || r.value_preview.to_lowercase().contains(&term)
+        }).count()
+    } else {
+        0
+    };
+
     let rows: Vec<Row> = json_rows.iter().map(|r| {
+        let is_match = has_term && (
+            r.key.to_lowercase().contains(&term) ||
+            r.value_preview.to_lowercase().contains(&term)
+        );
         let indent = "  ".repeat(r.depth);
         let icon = match r.fold_path {
             Some(_) if r.is_folded => "▶ ",
             Some(_) => "▼ ",
             None => "  ",
         };
-        let key_color = match r.value_type {
-            ValueType::Object | ValueType::Array => Color::Cyan,
-            _ => Color::White,
+        let key_color = if is_match {
+            Color::Yellow
+        } else {
+            match r.value_type {
+                ValueType::Object | ValueType::Array => Color::Cyan,
+                _ => Color::White,
+            }
         };
+        let key_mod = if is_match { Modifier::BOLD } else { Modifier::empty() };
         let key_cell = Cell::from(Line::from(vec![
             Span::raw(format!("{}{}", indent, icon)),
-            Span::styled(r.key.clone(), Style::default().fg(key_color)),
+            Span::styled(r.key.clone(), Style::default().fg(key_color).add_modifier(key_mod)),
         ]));
         let (type_color, type_label) = match r.value_type {
-            ValueType::Object  => (Color::Cyan,    "Object "),
-            ValueType::Array   => (Color::Blue,    "Array  "),
-            ValueType::Str     => (Color::Green,   "String "),
-            ValueType::Number  => (Color::Yellow,  "Number "),
-            ValueType::Boolean => (Color::Magenta, "Boolean"),
-            ValueType::Null    => (Color::Indexed(242),"Null   "),
+            ValueType::Object  => (Color::Cyan,         "Object "),
+            ValueType::Array   => (Color::Blue,         "Array  "),
+            ValueType::Str     => (Color::Green,        "String "),
+            ValueType::Number  => (Color::Yellow,       "Number "),
+            ValueType::Boolean => (Color::Magenta,      "Boolean"),
+            ValueType::Null    => (Color::Indexed(242), "Null   "),
         };
-        let value_color = match r.value_type {
-            ValueType::Object | ValueType::Array => Color::White,
-            ValueType::Str     => Color::Green,
-            ValueType::Number  => Color::Yellow,
-            ValueType::Boolean => Color::Magenta,
-            ValueType::Null    => Color::Indexed(242),
+        let value_color = if is_match {
+            Color::Yellow
+        } else {
+            match r.value_type {
+                ValueType::Object | ValueType::Array => Color::White,
+                ValueType::Str     => Color::Green,
+                ValueType::Number  => Color::Yellow,
+                ValueType::Boolean => Color::Magenta,
+                ValueType::Null    => Color::Indexed(242),
+            }
         };
+        let value_mod = if is_match { Modifier::BOLD } else { Modifier::empty() };
         Row::new(vec![
             key_cell,
             Cell::from(Span::styled(type_label, Style::default().fg(type_color))),
-            Cell::from(Span::styled(r.value_preview.clone(), Style::default().fg(value_color))),
+            Cell::from(Span::styled(r.value_preview.clone(), Style::default().fg(value_color).add_modifier(value_mod))),
         ])
     }).collect();
 
@@ -1040,7 +1076,34 @@ fn render_response_json(frame: &mut Frame, app: &App, area: Rect) {
         .with_selected(Some(app.response_cursor))
         .with_offset(app.response_scroll as usize);
 
-    frame.render_stateful_widget(table, area, &mut state);
+    frame.render_stateful_widget(table, table_area, &mut state);
+
+    // ── search bar ────────────────────────────────────────────────────────────
+    if let Some(bar_area) = search_area {
+        let search_term = app.json_search.as_deref().unwrap_or("");
+        let (count_text, count_color) = if !search_term.is_empty() {
+            if match_count == 0 {
+                (" no match ".to_string(), Color::Red)
+            } else {
+                (format!(" {} match{} ", match_count, if match_count == 1 { "" } else { "es" }), Color::Green)
+            }
+        } else {
+            (String::new(), Color::Green)
+        };
+
+        let bar = Line::from(vec![
+            Span::styled(" /", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::raw(" "),
+            Span::styled(search_term.to_string(), Style::default().fg(Color::White)),
+            Span::styled("█", Style::default().fg(Color::Yellow)),
+            Span::styled(count_text, Style::default().fg(count_color).add_modifier(Modifier::BOLD)),
+            Span::styled("  n: next  N: prev  Esc: close", Style::default().fg(Color::Indexed(244))),
+        ]);
+        frame.render_widget(
+            Paragraph::new(bar).style(Style::default().bg(Color::Indexed(234))),
+            bar_area,
+        );
+    }
 }
 
 fn render_response_raw(frame: &mut Frame, app: &App, area: Rect) {

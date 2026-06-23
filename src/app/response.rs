@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
+use crossterm::event::{KeyCode, KeyEvent};
+
 use super::*;
 use super::http::http_status_label;
 use crate::campaign::{CampaignEvent, CampaignRunState};
@@ -158,6 +160,88 @@ impl App {
                 self.history.truncate(100);
             }
             let _ = crate::storage::save_history(&self.history);
+        }
+    }
+
+    pub(super) fn handle_json_search_key(&mut self, key: KeyEvent) -> Result<()> {
+        match key.code {
+            KeyCode::Esc => {
+                self.json_search = None;
+                self.update_request_status_hint();
+            }
+            KeyCode::Backspace => {
+                if let Some(ref mut s) = self.json_search {
+                    s.pop();
+                }
+            }
+            KeyCode::Char('n') => {
+                self.json_search_next();
+            }
+            KeyCode::Char('N') => {
+                self.json_search_prev();
+            }
+            KeyCode::Char(c) => {
+                if let Some(ref mut s) = self.json_search {
+                    s.push(c);
+                    self.json_search_jump_first();
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn json_search_match_indices(&self) -> Vec<usize> {
+        let term = match &self.json_search {
+            Some(s) if !s.is_empty() => s.to_lowercase(),
+            _ => return vec![],
+        };
+        let json = match &self.response_body {
+            Some(j) => j,
+            None => return vec![],
+        };
+        crate::json_highlight::rows(json, &self.response_folds)
+            .into_iter()
+            .enumerate()
+            .filter(|(_, r)| {
+                r.key.to_lowercase().contains(&term)
+                    || r.value_preview.to_lowercase().contains(&term)
+            })
+            .map(|(i, _)| i)
+            .collect()
+    }
+
+    fn json_search_jump_first(&mut self) {
+        let indices = self.json_search_match_indices();
+        if let Some(&first) = indices.first() {
+            self.response_cursor = first;
+            self.sync_scroll();
+        }
+    }
+
+    pub(super) fn json_search_next(&mut self) {
+        let indices = self.json_search_match_indices();
+        if indices.is_empty() { return; }
+        let next = indices.iter()
+            .find(|&&i| i > self.response_cursor)
+            .or_else(|| indices.first())
+            .copied();
+        if let Some(idx) = next {
+            self.response_cursor = idx;
+            self.sync_scroll();
+        }
+    }
+
+    pub(super) fn json_search_prev(&mut self) {
+        let indices = self.json_search_match_indices();
+        if indices.is_empty() { return; }
+        let prev = indices.iter().rev()
+            .find(|&&i| i < self.response_cursor)
+            .or_else(|| indices.last())
+            .copied();
+        if let Some(idx) = prev {
+            self.response_cursor = idx;
+            self.sync_scroll();
         }
     }
 

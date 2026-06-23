@@ -78,6 +78,7 @@ pub struct App {
     pub response_cursor: usize,
     pub response_scroll: u16,
     pub response_folds: HashSet<String>,
+    pub json_search: Option<String>,
     pub key_col_width: u16,
     pub status_message: String,
     // History
@@ -179,6 +180,7 @@ impl App {
             response_cursor: 0,
             response_scroll: 0,
             response_folds: HashSet::new(),
+            json_search: None,
             key_col_width: 22,
             status_message: "Tab: panels  e: edit URL  s: send  S: save  n: new  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into(),
             history,
@@ -236,6 +238,14 @@ impl App {
 
         if self.modal.is_some() {
             return self.handle_modal_key(key);
+        }
+
+        // JSON search bar intercepts all keys when open
+        if self.json_search.is_some()
+            && self.active_tab == Tab::Request
+            && self.response_view == ResponseView::Json
+        {
+            return self.handle_json_search_key(key);
         }
 
         // Body editor intercepts all keys when focused
@@ -779,6 +789,10 @@ impl App {
             }
             KeyCode::Char('=') if self.active_tab == Tab::Request => {
                 self.key_col_width = (self.key_col_width + 2).min(50);
+            }
+            KeyCode::Char('/') if self.active_tab == Tab::Request && self.response_view == ResponseView::Json => {
+                self.json_search = Some(String::new());
+                self.status_message = "Search: type to filter  n: next  N: prev  Esc: close".into();
             }
 
             // ── Collections panel ──────────────────────────────────────────

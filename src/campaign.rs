@@ -35,7 +35,13 @@ pub struct Meta {
 #[derive(Debug, Deserialize)]
 pub struct Step {
     pub name: String,
+    /// Step kind: "http" (default) or "transform".
+    #[serde(default = "default_http")]
+    pub kind: String,
+    // ── HTTP step fields ──
+    #[serde(default)]
     pub method: String,
+    #[serde(default)]
     pub url: String,
     #[serde(default)]
     pub headers: HashMap<String, String>,
@@ -50,16 +56,21 @@ pub struct Step {
     /// Assertions evaluated after the response is received.
     #[serde(default)]
     pub assert: Vec<Assertion>,
+    // ── Transform step fields ──
+    #[serde(default)]
+    pub transforms: Vec<Transform>,
 }
+
+fn default_http() -> String { "http".into() }
 
 /// A single assertion on a response field.
 ///
 /// `on` targets:
-///   "status"          — HTTP status code (number)
-///   "elapsed_ms"      — response time in ms (number)
-///   "body"            — full parsed JSON body
-///   "body.x.y"        — dot-path inside the JSON body
-///   "header.x-name"   — response header value (case-insensitive)
+///   "status"         — HTTP status code (number)
+///   "elapsed_ms"     — response time in ms (number)
+///   "body"           — full parsed JSON body
+///   "body.x.y"       — dot-path inside the JSON body
+///   "header.x-name"  — response header value (case-insensitive)
 ///
 /// Operators (at least one required):
 ///   eq / ne / lt / lte / gt / gte / in / exists / contains / matches
@@ -87,6 +98,41 @@ pub struct Assertion {
     #[serde(default)]
     pub matches: Option<String>,
 }
+
+/// A single transformation within a transform step.
+///
+/// Types:
+///   template — resolve {{VAR}} in `input`, assign to `output`
+///   regex    — extract capture group from `input` using `pattern` and `group` (default 1)
+///   replace  — replace `from` with `to` in `input` (literal)
+///   split    — split `input` by `delimiter`, take element at `index` (default 0)
+///   trim     — strip leading/trailing whitespace from `input`
+///   upper    — convert `input` to uppercase
+///   lower    — convert `input` to lowercase
+#[derive(Debug, Deserialize, Clone)]
+pub struct Transform {
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub input: String,
+    pub output: String,
+    // regex
+    #[serde(default)]
+    pub pattern: Option<String>,
+    #[serde(default = "default_group")]
+    pub group: usize,
+    // replace
+    #[serde(default)]
+    pub from: Option<String>,
+    #[serde(default)]
+    pub to: Option<String>,
+    // split
+    #[serde(default)]
+    pub delimiter: Option<String>,
+    #[serde(default)]
+    pub index: usize,
+}
+
+fn default_group() -> usize { 1 }
 
 // ── result types ──────────────────────────────────────────────────────────────
 
@@ -201,7 +247,7 @@ pub async fn run(campaign: &Campaign, silent: bool) -> Result<()> {
         for sr in &step_results {
             let status_str = sr.status
                 .map(|s| s.to_string())
-                .unwrap_or_else(|| "ERR".into());
+                .unwrap_or_else(|| if sr.error.is_some() { "ERR".into() } else { "-".into() });
             let mark = if sr.success { "✓" } else { "✗" };
             out!("  {} {:<22} {:<7} {}  {:>6} ms  {}",
                 mark, sr.name, sr.method, status_str, sr.duration_ms,
@@ -251,8 +297,8 @@ async fn run_steps(
     let mut results = Vec::new();
 
     for step in steps {
+        // Build effective env for this step
         let mut effective = base_env.clone();
-
         if let Some(ref env_name) = step.env {
             match crate::storage::load_env_by_name(env_name) {
                 Ok(stored) => effective.extend(stored.vars),
@@ -261,6 +307,45 @@ async fn run_steps(
         }
         effective.extend(extracted.clone());
 
+        // Dispatch on step kind
+        if step.kind == "transform" {
+            let t0 = Instant::now();
+            match run_transform_step(step, &effective) {
+                Ok(produced) => {
+                    let duration_ms = t0.elapsed().as_millis() as u64;
+                    extracted.extend(produced.clone());
+                    results.push(StepResult {
+                        name: step.name.clone(),
+                        method: "TRSF".into(),
+                        url: String::new(),
+                        status: None,
+                        duration_ms,
+                        success: true,
+                        error: None,
+                        extracted: produced,
+                        assertion_failures: vec![],
+                    });
+                }
+                Err(e) => {
+                    let duration_ms = t0.elapsed().as_millis() as u64;
+                    results.push(StepResult {
+                        name: step.name.clone(),
+                        method: "TRSF".into(),
+                        url: String::new(),
+                        status: None,
+                        duration_ms,
+                        success: false,
+                        error: Some(e.to_string()),
+                        extracted: HashMap::new(),
+                        assertion_failures: vec![],
+                    });
+                    break;
+                }
+            }
+            continue;
+        }
+
+        // HTTP step
         let url  = resolve(&step.url, &effective);
         let body = step.body.as_deref().map(|b| resolve(b, &effective));
         let t0   = Instant::now();
@@ -332,6 +417,70 @@ async fn run_steps(
 
     results
 }
+
+// ── transform step ────────────────────────────────────────────────────────────
+
+fn run_transform_step(
+    step: &Step,
+    env: &HashMap<String, String>,
+) -> Result<HashMap<String, String>> {
+    let mut produced: HashMap<String, String> = HashMap::new();
+
+    for t in &step.transforms {
+        // Each transform sees env + outputs from previous transforms in this step
+        let mut local = env.clone();
+        local.extend(produced.clone());
+
+        let input = resolve(&t.input, &local);
+
+        let value = match t.kind.as_str() {
+            "template" => input,
+            "upper"    => input.to_uppercase(),
+            "lower"    => input.to_lowercase(),
+            "trim"     => input.trim().to_string(),
+
+            "regex" => {
+                let pattern = t.pattern.as_deref()
+                    .ok_or_else(|| anyhow::anyhow!("transform 'regex' requires 'pattern'"))?;
+                let re = Regex::new(pattern)
+                    .with_context(|| format!("invalid regex pattern: {}", pattern))?;
+                re.captures(&input)
+                    .and_then(|c| c.get(t.group))
+                    .map(|m| m.as_str().to_string())
+                    .unwrap_or_default()
+            }
+
+            "replace" => {
+                let from = resolve(
+                    t.from.as_deref().ok_or_else(|| anyhow::anyhow!("transform 'replace' requires 'from'"))?,
+                    &local,
+                );
+                let to = resolve(t.to.as_deref().unwrap_or(""), &local);
+                input.replace(from.as_str(), to.as_str())
+            }
+
+            "split" => {
+                let delim = t.delimiter.as_deref().unwrap_or(",");
+                input.split(delim)
+                    .nth(t.index)
+                    .unwrap_or("")
+                    .trim()
+                    .to_string()
+            }
+
+            other => bail!(
+                "unknown transform type '{}' (supported: template, regex, replace, split, trim, upper, lower)",
+                other
+            ),
+        };
+
+        produced.insert(t.output.clone(), value);
+    }
+
+    Ok(produced)
+}
+
+// ── HTTP step ─────────────────────────────────────────────────────────────────
 
 async fn execute_step(
     client: &reqwest::Client,
@@ -426,22 +575,18 @@ fn evaluate_assertions(
             let exp = resolve_value(expected, env);
             if !values_eq(&actual, &exp) {
                 failures.push(format!(
-                    "{} == {}  (got {})",
-                    target, fmt_val(&exp), fmt_opt(&actual)
+                    "{} == {}  (got {})", target, fmt_val(&exp), fmt_opt(&actual)
                 ));
             }
         }
-
         if let Some(ref expected) = a.ne {
             let exp = resolve_value(expected, env);
             if values_eq(&actual, &exp) {
                 failures.push(format!(
-                    "{} != {}  (got {})",
-                    target, fmt_val(&exp), fmt_opt(&actual)
+                    "{} != {}  (got {})", target, fmt_val(&exp), fmt_opt(&actual)
                 ));
             }
         }
-
         if let Some(threshold) = a.lt {
             match actual.as_ref().and_then(val_as_f64) {
                 Some(v) if v < threshold => {}
@@ -470,7 +615,6 @@ fn evaluate_assertions(
                 None    => failures.push(format!("{} >= {}  (got {})", target, threshold, fmt_opt(&actual))),
             }
         }
-
         if !a.in_.is_empty() {
             let resolved: Vec<Value> = a.in_.iter().map(|v| resolve_value(v, env)).collect();
             let found = actual.as_ref()
@@ -481,17 +625,14 @@ fn evaluate_assertions(
                 failures.push(format!("{} in [{}]  (got {})", target, opts, fmt_opt(&actual)));
             }
         }
-
         if let Some(expected_exists) = a.exists {
             let actually_exists = matches!(&actual, Some(v) if !v.is_null());
             if actually_exists != expected_exists {
                 failures.push(format!(
-                    "{} exists == {}  (got {})",
-                    target, expected_exists, actually_exists
+                    "{} exists == {}  (got {})", target, expected_exists, actually_exists
                 ));
             }
         }
-
         if let Some(ref substr) = a.contains {
             let s = resolve(substr, env);
             match actual.as_ref() {
@@ -504,7 +645,6 @@ fn evaluate_assertions(
                 )),
             }
         }
-
         if let Some(ref pattern) = a.matches {
             let p = resolve(pattern, env);
             match Regex::new(&p) {
@@ -606,7 +746,6 @@ fn resolve_value(v: &Value, env: &HashMap<String, String>) -> Value {
     }
 }
 
-/// Walk a JSON value with dot-separated path. Numeric segments index arrays.
 fn extract_at(value: &Value, path: &str) -> Option<String> {
     extract_value_at(value, path).map(|v| match v {
         Value::String(s) => s.clone(),
@@ -614,7 +753,6 @@ fn extract_at(value: &Value, path: &str) -> Option<String> {
     })
 }
 
-/// Like extract_at but returns the raw Value reference (no stringify).
 fn extract_value_at<'a>(value: &'a Value, path: &str) -> Option<&'a Value> {
     let mut current = value;
     for segment in path.split('.') {
@@ -627,7 +765,6 @@ fn extract_value_at<'a>(value: &'a Value, path: &str) -> Option<&'a Value> {
     Some(current)
 }
 
-/// Equality comparison with cross-type coercion (string "42" == number 42).
 fn values_eq(actual: &Option<Value>, expected: &Value) -> bool {
     let Some(a) = actual else { return false };
     match (a, expected) {

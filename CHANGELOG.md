@@ -8,6 +8,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Campaign transform steps** — `kind = "transform"` step type runs a sequence of data transformations without making an HTTP request. Each transform reads `input` (supports `{{VAR}}`), applies an operation, and writes the result to `output`. Transforms within a step chain — each sees the outputs of previous transforms. Types: `template` (resolve `{{VAR}}`), `regex` (capture group extraction), `replace` (literal substitution), `split` (delimiter + index), `trim`, `upper`, `lower`. Transform steps appear as `TRSF` in the campaign output.
 - **Campaign assertions** — `assert = [...]` field on campaign steps: validate status code, response body fields, headers, and elapsed time before extracting variables. Operators: `eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in`, `exists`, `contains`, `matches` (regex). All assertions in a step are evaluated; failures are printed inline and in the boxed report. A step with any assertion failure is marked `✗` and stops the pipeline. `{{VAR}}` placeholders resolved in `on`, `eq`, `contains`, and `matches`. String `"42"` and number `42` are considered equal by `eq`. Adds `regex` crate dependency.
 
 ---

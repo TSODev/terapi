@@ -1043,6 +1043,53 @@ USER_ID = "user.id"
 
 Assertion failures also appear in the boxed report under the failed step.
 
+### Transform steps
+
+A `kind = "transform"` step processes variables without making an HTTP request. Use it to reshape data between steps — regex extraction from a header, string composition, case normalization, etc.
+
+```toml
+[[steps]]
+name   = "Extract user ID from Location header"
+kind   = "transform"
+transforms = [
+  { type = "regex",    input = "{{LOCATION}}", pattern = "/users/(\\d+)", group = 1, output = "USER_ID" },
+  { type = "template", input = "Hello {{FIRST}} {{LAST}}",                           output = "GREETING" },
+  { type = "upper",    input = "{{USERNAME}}",                                        output = "USERNAME_UPPER" },
+]
+```
+
+Transforms within a step **chain** — each transform sees the outputs of previous ones in the same step.
+
+**`type` — available operations:**
+
+| Type | What it does | Extra fields |
+|------|-------------|--------------|
+| `template` | Resolve `{{VAR}}` in `input`, copy to `output` | — |
+| `regex` | Extract capture group from `input` | `pattern` (required), `group` (default `1`) |
+| `replace` | Replace `from` with `to` in `input` | `from` (required), `to` (default `""`) |
+| `split` | Split `input` by `delimiter`, take element at `index` | `delimiter` (default `","`) , `index` (default `0`) |
+| `trim` | Strip leading/trailing whitespace | — |
+| `upper` | Convert to uppercase | — |
+| `lower` | Convert to lowercase | — |
+
+**Examples:**
+
+```toml
+# Extract JWT from "Bearer eyJ..." header value
+{ type = "regex",   input = "{{AUTH_HEADER}}", pattern = "Bearer (.+)", group = 1, output = "TOKEN" }
+
+# Take the first element of a comma-separated list
+{ type = "split",   input = "{{CSV_IDS}}", delimiter = ",", index = 0, output = "FIRST_ID" }
+
+# Compose a full name from two variables
+{ type = "template", input = "{{FIRST}} {{LAST}}", output = "FULL_NAME" }
+
+# Strip whitespace returned by a sloppy API
+{ type = "trim",    input = "{{DIRTY_VALUE}}", output = "CLEAN_VALUE" }
+```
+
+Transform steps appear as `TRSF` in the campaign output, with extracted variables shown as `↳ VAR = value` like any other step.
+
 ### Data-driven campaigns (CSV)
 
 Add a CSV connector to run the campaign once per row:

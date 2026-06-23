@@ -18,12 +18,17 @@
 - [Import](#import)
 - [Campaign runner](#campaign-runner)
   - [Campaign TOML format](#campaign-toml-format)
+  - [Campaign pipeline overview](#campaign-pipeline-overview)
   - [Variable substitution](#variable-substitution)
   - [Variable extraction](#variable-extraction)
   - [Assertions](#assertions)
   - [Continue on error](#continue-on-error)
   - [Transform steps](#transform-steps)
-  - [Data-driven campaigns (CSV)](#data-driven-campaigns-csv)
+  - [Input connectors](#input-connectors)
+    - [CSV connector](#csv-connector)
+    - [JSON connector — from file](#json-connector--from-file)
+    - [JSON connector — from seed step](#json-connector--from-seed-step)
+  - [Output connectors](#output-connectors)
   - [Silent mode (CI/cron)](#silent-mode-cicron)
 
 ---
@@ -1060,6 +1065,66 @@ url    = "{{BASE_URL}}/users/{{USER_ID}}"
 Authorization = "Bearer {{JWT}}"
 ```
 
+### Campaign pipeline overview
+
+A campaign is a directed pipeline. Data flows from left to right — each stage's output feeds the next:
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                       CAMPAIGN PIPELINE                                   │
+│                                                                            │
+│  ┌─────────────────┐                                                       │
+│  │  env_file / [env]│ ──────────────────────────────────────────────────┐ │
+│  └─────────────────┘    base variables (lowest priority)                │ │
+│                                                                          ↓ │
+│  ┌───────────────────────────────────────────────────────────────┐      │ │
+│  │                    [[connectors]]                              │      │ │
+│  │                                                                │      │ │
+│  │  type = "csv"   →  one row per CSV line                       │      │ │
+│  │  type = "json"  →  one row per JSON array element             │  ────┼─┤ │
+│  │    from file                                                   │      │ │
+│  │    from seed step  (kind = "seed" HTTP step, run once first)  │      │ │
+│  │                                                                │      │ │
+│  │  (no connector) →  single run, no row variables               │      │ │
+│  └───────────────────────────────────────────────────────────────┘      │ │
+│                          │  row variables (override env)                 │ │
+│                          ↓                                               │ │
+│  ┌────────────────────────────────────────────────────────────────┐     │ │
+│  │  for each row:   [[steps]]                                      │ ←──┘ │
+│  │                                                                  │      │
+│  │  kind = "http" (default)                                         │      │
+│  │    → resolve {{VAR}}, send request                               │      │
+│  │    → assert response (optional)                                  │      │
+│  │    → [steps.extract]  →  new {{VARS}} for next steps             │      │
+│  │                                                                  │      │
+│  │  kind = "seed"                                                   │      │
+│  │    → run once before iteration, feeds [[connectors]]             │      │
+│  │                                                                  │      │
+│  │  kind = "transform"                                              │      │
+│  │    → reshape/compute variables without HTTP                      │      │
+│  └──────────────────────────────────────────────────────────────┬─┘      │
+│                                                                  │         │
+│                          extracted {{VARS}}                      │         │
+│                          (highest priority)                      ↓         │
+│                                                ┌──────────────────────┐   │
+│                                                │    [[outputs]]       │   │
+│                                                │  write JSON to disk  │   │
+│                                                └──────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+**Variable priority** (lowest → highest, each level overrides the previous):
+
+| Priority | Source |
+|----------|--------|
+| 1 | `env_file` — named terapi environment loaded from disk |
+| 2 | `[env]` — inline block in the campaign TOML |
+| 3 | Connector row — CSV columns or JSON object fields |
+| 4 | Step `env` — named environment applied to one step only |
+| 5 | `[steps.extract]` — values extracted from previous step responses |
+
+---
+
 ### Variable substitution
 
 `{{VAR}}` placeholders are replaced in `url`, `headers`, and `body` using values from (lowest to highest priority):
@@ -1283,14 +1348,22 @@ Transforms within a step **chain** — each transform sees the outputs of previo
 
 Transform steps appear as `TRSF` in the campaign output, with extracted variables shown as `↳ VAR = value` like any other step.
 
-### Data-driven campaigns (CSV)
+### Input connectors
 
-Add a CSV connector to run the campaign once per row:
+A `[[connectors]]` block tells the campaign how to build its iteration set. Without one, the campaign runs exactly once. With one, it runs once per row in the data source.
+
+All connector variables merge with the campaign `[env]` (connector row overrides same-named env vars). Extracted vars from steps always win regardless.
+
+---
+
+#### CSV connector
+
+Iterate over a CSV file — one run per row. Column headers become `{{variable}}` names.
 
 ```toml
 [[connectors]]
 type = "csv"
-path = "contacts.csv"   # relative to the campaign file
+path = "contacts.csv"   # path relative to where terapi is run
 
 [[steps]]
 name   = "Invite contact"
@@ -1299,7 +1372,193 @@ url    = "{{BASE_URL}}/invitations"
 body   = '{"email": "{{contact_email}}", "name": "{{contact_name}}"}'
 ```
 
-CSV column names become `{{variables}}` automatically. See `examples/bulk_invite.toml` and `examples/contacts.csv`.
+`contacts.csv`:
+```
+contact_email,contact_name
+alice@example.com,Alice
+bob@example.com,Bob
+```
+
+- Column names map directly to `{{variable}}` names (case-sensitive)
+- Leading/trailing whitespace is trimmed from both keys and values
+- All values are strings — use a `transform` step to cast if needed
+
+See `examples/bulk_invite.toml` and `examples/contacts.csv`.
+
+---
+
+#### JSON connector — from file
+
+Iterate over a JSON file — one run per element of a JSON array. Object fields at each element level become `{{variable}}` names (nested objects are flattened with dot-notation; arrays are serialised as JSON strings).
+
+```toml
+[[connectors]]
+type   = "json"
+path   = "users.json"
+select = "users"          # dot-path to the array; omit or leave empty for root
+
+[[steps]]
+name   = "Get user posts"
+method = "GET"
+url    = "{{BASE_URL}}/posts?userId={{id}}"
+```
+
+`users.json`:
+```json
+{
+  "users": [
+    { "id": 1, "name": "Alice" },
+    { "id": 2, "name": "Bob" }
+  ]
+}
+```
+
+**`select`** (optional) — dot-path to the target array inside the JSON. If the root of the file is already an array, omit `select` or set it to `""`.
+
+| `select` | Array targeted |
+|----------|---------------|
+| *(omitted)* | Root — file must be a JSON array |
+| `""` | Root (same as omitted) |
+| `"users"` | `json["users"]` |
+| `"data.items"` | `json["data"]["items"]` |
+
+**Flattening rules:**
+
+| JSON type | Variable value |
+|-----------|---------------|
+| string | raw string value |
+| number | string representation |
+| boolean | `"true"` / `"false"` |
+| null | empty string `""` |
+| object | flattened recursively: `parent.child` |
+| array | serialised as JSON string `[...]` |
+
+Example: `{ "address": { "city": "Paris", "zip": "75001" } }` produces `{{address.city}} = Paris` and `{{address.zip}} = 75001`.
+
+See `examples/json_connector_demo.toml` and `examples/users.json`.
+
+---
+
+#### JSON connector — from seed step
+
+Use the JSON response of an HTTP step as the data source — no file required. The seed step runs **once** before the iteration loop, its response body is parsed as JSON, and the resulting rows feed into the repeating steps.
+
+```toml
+[[connectors]]
+type      = "json"
+from_step = "Fetch cities"    # name of the seed step
+select    = ""                # dot-path into the response (empty = root array)
+
+[[steps]]
+name   = "Fetch cities"
+kind   = "seed"               # run once, not iterated
+method = "GET"
+url    = "https://geo.api.gouv.fr/communes?nom=Bordeaux&fields=nom,code"
+
+[[steps]]
+name   = "City detail"
+method = "GET"
+url    = "https://geo.api.gouv.fr/communes/{{code}}?fields=nom,code,population"
+
+assert = [{ on = "status", eq = 200 }]
+
+[steps.extract]
+nom_commune = "nom"
+population  = "population"
+```
+
+**How it works:**
+1. The seed step (`kind = "seed"`) is executed once with the base environment
+2. Its JSON response body is parsed using the `select` dot-path (same rules as the file connector)
+3. Each element of the resulting array becomes one iteration row
+4. The seed step does **not** appear in the iteration loop — it is transparent to the step runner
+
+**Rules:**
+- `from_step` must match the `name` of exactly one step with `kind = "seed"` in the same campaign
+- Only one connector per campaign is currently supported
+- The seed step's response must be valid JSON; otherwise the campaign aborts with an error
+- `select = ""` selects the root of the response (if the response is directly a JSON array)
+- `select = "data.items"` navigates into a nested array the same way as the file connector
+
+See `examples/seed_step_demo.toml` for a complete working example.
+
+---
+
+### Output connectors
+
+After all iterations complete, `[[outputs]]` blocks write step results to disk as JSON files. Use this to archive responses, pass data between campaigns, or build lightweight ETL pipelines.
+
+```toml
+[[outputs]]
+from_step = "City detail"        # name of the step whose body to collect
+path      = "/tmp/cities.json"   # output file path (parent dirs created if needed)
+select    = ""                   # optional: dot-path to extract a sub-field
+```
+
+**What gets written:**
+
+A single JSON file containing an **array** — one element per successful iteration of the named step:
+
+```json
+[
+  { "nom": "Bordeaux", "code": "33063", "population": 267991 },
+  { "nom": "Bordeaux-Saint-Clair", "code": "76117", "population": 658 },
+  ...
+]
+```
+
+- Failed iterations (HTTP error or assertion failure) are **skipped** — the array contains only successful results
+- Output is pretty-printed JSON (indented)
+- If the named step produced no successful results, a warning is emitted and no file is written
+
+**`select`** (optional) — extract a sub-field from each response body before writing:
+
+```toml
+[[outputs]]
+from_step = "Search results"
+path      = "/tmp/names.json"
+select    = "results.items"     # write only json["results"]["items"] for each iteration
+```
+
+**Chaining campaigns** — the output of one campaign feeds into the next via the JSON file connector:
+
+```toml
+# campaign_a.toml
+[[outputs]]
+from_step = "Fetch users"
+path      = "/tmp/users.json"
+
+# campaign_b.toml
+[[connectors]]
+type   = "json"
+path   = "/tmp/users.json"
+select = ""
+```
+
+```bash
+terapi run campaign_a.toml && terapi run campaign_b.toml
+```
+
+**Multiple outputs** — multiple `[[outputs]]` blocks are supported, each naming a different step:
+
+```toml
+[[outputs]]
+from_step = "Login"
+path      = "/tmp/tokens.json"
+
+[[outputs]]
+from_step = "Get profile"
+path      = "/tmp/profiles.json"
+select    = "user"            # save only the "user" sub-object from each response
+```
+
+The CLI confirms each file written at the end of the report:
+
+```
+╚════════════════════╝
+  → output written: /tmp/cities.json
+  → output written: /tmp/profiles.json
+```
 
 ### Campaign output
 
@@ -1335,11 +1594,15 @@ Ready-to-run campaigns in `examples/` — no API key required:
 | `transform_demo.toml` | JSONPlaceholder | Transform steps: regex email parsing, uppercase, template composition, chained transforms |
 | `auth_flow.toml` | ReqRes | Login → token extraction → authenticated request (requires a free ReqRes API key) |
 | `bulk_invite.toml` | *(mock)* | CSV connector: one campaign iteration per CSV row |
+| `json_connector_demo.toml` | JSONPlaceholder | JSON file connector: iterate over `examples/users.json`, fetch posts for each user |
+| `seed_step_demo.toml` | API Géo (France) | Seed step + JSON connector + output connector: fetch a city list, iterate for details, write to `/tmp/communes_bordeaux.json` |
 
 ```bash
 terapi run examples/crud_demo.toml
 terapi run examples/debug_toolbox.toml
 terapi run examples/transform_demo.toml
+terapi run examples/json_connector_demo.toml
+terapi run examples/seed_step_demo.toml
 ```
 
 ### Silent mode (CI/cron)

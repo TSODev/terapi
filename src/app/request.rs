@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use tui_textarea::TextArea;
 
 use super::*;
-use super::http::{execute_http, serialize_body_json};
+use super::http::{execute_http, serialize_body_json, split_url_params};
 use crate::storage::{StoredAuth, StoredRequest};
 
 fn base64_encode(input: &str) -> String {
@@ -26,6 +26,16 @@ fn base64_encode(input: &str) -> String {
 }
 
 impl App {
+    /// If `request_url` contains a `?`, split it into base URL + URL Params list.
+    pub(super) fn parse_url_into_params(&mut self) {
+        if self.request_url.contains('?') {
+            let (base, params) = split_url_params(&self.request_url);
+            self.request_url = base;
+            self.request_url_params = params;
+            self.url_params_cursor = 0;
+        }
+    }
+
     pub fn has_unresolved_vars(&self) -> bool {
         let has = |s: &str| s.contains("{{");
         has(&self.request_url)

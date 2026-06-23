@@ -270,6 +270,7 @@ impl App {
                 if self.active_tab == Tab::Request
                     && self.request_focus == RequestFocus::Url =>
             {
+                self.parse_url_into_params();
                 self.request_focus = RequestFocus::Response;
                 self.status_message = "Tab: panels  e: edit URL  s: send  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into();
             }
@@ -304,6 +305,7 @@ impl App {
                 if self.active_tab == Tab::Request
                     && self.request_focus == RequestFocus::Url =>
             {
+                self.parse_url_into_params();
                 self.send_request();
             }
             KeyCode::Up

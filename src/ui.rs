@@ -2133,6 +2133,13 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
                         Span::styled(format!("{:<6}", method_str), Style::default().fg(method_color).add_modifier(Modifier::BOLD)),
                         Span::styled(step.name.clone(), Style::default().fg(Color::White)),
                     ]));
+                    for a in &step.assert {
+                        let label = crate::campaign::assertion_label(a);
+                        lines.push(Line::from(vec![
+                            Span::styled("          ? ", Style::default().fg(Color::Indexed(242))),
+                            Span::styled(label, Style::default().fg(Color::Indexed(238))),
+                        ]));
+                    }
                 }
                 lines.push(Line::from(""));
                 lines.push(Line::from(vec![
@@ -2157,10 +2164,11 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
             ];
             for sr in step_results.iter() {
                 lines.push(render_step_result_line(sr));
-                for msg in &sr.assertion_failures {
+                for (desc, ok) in &sr.assertion_results {
+                    let (sym, color) = if *ok { ("✓", Color::Green) } else { ("✗", Color::Red) };
                     lines.push(Line::from(vec![
-                        Span::styled("      ✗ ", Style::default().fg(Color::Red)),
-                        Span::styled(msg.clone(), Style::default().fg(Color::Red)),
+                        Span::styled(format!("      {} ", sym), Style::default().fg(color)),
+                        Span::styled(desc.clone(), Style::default().fg(color)),
                     ]));
                 }
             }
@@ -2218,10 +2226,11 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
                             Span::styled(format!("      ↳ {} = {}", var, v), Style::default().fg(Color::Indexed(242))),
                         ]));
                     }
-                    for msg in &sr.assertion_failures {
+                    for (desc, ok) in &sr.assertion_results {
+                        let (sym, color) = if *ok { ("✓", Color::Green) } else { ("✗", Color::Red) };
                         lines.push(Line::from(vec![
-                            Span::styled("      ✗ ", Style::default().fg(Color::Red)),
-                            Span::styled(msg.clone(), Style::default().fg(Color::Red)),
+                            Span::styled(format!("      {} ", sym), Style::default().fg(color)),
+                            Span::styled(desc.clone(), Style::default().fg(color)),
                         ]));
                     }
                 }

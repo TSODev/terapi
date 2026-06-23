@@ -121,7 +121,8 @@ pub struct StepResult {
     pub non_blocking: bool,
     pub error: Option<String>,
     pub extracted: HashMap<String, String>,
-    pub assertion_failures: Vec<String>,
+    /// All assertion results: (description, passed).
+    pub assertion_results: Vec<(String, bool)>,
 }
 
 #[derive(Debug, Clone)]
@@ -355,7 +356,7 @@ async fn run_steps_streaming(
                         non_blocking: effective_coe,
                         error: None,
                         extracted: produced,
-                        assertion_failures: vec![],
+                        assertion_results: vec![],
                     }
                 }
                 Err(e) => StepResult {
@@ -368,7 +369,7 @@ async fn run_steps_streaming(
                     non_blocking: effective_coe,
                     error: Some(e.to_string()),
                     extracted: HashMap::new(),
-                    assertion_failures: vec![],
+                    assertion_results: vec![],
                 },
             }
         } else {
@@ -379,7 +380,7 @@ async fn run_steps_streaming(
             match execute_step(client, step, &url, body.as_deref(), &effective).await {
                 Ok(http) => {
                     let duration_ms = t0.elapsed().as_millis() as u64;
-                    let assertion_failures = if step.assert.is_empty() {
+                    let assertion_results = if step.assert.is_empty() {
                         vec![]
                     } else {
                         evaluate_assertions(
@@ -389,13 +390,14 @@ async fn run_steps_streaming(
                         )
                     };
                     let http_ok   = http.status < 400;
-                    let assert_ok = assertion_failures.is_empty();
+                    let assert_ok = assertion_results.iter().all(|(_, ok)| *ok);
                     let success   = http_ok && assert_ok;
                     if success { extracted.extend(http.extracted.clone()); }
+                    let fail_count = assertion_results.iter().filter(|(_, ok)| !ok).count();
                     let error = if !http_ok {
                         Some(format!("HTTP {}", http.status))
                     } else if !assert_ok {
-                        Some(format!("{} assertion(s) failed", assertion_failures.len()))
+                        Some(format!("{} assertion(s) failed", fail_count))
                     } else {
                         None
                     };
@@ -409,7 +411,7 @@ async fn run_steps_streaming(
                         non_blocking: effective_coe,
                         error,
                         extracted: if success { http.extracted } else { HashMap::new() },
-                        assertion_failures,
+                        assertion_results,
                     }
                 }
                 Err(e) => StepResult {
@@ -422,7 +424,7 @@ async fn run_steps_streaming(
                     non_blocking: effective_coe,
                     error: Some(e.to_string()),
                     extracted: HashMap::new(),
-                    assertion_failures: vec![],
+                    assertion_results: vec![],
                 },
             }
         };
@@ -542,8 +544,12 @@ fn evaluate_assertions(
     resp_headers: &HashMap<String, String>,
     elapsed_ms: u64,
     env: &HashMap<String, String>,
-) -> Vec<String> {
-    let mut failures = Vec::new();
+) -> Vec<(String, bool)> {
+    let mut results: Vec<(String, bool)> = Vec::new();
+    macro_rules! push {
+        ($ok:expr, $desc:expr) => { results.push(($desc, $ok)) };
+    }
+
     for a in assertions {
         let target = resolve(&a.on, env);
         let actual: Option<Value> = if target == "status" {
@@ -565,81 +571,119 @@ fn evaluate_assertions(
 
         if let Some(ref expected) = a.eq {
             let exp = resolve_value(expected, env);
-            if !values_eq(&actual, &exp) {
-                failures.push(format!("{} == {}  (got {})", target, fmt_val(&exp), fmt_opt(&actual)));
+            if values_eq(&actual, &exp) {
+                push!(true,  format!("{} == {}", target, fmt_val(&exp)));
+            } else {
+                push!(false, format!("{} == {}  (got {})", target, fmt_val(&exp), fmt_opt(&actual)));
             }
         }
         if let Some(ref expected) = a.ne {
             let exp = resolve_value(expected, env);
             if values_eq(&actual, &exp) {
-                failures.push(format!("{} != {}  (got {})", target, fmt_val(&exp), fmt_opt(&actual)));
+                push!(false, format!("{} != {}  (got {})", target, fmt_val(&exp), fmt_opt(&actual)));
+            } else {
+                push!(true,  format!("{} != {}", target, fmt_val(&exp)));
             }
         }
         if let Some(t) = a.lt {
             match actual.as_ref().and_then(val_as_f64) {
-                Some(v) if v < t => {}
-                Some(v) => failures.push(format!("{} < {}  (got {})", target, t, v)),
-                None    => failures.push(format!("{} < {}  (got {})", target, t, fmt_opt(&actual))),
+                Some(v) if v < t => push!(true,  format!("{} < {}", target, t)),
+                Some(v)          => push!(false, format!("{} < {}  (got {})", target, t, v)),
+                None             => push!(false, format!("{} < {}  (got {})", target, t, fmt_opt(&actual))),
             }
         }
         if let Some(t) = a.lte {
             match actual.as_ref().and_then(val_as_f64) {
-                Some(v) if v <= t => {}
-                Some(v) => failures.push(format!("{} <= {}  (got {})", target, t, v)),
-                None    => failures.push(format!("{} <= {}  (got {})", target, t, fmt_opt(&actual))),
+                Some(v) if v <= t => push!(true,  format!("{} <= {}", target, t)),
+                Some(v)           => push!(false, format!("{} <= {}  (got {})", target, t, v)),
+                None              => push!(false, format!("{} <= {}  (got {})", target, t, fmt_opt(&actual))),
             }
         }
         if let Some(t) = a.gt {
             match actual.as_ref().and_then(val_as_f64) {
-                Some(v) if v > t => {}
-                Some(v) => failures.push(format!("{} > {}  (got {})", target, t, v)),
-                None    => failures.push(format!("{} > {}  (got {})", target, t, fmt_opt(&actual))),
+                Some(v) if v > t => push!(true,  format!("{} > {}", target, t)),
+                Some(v)          => push!(false, format!("{} > {}  (got {})", target, t, v)),
+                None             => push!(false, format!("{} > {}  (got {})", target, t, fmt_opt(&actual))),
             }
         }
         if let Some(t) = a.gte {
             match actual.as_ref().and_then(val_as_f64) {
-                Some(v) if v >= t => {}
-                Some(v) => failures.push(format!("{} >= {}  (got {})", target, t, v)),
-                None    => failures.push(format!("{} >= {}  (got {})", target, t, fmt_opt(&actual))),
+                Some(v) if v >= t => push!(true,  format!("{} >= {}", target, t)),
+                Some(v)           => push!(false, format!("{} >= {}  (got {})", target, t, v)),
+                None              => push!(false, format!("{} >= {}  (got {})", target, t, fmt_opt(&actual))),
             }
         }
         if !a.in_.is_empty() {
             let resolved: Vec<Value> = a.in_.iter().map(|v| resolve_value(v, env)).collect();
+            let opts = resolved.iter().map(fmt_val).collect::<Vec<_>>().join(", ");
             let found = actual.as_ref()
                 .map(|v| resolved.iter().any(|e| values_eq(&Some(v.clone()), e)))
                 .unwrap_or(false);
-            if !found {
-                let opts = resolved.iter().map(fmt_val).collect::<Vec<_>>().join(", ");
-                failures.push(format!("{} in [{}]  (got {})", target, opts, fmt_opt(&actual)));
+            if found {
+                push!(true,  format!("{} in [{}]", target, opts));
+            } else {
+                push!(false, format!("{} in [{}]  (got {})", target, opts, fmt_opt(&actual)));
             }
         }
         if let Some(expected_exists) = a.exists {
             let actually_exists = matches!(&actual, Some(v) if !v.is_null());
-            if actually_exists != expected_exists {
-                failures.push(format!("{} exists == {}  (got {})", target, expected_exists, actually_exists));
+            if actually_exists == expected_exists {
+                push!(true,  format!("{} exists = {}", target, expected_exists));
+            } else {
+                push!(false, format!("{} exists == {}  (got {})", target, expected_exists, actually_exists));
             }
         }
         if let Some(ref substr) = a.contains {
             let s = resolve(substr, env);
             match actual.as_ref() {
-                Some(Value::String(v)) if v.contains(s.as_str()) => {}
-                Some(Value::String(v)) => failures.push(format!("{} contains {:?}  (got {:?})", target, s, v)),
-                _ => failures.push(format!("{} contains {:?}  (not a string: {})", target, s, fmt_opt(&actual))),
+                Some(Value::String(v)) if v.contains(s.as_str()) => {
+                    push!(true,  format!("{} contains {:?}", target, s));
+                }
+                Some(Value::String(v)) => {
+                    push!(false, format!("{} contains {:?}  (got {:?})", target, s, v));
+                }
+                _ => {
+                    push!(false, format!("{} contains {:?}  (not a string: {})", target, s, fmt_opt(&actual)));
+                }
             }
         }
         if let Some(ref pattern) = a.matches {
             let p = resolve(pattern, env);
             match Regex::new(&p) {
-                Err(e) => failures.push(format!("{} matches {:?}  (invalid regex: {})", target, p, e)),
+                Err(e) => push!(false, format!("{} matches {:?}  (invalid regex: {})", target, p, e)),
                 Ok(re) => match actual.as_ref() {
-                    Some(Value::String(v)) if re.is_match(v) => {}
-                    Some(Value::String(v)) => failures.push(format!("{} matches {:?}  (got {:?})", target, p, v)),
-                    _ => failures.push(format!("{} matches {:?}  (not a string: {})", target, p, fmt_opt(&actual))),
+                    Some(Value::String(v)) if re.is_match(v) => {
+                        push!(true,  format!("{} matches {:?}", target, p));
+                    }
+                    Some(Value::String(v)) => {
+                        push!(false, format!("{} matches {:?}  (got {:?})", target, p, v));
+                    }
+                    _ => {
+                        push!(false, format!("{} matches {:?}  (not a string: {})", target, p, fmt_opt(&actual)));
+                    }
                 }
             }
         }
     }
-    failures
+    results
+}
+
+/// Compact label for an assertion — used in the TUI idle preview.
+pub fn assertion_label(a: &Assertion) -> String {
+    if let Some(ref v) = a.eq      { return format!("{} == {}", a.on, fmt_val(v)); }
+    if let Some(ref v) = a.ne      { return format!("{} != {}", a.on, fmt_val(v)); }
+    if let Some(v) = a.lt          { return format!("{} < {}", a.on, v); }
+    if let Some(v) = a.lte         { return format!("{} <= {}", a.on, v); }
+    if let Some(v) = a.gt          { return format!("{} > {}", a.on, v); }
+    if let Some(v) = a.gte         { return format!("{} >= {}", a.on, v); }
+    if !a.in_.is_empty() {
+        let opts = a.in_.iter().map(fmt_val).collect::<Vec<_>>().join(", ");
+        return format!("{} in [{}]", a.on, opts);
+    }
+    if let Some(v) = a.exists      { return format!("{} exists = {}", a.on, v); }
+    if let Some(ref v) = a.contains { return format!("{} contains {:?}", a.on, v); }
+    if let Some(ref v) = a.matches  { return format!("{} matches {:?}", a.on, v); }
+    a.on.clone()
 }
 
 // ── CLI report ────────────────────────────────────────────────────────────────
@@ -656,8 +700,10 @@ fn print_step_result(sr: &StepResult) {
     for (var, val) in &sr.extracted {
         println!("      ↳ {} = {}", var, truncate(val, 60));
     }
-    for msg in &sr.assertion_failures {
-        println!("      ✗ assert: {}", msg);
+    for (desc, ok) in &sr.assertion_results {
+        if !ok {
+            println!("      ✗ assert: {}", desc);
+        }
     }
 }
 
@@ -700,9 +746,11 @@ fn print_report(campaign: &Campaign, results: &[IterationResult]) {
                 println!("║    ✗ {} {} — {:<width$}║",
                     step.method, truncate(&step.url, 30), msg,
                     width = width.saturating_sub(10 + step.method.len() + 30.min(step.url.len())));
-                for af in &step.assertion_failures {
-                    let line = format!("      · {}", af);
-                    println!("║  {:<width$}║", truncate(&line, width - 2), width = width - 2);
+                for (desc, ok) in &step.assertion_results {
+                    if !ok {
+                        let line = format!("      · {}", desc);
+                        println!("║  {:<width$}║", truncate(&line, width - 2), width = width - 2);
+                    }
                 }
             }
         }

@@ -155,6 +155,17 @@ impl App {
                     HashMap::new()
                 },
             };
+            // Remove any existing entry with the same request signature before inserting.
+            self.history.retain(|e| {
+                if e.graphql != entry.graphql || e.method != entry.method || e.url != entry.url {
+                    return true;
+                }
+                if e.graphql {
+                    e.graphql_query != entry.graphql_query
+                } else {
+                    e.body != entry.body
+                }
+            });
             self.history.insert(0, entry);
             if self.history.len() > 100 {
                 self.history.truncate(100);

@@ -1131,6 +1131,24 @@ Campaign : Users API — smoke tests
 
 Exit code is `0` if all steps pass, `1` if any step fails.
 
+### Campaign examples
+
+Ready-to-run campaigns in `examples/` — no API key required:
+
+| File | API | What it demonstrates |
+|------|-----|----------------------|
+| `crud_demo.toml` | JSONPlaceholder | All HTTP methods (GET/POST/PUT/PATCH/DELETE) with assertions on status, body fields, and elapsed time |
+| `debug_toolbox.toml` | httpbin.io | Query param echo, header inspection, bearer auth check — assertions on nested body fields |
+| `transform_demo.toml` | JSONPlaceholder | Transform steps: regex email parsing, uppercase, template composition, chained transforms |
+| `auth_flow.toml` | ReqRes | Login → token extraction → authenticated request (requires a free ReqRes API key) |
+| `bulk_invite.toml` | *(mock)* | CSV connector: one campaign iteration per CSV row |
+
+```bash
+terapi run examples/crud_demo.toml
+terapi run examples/debug_toolbox.toml
+terapi run examples/transform_demo.toml
+```
+
 ### Silent mode (CI/cron)
 
 Suppress all output and return only the exit code:

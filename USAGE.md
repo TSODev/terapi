@@ -20,6 +20,9 @@
   - [Campaign TOML format](#campaign-toml-format)
   - [Variable substitution](#variable-substitution)
   - [Variable extraction](#variable-extraction)
+  - [Assertions](#assertions)
+  - [Continue on error](#continue-on-error)
+  - [Transform steps](#transform-steps)
   - [Data-driven campaigns (CSV)](#data-driven-campaigns-csv)
   - [Silent mode (CI/cron)](#silent-mode-cicron)
 
@@ -1096,6 +1099,74 @@ USER_ID = "user.id"
 ```
 
 Assertion failures also appear in the boxed report under the failed step.
+
+### Continue on error
+
+By default a failing step stops the pipeline immediately. Set `continue_on_error = true` to let the campaign run all steps regardless of individual failures.
+
+**Campaign-level default** — applies to every step that does not override it:
+
+```toml
+[campaign]
+name = "Full smoke suite"
+
+continue_on_error = true   # all steps are non-blocking by default
+```
+
+**Step-level override** — takes priority over the campaign default:
+
+```toml
+[campaign]
+name             = "Mixed suite"
+continue_on_error = true        # non-blocking by default
+
+[[steps]]
+name   = "Login (must succeed)"
+method = "POST"
+url    = "{{BASE_URL}}/auth/login"
+continue_on_error = false       # this step is blocking: failure stops everything
+
+[steps.extract]
+JWT = "token"
+
+[[steps]]
+name              = "Optional analytics check"
+method            = "GET"
+url               = "{{BASE_URL}}/analytics"
+continue_on_error = true        # redundant here (campaign default), shown for clarity
+assert            = [{ on = "status", eq = 200 }]
+
+[[steps]]
+name   = "List users (always runs)"
+method = "GET"
+url    = "{{BASE_URL}}/users"
+
+[steps.headers]
+Authorization = "Bearer {{JWT}}"
+```
+
+**Rules:**
+
+| Situation | Behaviour |
+|-----------|-----------|
+| Step succeeds | Variables extracted, next step runs |
+| Step fails + `continue_on_error = true` | Marked `✗`, variables **not** extracted, next step runs |
+| Step fails + `continue_on_error = false` | Marked `✗`, pipeline stops (default) |
+| Step-level value | Overrides campaign-level for that step |
+| Exit code | `1` if **any** step failed, even non-blocking ones |
+
+**CLI output:**
+
+```
+  ✓ Login (must succeed)   POST   201    210 ms
+  ✗ Optional analytics     GET    503     87 ms  HTTP 503  [continu]
+      ✗ assert: status == 200  (got 503)
+  ✓ List users (always runs) GET  200     91 ms
+```
+
+`[continu]` flags a non-blocking failure in the CLI output. In the TUI Campaigns panel the same step shows `[↷]` in grey.
+
+The boxed report still lists all failures — `continue_on_error` only controls flow, not visibility.
 
 ### Transform steps
 

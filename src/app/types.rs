@@ -504,6 +504,14 @@ pub enum ModalState {
         kind: AuthFieldKind,
         value: String,
     },
+    CampaignParams {
+        campaign_idx: usize,
+        // (name, description, current_value)
+        params: Vec<(String, String, String)>,
+        cursor: usize,
+        editing: bool,
+        input: String,
+    },
 }
 
 pub struct FlatNode {

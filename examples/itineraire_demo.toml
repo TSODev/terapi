@@ -16,14 +16,30 @@
 name        = "Itinéraire — Géoplateforme IGN"
 description = "Géocode deux villes puis calcule l'itinéraire entre elles"
 
+[[params]]
+name        = "DEPART"
+description = "Ville de départ"
+default     = "Paris"
+
+[[params]]
+name        = "ARRIVEE"
+description = "Ville d'arrivée"
+default     = "Lyon"
+
+[[params]]
+name        = "PROFILE"
+description = "car | pedestrian | cyclist"
+default     = "car"
+
+[[params]]
+name        = "OPTIMIZATION"
+description = "fastest | shortest"
+default     = "fastest"
+
 [env]
-DEPART       = "Paris"
-ARRIVEE      = "Lyon"
-PROFILE      = "car"        # car | pedestrian | cyclist
-OPTIMIZATION = "fastest"    # fastest | shortest
-RESOURCE     = "bdtopo-valhalla"
-GEOCODE_URL  = "https://data.geopf.fr/geocodage/search"
-NAV_URL      = "https://data.geopf.fr/navigation/itineraire"
+RESOURCE    = "bdtopo-valhalla"
+GEOCODE_URL = "https://data.geopf.fr/geocodage/search"
+NAV_URL     = "https://data.geopf.fr/navigation/itineraire"
 
 # ── Étape 1 : géocodage de la ville de départ ─────────────────────────────
 

@@ -957,7 +957,7 @@ impl App {
                 }
             }
             KeyCode::Char('r') if self.active_tab == Tab::Campaigns => {
-                self.run_selected_campaign();
+                self.open_campaign_params_or_run();
             }
             KeyCode::Esc if self.active_tab == Tab::Campaigns => {
                 self.campaign_run_state = crate::campaign::CampaignRunState::Idle;
@@ -1313,6 +1313,58 @@ impl App {
                 }
                 _ => { self.modal = Some(ModalState::EditAuthField { kind, value }); }
             },
+
+            Some(ModalState::CampaignParams { campaign_idx, mut params, mut cursor, mut editing, mut input }) => {
+                if editing {
+                    match key.code {
+                        KeyCode::Enter => {
+                            params[cursor].2 = input.clone();
+                            editing = false;
+                            input = String::new();
+                            self.modal = Some(ModalState::CampaignParams { campaign_idx, params, cursor, editing, input });
+                        }
+                        KeyCode::Esc => {
+                            editing = false;
+                            input = String::new();
+                            self.modal = Some(ModalState::CampaignParams { campaign_idx, params, cursor, editing, input });
+                        }
+                        KeyCode::Char(c) => {
+                            input.push(c);
+                            self.modal = Some(ModalState::CampaignParams { campaign_idx, params, cursor, editing, input });
+                        }
+                        KeyCode::Backspace => {
+                            input.pop();
+                            self.modal = Some(ModalState::CampaignParams { campaign_idx, params, cursor, editing, input });
+                        }
+                        _ => { self.modal = Some(ModalState::CampaignParams { campaign_idx, params, cursor, editing, input }); }
+                    }
+                } else {
+                    match key.code {
+                        KeyCode::Esc => {}
+                        KeyCode::Up => {
+                            if cursor > 0 { cursor -= 1; }
+                            self.modal = Some(ModalState::CampaignParams { campaign_idx, params, cursor, editing, input });
+                        }
+                        KeyCode::Down => {
+                            if cursor + 1 < params.len() { cursor += 1; }
+                            self.modal = Some(ModalState::CampaignParams { campaign_idx, params, cursor, editing, input });
+                        }
+                        KeyCode::Enter => {
+                            input = params[cursor].2.clone();
+                            editing = true;
+                            self.modal = Some(ModalState::CampaignParams { campaign_idx, params, cursor, editing, input });
+                        }
+                        KeyCode::Char('r') => {
+                            let overrides: std::collections::HashMap<String, String> = params.iter()
+                                .map(|(name, _, value)| (name.clone(), value.clone()))
+                                .collect();
+                            self.campaign_cursor = campaign_idx;
+                            self.run_selected_campaign(overrides);
+                        }
+                        _ => { self.modal = Some(ModalState::CampaignParams { campaign_idx, params, cursor, editing, input }); }
+                    }
+                }
+            }
 
             None => {}
         }

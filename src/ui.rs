@@ -1897,6 +1897,65 @@ fn render_modal(frame: &mut Frame, app: &App) {
             );
         }
 
+        Some(ModalState::CampaignParams { campaign_idx, params, cursor, editing, input }) => {
+            let height = (params.len() as u16 + 6).max(8);
+            let area = centered_rect(70, height, frame.area());
+            frame.render_widget(Clear, area);
+
+            let campaign_name = app.campaigns.get(*campaign_idx)
+                .map(|e| e.name.as_str())
+                .unwrap_or("Campaign");
+
+            let mut lines: Vec<Line> = vec![Line::from("")];
+            for (i, (name, description, value)) in params.iter().enumerate() {
+                let selected = i == *cursor;
+                let bg = if selected { Color::Indexed(236) } else { Color::Reset };
+                let display_value = if selected && *editing {
+                    format!("{}█", input)
+                } else {
+                    value.clone()
+                };
+                let name_style = Style::default().fg(Color::Cyan).bg(bg);
+                let value_style = if selected {
+                    Style::default().fg(Color::Yellow).bg(bg).add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(Color::White).bg(bg)
+                };
+                let desc_style = Style::default().fg(Color::Indexed(245)).bg(bg);
+
+                let mut spans = vec![
+                    Span::styled(format!("  {:<20}", name), name_style),
+                    Span::styled(format!(" {:<24}", display_value), value_style),
+                ];
+                if !description.is_empty() {
+                    spans.push(Span::styled(format!("  {}", description), desc_style));
+                }
+                lines.push(Line::from(spans));
+            }
+            lines.push(Line::from(""));
+            if *editing {
+                lines.push(Line::from(Span::styled(
+                    "  Enter: confirm   Esc: cancel edit",
+                    Style::default().fg(Color::Gray),
+                )));
+            } else {
+                lines.push(Line::from(Span::styled(
+                    "  Enter: edit value   r: run   Esc: cancel",
+                    Style::default().fg(Color::Gray),
+                )));
+            }
+
+            frame.render_widget(
+                Paragraph::new(lines).block(
+                    Block::default().borders(Borders::ALL)
+                        .title(format!(" Parameters — {} ", campaign_name))
+                        .title_alignment(Alignment::Center)
+                        .border_style(Style::default().fg(Color::Magenta)),
+                ),
+                area,
+            );
+        }
+
         None => {}
     }
 }

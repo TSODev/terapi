@@ -16,6 +16,8 @@ use crate::connector::{self, ConnectorConfig, Row, load_rows_from_json};
 pub struct Campaign {
     pub campaign: Meta,
     #[serde(default)]
+    pub params: Vec<CampaignParam>,
+    #[serde(default)]
     pub env: HashMap<String, String>,
     #[serde(default)]
     pub env_file: Option<String>,
@@ -27,6 +29,15 @@ pub struct Campaign {
     pub outputs: Vec<OutputConfig>,
     #[serde(default)]
     pub continue_on_error: bool,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct CampaignParam {
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub default: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -201,7 +212,7 @@ pub fn load(path: &str) -> Result<Campaign> {
 
 // ── streaming runner (core) ───────────────────────────────────────────────────
 
-pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<CampaignEvent>) {
+pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<CampaignEvent>, overrides: HashMap<String, String>) {
     let mut base_env: HashMap<String, String> = if let Some(ref name) = campaign.env_file {
         match crate::storage::load_env_by_name(name) {
             Ok(stored) => stored.vars,
@@ -216,6 +227,12 @@ pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<Campaig
         HashMap::new()
     };
     base_env.extend(campaign.env.clone());
+    for p in &campaign.params {
+        if let Some(ref default) = p.default {
+            base_env.entry(p.name.clone()).or_insert_with(|| default.clone());
+        }
+    }
+    base_env.extend(overrides);
 
     let client = match reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
@@ -364,12 +381,27 @@ pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<Campaig
 
 // ── CLI runner (consumes streaming events) ────────────────────────────────────
 
-pub async fn run(campaign: &Campaign, silent: bool) -> Result<()> {
+pub async fn run(campaign: &Campaign, silent: bool, overrides: HashMap<String, String>) -> Result<()> {
     macro_rules! out { ($($arg:tt)*) => { if !silent { println!($($arg)*); } } }
 
     out!("Campaign : {}", campaign.campaign.name);
     if !campaign.campaign.description.is_empty() {
         out!("           {}", campaign.campaign.description);
+    }
+    if !campaign.params.is_empty() {
+        out!("Params   :");
+        for p in &campaign.params {
+            let value = overrides.get(&p.name)
+                .or(p.default.as_ref())
+                .map(|s| s.as_str())
+                .unwrap_or("(not set)");
+            if p.description.is_empty() {
+                out!("  {} = {}", p.name, value);
+            } else {
+                out!("  {} = {}  ({})", p.name, value, p.description);
+            }
+        }
+        out!();
     }
     if let Some(ref name) = campaign.env_file {
         out!("Env file  : {}", name);
@@ -386,7 +418,7 @@ pub async fn run(campaign: &Campaign, silent: bool) -> Result<()> {
 
     let (tx, mut rx) = mpsc::unbounded_channel::<CampaignEvent>();
     let owned = campaign.clone();
-    tokio::spawn(async move { run_streaming(owned, tx).await; });
+    tokio::spawn(async move { run_streaming(owned, tx, overrides).await; });
 
     while let Some(event) = rx.recv().await {
         match event {

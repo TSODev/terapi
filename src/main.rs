@@ -41,6 +41,10 @@ enum Commands {
         /// Suppress all output — exit 0 on success, 1 on failure
         #[arg(long, short = 's')]
         silent: bool,
+
+        /// Override a campaign parameter: KEY=VALUE (repeatable)
+        #[arg(long, short = 'p', value_name = "KEY=VALUE")]
+        param: Vec<String>,
     },
 
     /// Import a collection or campaign TOML file into the terapi directory
@@ -56,9 +60,12 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Some(Commands::Run { file, silent }) => {
+        Some(Commands::Run { file, silent, param }) => {
             let camp = campaign::load(&file)?;
-            campaign::run(&camp, silent).await?;
+            let overrides: std::collections::HashMap<String, String> = param.iter()
+                .filter_map(|p| p.split_once('=').map(|(k, v)| (k.to_string(), v.to_string())))
+                .collect();
+            campaign::run(&camp, silent, overrides).await?;
         }
         Some(Commands::Import { file }) => {
             import_collection(&file)?;

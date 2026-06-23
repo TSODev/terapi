@@ -792,7 +792,7 @@ impl App {
             }
             KeyCode::Char('/') if self.active_tab == Tab::Request && self.response_view == ResponseView::Json => {
                 self.json_search = Some(String::new());
-                self.status_message = "Search: type to filter  n: next  N: prev  Esc: close".into();
+                self.status_message = "Search: type to filter  >: next  <: prev  Esc: close".into();
             }
 
             // ── Collections panel ──────────────────────────────────────────

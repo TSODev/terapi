@@ -1097,7 +1097,7 @@ fn render_response_json(frame: &mut Frame, app: &App, area: Rect) {
             Span::styled(search_term.to_string(), Style::default().fg(Color::White)),
             Span::styled("█", Style::default().fg(Color::Yellow)),
             Span::styled(count_text, Style::default().fg(count_color).add_modifier(Modifier::BOLD)),
-            Span::styled("  n: next  N: prev  Esc: close", Style::default().fg(Color::Indexed(244))),
+            Span::styled("  >: next  <: prev  Esc: close", Style::default().fg(Color::Indexed(244))),
         ]);
         frame.render_widget(
             Paragraph::new(bar).style(Style::default().bg(Color::Indexed(234))),

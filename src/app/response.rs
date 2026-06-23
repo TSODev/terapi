@@ -174,10 +174,10 @@ impl App {
                     s.pop();
                 }
             }
-            KeyCode::Char('n') => {
+            KeyCode::Char('>') => {
                 self.json_search_next();
             }
-            KeyCode::Char('N') => {
+            KeyCode::Char('<') => {
                 self.json_search_prev();
             }
             KeyCode::Char(c) => {

@@ -2,10 +2,55 @@ use std::collections::{HashMap, HashSet};
 
 use super::*;
 use super::http::http_status_label;
+use crate::campaign::{CampaignEvent, CampaignRunState};
 use crate::storage::HistoryEntry;
 
 impl App {
     pub fn tick(&mut self) {
+        // ── poll campaign events ───────────────────────────────────────────
+        while let Ok(event) = self.campaign_rx.try_recv() {
+            match event {
+                CampaignEvent::StepStarted { name, .. } => {
+                    if let CampaignRunState::Running { ref mut current_step, .. } = self.campaign_run_state {
+                        *current_step = Some(name);
+                    }
+                }
+                CampaignEvent::StepDone(result) => {
+                    if let CampaignRunState::Running { ref mut step_results, ref mut current_step, .. } = self.campaign_run_state {
+                        *current_step = None;
+                        step_results.push(result);
+                    }
+                }
+                CampaignEvent::Finished(results) => {
+                    let name = match &self.campaign_run_state {
+                        CampaignRunState::Running { name, .. } => name.clone(),
+                        _ => String::new(),
+                    };
+                    let ok: usize  = results.iter().map(|r| r.ok_count()).sum();
+                    let err: usize = results.iter().map(|r| r.fail_count()).sum();
+                    self.status_message = format!("Campaign done — {} ok  {} failed  Tab: switch panel  q: quit", ok, err);
+                    self.campaign_run_state = CampaignRunState::Done { name, results };
+                }
+                CampaignEvent::IterationStarted { idx, total, .. } => {
+                    self.status_message = format!("Running campaign — iteration {}/{}…", idx + 1, total);
+                }
+                CampaignEvent::Warning(msg) => {
+                    self.status_message = format!("Campaign warning: {}", msg);
+                }
+                CampaignEvent::Error(msg) => {
+                    let name = match &self.campaign_run_state {
+                        CampaignRunState::Running { name, .. } => name.clone(),
+                        _ => String::new(),
+                    };
+                    self.campaign_run_state = CampaignRunState::Done {
+                        name,
+                        results: vec![],
+                    };
+                    self.status_message = format!("Campaign error: {}", msg);
+                }
+            }
+        }
+
         if let Ok(outcome) = self.schema_rx.try_recv() {
             match outcome {
                 Ok(SchemaMsg::TypeList(types)) => {

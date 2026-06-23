@@ -188,21 +188,31 @@ pub enum Tab {
     Collections,
     Env,
     History,
+    Campaigns,
 }
 
 impl Tab {
     pub fn title(&self) -> &'static str {
         match self {
-            Tab::Request => "Request",
+            Tab::Request     => "Request",
             Tab::Collections => "Collections",
-            Tab::Env => "Env",
-            Tab::History => "History",
+            Tab::Env         => "Env",
+            Tab::History     => "History",
+            Tab::Campaigns   => "Campaigns",
         }
     }
 
     pub fn all() -> Vec<Tab> {
-        vec![Tab::Collections, Tab::Request, Tab::Env, Tab::History]
+        vec![Tab::Collections, Tab::Request, Tab::Env, Tab::History, Tab::Campaigns]
     }
+}
+
+// ── Campaign tab ──────────────────────────────────────────────────────────────
+
+pub struct CampaignEntry {
+    pub name: String,
+    pub path: String,
+    pub campaign: crate::campaign::Campaign,
 }
 
 #[derive(Debug, Clone, PartialEq)]

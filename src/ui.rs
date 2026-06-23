@@ -59,10 +59,11 @@ fn render_tabs(frame: &mut Frame, app: &App, area: Rect) {
 
 fn render_body(frame: &mut Frame, app: &App, area: Rect) {
     match app.active_tab {
-        Tab::Request => render_request_panel(frame, app, area),
+        Tab::Request     => render_request_panel(frame, app, area),
         Tab::Collections => render_collections_panel(frame, app, area),
-        Tab::Env => render_env_panel(frame, app, area),
-        Tab::History => render_history_panel(frame, app, area),
+        Tab::Env         => render_env_panel(frame, app, area),
+        Tab::History     => render_history_panel(frame, app, area),
+        Tab::Campaigns   => render_campaigns_panel(frame, app, area),
     }
 }
 
@@ -1935,7 +1936,15 @@ fn context_breadcrumb(app: &App) -> String {
             EnvFocus::Envs => "Env  ›  Environments".to_string(),
             EnvFocus::Vars => "Env  ›  Variables".to_string(),
         },
-        Tab::History => "History".to_string(),
+        Tab::History   => "History".to_string(),
+        Tab::Campaigns => {
+            let run_label = match &app.campaign_run_state {
+                crate::campaign::CampaignRunState::Idle    => String::new(),
+                crate::campaign::CampaignRunState::Running { name, .. } => format!("  ›  Running: {}", name),
+                crate::campaign::CampaignRunState::Done { name, .. }    => format!("  ›  Done: {}", name),
+            };
+            format!("Campaigns{}", run_label)
+        }
     }
 }
 
@@ -2038,4 +2047,219 @@ fn method_color(method: &str) -> Color {
         "GQL"    => Color::Magenta,
         _        => Color::White,
     }
+}
+
+// ── Campaigns panel ───────────────────────────────────────────────────────────
+
+fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
+    use crate::campaign::CampaignRunState;
+
+    if app.campaigns.is_empty() {
+        render_placeholder(
+            frame, area, "Campaigns",
+            "No campaigns found — place .toml files in <terapi_dir>/campaigns/",
+        );
+        return;
+    }
+
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(35), Constraint::Percentage(65)])
+        .split(area);
+
+    // ── Left: campaign list ───────────────────────────────────────────────────
+    let list_items: Vec<ListItem> = app.campaigns.iter().enumerate().map(|(i, entry)| {
+        let selected = i == app.campaign_cursor;
+        let bg = if selected { Color::Indexed(236) } else { Color::Reset };
+        let fg = if selected { Color::White } else { Color::Gray };
+        let steps = entry.campaign.steps.len();
+        let line = Line::from(vec![
+            Span::styled(
+                format!("  {}", entry.name),
+                Style::default().fg(fg).bg(bg).add_modifier(if selected { Modifier::BOLD } else { Modifier::empty() }),
+            ),
+            Span::styled(
+                format!("  ({} steps)", steps),
+                Style::default().fg(Color::Indexed(242)).bg(bg),
+            ),
+        ]);
+        ListItem::new(line)
+    }).collect();
+
+    let list = List::new(list_items)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(format!(" Campaigns ({}) ", app.campaigns.len()))
+                .border_style(Style::default().fg(Color::Cyan)),
+        );
+    frame.render_widget(list, chunks[0]);
+
+    // ── Right: run state ──────────────────────────────────────────────────────
+    match &app.campaign_run_state {
+        CampaignRunState::Idle => {
+            if let Some(entry) = app.campaigns.get(app.campaign_cursor) {
+                let c = &entry.campaign;
+                let mut lines: Vec<Line> = vec![
+                    Line::from(vec![
+                        Span::styled("  Name       ", Style::default().fg(Color::Indexed(242))),
+                        Span::styled(c.campaign.name.clone(), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                    ]),
+                ];
+                if !c.campaign.description.is_empty() {
+                    lines.push(Line::from(vec![
+                        Span::styled("  Description", Style::default().fg(Color::Indexed(242))),
+                        Span::styled(format!("  {}", c.campaign.description), Style::default().fg(Color::Gray)),
+                    ]));
+                }
+                if let Some(ref ef) = c.env_file {
+                    lines.push(Line::from(vec![
+                        Span::styled("  Env file   ", Style::default().fg(Color::Indexed(242))),
+                        Span::styled(format!("  {}", ef), Style::default().fg(Color::Gray)),
+                    ]));
+                }
+                lines.push(Line::from(""));
+                lines.push(Line::from(vec![
+                    Span::styled("  Steps", Style::default().fg(Color::Indexed(242))),
+                ]));
+                for step in &c.steps {
+                    let (method_str, method_color) = if step.kind == "transform" {
+                        ("TRSF".to_string(), Color::Magenta)
+                    } else {
+                        (step.method.clone(), method_color(&step.method))
+                    };
+                    lines.push(Line::from(vec![
+                        Span::styled("    ", Style::default()),
+                        Span::styled(format!("{:<6}", method_str), Style::default().fg(method_color).add_modifier(Modifier::BOLD)),
+                        Span::styled(step.name.clone(), Style::default().fg(Color::White)),
+                    ]));
+                }
+                lines.push(Line::from(""));
+                lines.push(Line::from(vec![
+                    Span::styled("  r", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                    Span::styled(" to run this campaign", Style::default().fg(Color::Indexed(242))),
+                ]));
+                let p = Paragraph::new(lines)
+                    .block(Block::default().borders(Borders::ALL)
+                        .title(format!(" {} ", entry.name))
+                        .border_style(Style::default().fg(Color::Indexed(242))));
+                frame.render_widget(p, chunks[1]);
+            }
+        }
+
+        CampaignRunState::Running { name, step_results, current_step } => {
+            let mut lines: Vec<Line> = vec![
+                Line::from(vec![
+                    Span::styled("  Running: ", Style::default().fg(Color::Indexed(242))),
+                    Span::styled(name.clone(), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                ]),
+                Line::from(""),
+            ];
+            for sr in step_results.iter() {
+                lines.push(render_step_result_line(sr));
+                for msg in &sr.assertion_failures {
+                    lines.push(Line::from(vec![
+                        Span::styled("      ✗ ", Style::default().fg(Color::Red)),
+                        Span::styled(msg.clone(), Style::default().fg(Color::Red)),
+                    ]));
+                }
+            }
+            if let Some(ref step) = current_step {
+                lines.push(Line::from(vec![
+                    Span::styled("  ⟳ ", Style::default().fg(Color::Yellow)),
+                    Span::styled(step.clone(), Style::default().fg(Color::Yellow)),
+                    Span::styled("…", Style::default().fg(Color::Indexed(242))),
+                ]));
+            }
+            let p = Paragraph::new(lines)
+                .block(Block::default().borders(Borders::ALL)
+                    .title(format!(" Running: {} ", name))
+                    .border_style(Style::default().fg(Color::Yellow)));
+            frame.render_widget(p, chunks[1]);
+        }
+
+        CampaignRunState::Done { name, results } => {
+            let total_steps: usize = results.iter().map(|r| r.steps.len()).sum();
+            let total_ok:    usize = results.iter().map(|r| r.ok_count()).sum();
+            let total_fail:  usize = results.iter().map(|r| r.fail_count()).sum();
+            let total_ms:    u64   = results.iter().map(|r| r.total_ms()).sum();
+            let verdict_color = if total_fail == 0 { Color::Green } else { Color::Red };
+            let verdict = if total_fail == 0 { "✓  ALL PASSED" } else { "✗  SOME STEPS FAILED" };
+
+            let mut lines: Vec<Line> = vec![
+                Line::from(vec![
+                    Span::styled(format!("  {}", verdict), Style::default().fg(verdict_color).add_modifier(Modifier::BOLD)),
+                ]),
+                Line::from(vec![
+                    Span::styled("  Steps: ", Style::default().fg(Color::Indexed(242))),
+                    Span::styled(format!("{} ok", total_ok), Style::default().fg(Color::Green)),
+                    Span::styled("  /  ", Style::default().fg(Color::Indexed(242))),
+                    Span::styled(format!("{} failed", total_fail), Style::default().fg(if total_fail > 0 { Color::Red } else { Color::Indexed(242) })),
+                    Span::styled(format!("  ({} total)  {}ms", total_steps, total_ms), Style::default().fg(Color::Indexed(242))),
+                ]),
+                Line::from(""),
+            ];
+
+            for iter in results {
+                if results.len() > 1 {
+                    let row_label = iter.row_vars.iter()
+                        .map(|(k, v)| format!("{}={}", k, if v.len() > 15 { &v[..15] } else { v }))
+                        .collect::<Vec<_>>().join("  ");
+                    lines.push(Line::from(vec![
+                        Span::styled(format!("  Row {} — ", iter.row_index.map_or(0, |i| i + 1)), Style::default().fg(Color::Indexed(242))),
+                        Span::styled(row_label, Style::default().fg(Color::White)),
+                    ]));
+                }
+                for sr in &iter.steps {
+                    lines.push(render_step_result_line(sr));
+                    for (var, val) in &sr.extracted {
+                        let v = if val.len() > 40 { format!("{}…", &val[..40]) } else { val.clone() };
+                        lines.push(Line::from(vec![
+                            Span::styled(format!("      ↳ {} = {}", var, v), Style::default().fg(Color::Indexed(242))),
+                        ]));
+                    }
+                    for msg in &sr.assertion_failures {
+                        lines.push(Line::from(vec![
+                            Span::styled("      ✗ ", Style::default().fg(Color::Red)),
+                            Span::styled(msg.clone(), Style::default().fg(Color::Red)),
+                        ]));
+                    }
+                }
+            }
+
+            lines.push(Line::from(""));
+            lines.push(Line::from(vec![
+                Span::styled("  Esc", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled(" to clear  r to re-run", Style::default().fg(Color::Indexed(242))),
+            ]));
+
+            let p = Paragraph::new(lines)
+                .block(Block::default().borders(Borders::ALL)
+                    .title(format!(" Done: {} ", name))
+                    .border_style(Style::default().fg(verdict_color)))
+                .wrap(Wrap { trim: false });
+            frame.render_widget(p, chunks[1]);
+        }
+    }
+}
+
+fn render_step_result_line(sr: &crate::campaign::StepResult) -> Line<'static> {
+    let (mark, mark_color) = if sr.success { ("✓", Color::Green) } else { ("✗", Color::Red) };
+    let status_str = sr.status
+        .map(|s| format!("{}", s))
+        .unwrap_or_else(|| if sr.error.is_some() { "ERR".into() } else { "-".into() });
+    let status_color = sr.status.map(|s| if s < 400 { Color::Green } else { Color::Red })
+        .unwrap_or(if sr.error.is_some() { Color::Red } else { Color::Indexed(242) });
+    let method_c = method_color(&sr.method);
+    let name = if sr.name.len() > 22 { format!("{}…", &sr.name[..21]) } else { sr.name.clone() };
+    let err = sr.error.as_deref().unwrap_or("").chars().take(30).collect::<String>();
+
+    Line::from(vec![
+        Span::styled(format!("  {} ", mark), Style::default().fg(mark_color)),
+        Span::styled(format!("{:<23}", name), Style::default().fg(Color::White)),
+        Span::styled(format!("{:<7}", sr.method), Style::default().fg(method_c).add_modifier(Modifier::BOLD)),
+        Span::styled(format!("{:<5}", status_str), Style::default().fg(status_color)),
+        Span::styled(format!("{:>6}ms  ", sr.duration_ms), Style::default().fg(Color::Indexed(242))),
+        Span::styled(err, Style::default().fg(Color::Red)),
+    ])
 }

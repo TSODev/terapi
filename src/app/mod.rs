@@ -6,6 +6,7 @@ use tui_textarea::TextArea;
 
 use crate::storage::{HistoryEntry, StoredCollection, StoredEnv, StoredRequest};
 
+mod campaigns_tab;
 mod collections;
 mod envs;
 mod http;
@@ -90,11 +91,17 @@ pub struct App {
     pub schema_state: SchemaState,
     pub schema_type_cursor: usize,
     pub schema_field_scroll: u16,
+    // Campaigns tab
+    pub campaigns: Vec<CampaignEntry>,
+    pub campaign_cursor: usize,
+    pub campaign_run_state: crate::campaign::CampaignRunState,
     // Async channels — receive results from spawned tasks
     pub(super) response_rx: mpsc::UnboundedReceiver<HttpOutcome>,
     pub(super) response_tx: mpsc::UnboundedSender<HttpOutcome>,
     pub(super) schema_rx: mpsc::UnboundedReceiver<SchemaOutcome>,
     pub(super) schema_tx: mpsc::UnboundedSender<SchemaOutcome>,
+    pub(super) campaign_rx: mpsc::UnboundedReceiver<crate::campaign::CampaignEvent>,
+    pub(super) campaign_tx: mpsc::UnboundedSender<crate::campaign::CampaignEvent>,
 }
 
 impl App {
@@ -109,8 +116,13 @@ impl App {
         }
         let environments = crate::storage::load_envs().unwrap_or_default();
         let history = crate::storage::load_history().unwrap_or_default();
+        let campaigns = crate::storage::load_campaigns()
+            .into_iter()
+            .map(|(name, path, campaign)| CampaignEntry { name, path, campaign })
+            .collect::<Vec<_>>();
         let (response_tx, response_rx) = mpsc::unbounded_channel();
         let (schema_tx, schema_rx) = mpsc::unbounded_channel();
+        let (campaign_tx, campaign_rx) = mpsc::unbounded_channel();
         Self {
             running: true,
             confirm_quit: false,
@@ -176,10 +188,15 @@ impl App {
             schema_state: SchemaState::Idle,
             schema_type_cursor: 0,
             schema_field_scroll: 0,
+            campaigns,
+            campaign_cursor: 0,
+            campaign_run_state: crate::campaign::CampaignRunState::Idle,
             response_rx,
             response_tx,
             schema_rx,
             schema_tx,
+            campaign_rx,
+            campaign_tx,
         }
     }
 
@@ -251,15 +268,17 @@ impl App {
             KeyCode::Tab => {
                 self.active_tab = match self.active_tab {
                     Tab::Collections => Tab::Request,
-                    Tab::Request => Tab::Env,
-                    Tab::Env => Tab::History,
-                    Tab::History => Tab::Collections,
+                    Tab::Request     => Tab::Env,
+                    Tab::Env         => Tab::History,
+                    Tab::History     => Tab::Campaigns,
+                    Tab::Campaigns   => Tab::Collections,
                 };
                 self.status_message = match self.active_tab {
-                    Tab::Request => "Tab: switch panel  ←/→: section  q: quit".into(),
+                    Tab::Request     => "Tab: switch panel  ←/→: section  q: quit".into(),
                     Tab::Collections => "Tab: switch panel  ↑/↓: navigate  Enter: expand/load  n: new  f: folder  a: add  e: edit  d: delete  q: quit".into(),
-                    Tab::Env => "Tab: switch panel  ←/→: switch focus  ↑/↓: navigate  Enter: activate  n: new env  a: add var  d: delete  q: quit".into(),
-                    Tab::History => "Tab: switch panel  ↑/↓: navigate  Enter: load  d: delete  q: quit".into(),
+                    Tab::Env         => "Tab: switch panel  ←/→: switch focus  ↑/↓: navigate  Enter: activate  n: new env  a: add var  d: delete  q: quit".into(),
+                    Tab::History     => "Tab: switch panel  ↑/↓: navigate  Enter: load  d: delete  q: quit".into(),
+                    Tab::Campaigns   => "Tab: switch panel  ↑/↓: navigate  r: run  Esc: clear  q: quit".into(),
                 };
             }
 
@@ -903,6 +922,22 @@ impl App {
             }
             KeyCode::Char('d') if self.active_tab == Tab::History => {
                 self.delete_history_entry(self.history_cursor);
+            }
+
+            // ── Campaigns panel ────────────────────────────────────────────
+            KeyCode::Up if self.active_tab == Tab::Campaigns => {
+                if self.campaign_cursor > 0 { self.campaign_cursor -= 1; }
+            }
+            KeyCode::Down if self.active_tab == Tab::Campaigns => {
+                if self.campaign_cursor + 1 < self.campaigns.len() {
+                    self.campaign_cursor += 1;
+                }
+            }
+            KeyCode::Char('r') if self.active_tab == Tab::Campaigns => {
+                self.run_selected_campaign();
+            }
+            KeyCode::Esc if self.active_tab == Tab::Campaigns => {
+                self.campaign_run_state = crate::campaign::CampaignRunState::Idle;
             }
 
             _ => {}

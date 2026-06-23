@@ -6,7 +6,7 @@ pub type Row = HashMap<String, String>;
 
 // ── TOML schema ───────────────────────────────────────────────────────────────
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ConnectorConfig {
     #[serde(rename = "type")]
     pub kind: String,

@@ -314,6 +314,30 @@ fn is_leap_year(year: u32) -> bool {
     (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
 
+// ── Campaigns ─────────────────────────────────────────────────────────────────
+
+/// Returns (display_name, full_path, Campaign) for every .toml in <terapi_dir>/campaigns/
+pub fn load_campaigns() -> Vec<(String, String, crate::campaign::Campaign)> {
+    let dir = resolve_terapi_dir().join("campaigns");
+    let Ok(entries) = std::fs::read_dir(&dir) else { return vec![]; };
+
+    let mut result = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("toml") { continue; }
+        let name = path.file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("unnamed")
+            .to_string();
+        let path_str = path.to_string_lossy().to_string();
+        if let Ok(campaign) = crate::campaign::load(&path_str) {
+            result.push((name, path_str, campaign));
+        }
+    }
+    result.sort_by(|a, b| a.0.cmp(&b.0));
+    result
+}
+
 // ── Shared ───────────────────────────────────────────────────────────────────
 
 pub fn sanitize_filename(name: &str) -> String {

@@ -73,6 +73,7 @@ cargo build --release
 terapi                        # launch TUI (empty)
 terapi --demo response.json   # launch TUI with a JSON file pre-loaded
 terapi run campaign.toml            # run a campaign headlessly
+terapi run campaign.toml -p KEY=VAL # override a [[params]] value
 terapi run campaign.toml --silent   # run silently — exit 0/1 only (CI/cron)
 terapi import file.toml             # import a collection or campaign TOML
 terapi --version
@@ -171,7 +172,7 @@ terapi --help
 |-----|--------|
 | `Tab` | Switch panel |
 | `↑` / `↓` | Navigate campaigns |
-| `r` | Run selected campaign (live progress in right panel) |
+| `r` | Run selected campaign — or open params modal if `[[params]]` defined |
 | `Esc` | Clear run result |
 | `q` `q` | Quit (press twice to confirm) |
 
@@ -324,17 +325,39 @@ method = "GET"
 url    = "{{BASE_URL}}/health"
 ```
 
-Variable priority (lowest → highest): `env_file` → `[env]` → connector row → step `env` → extracted vars.
+Variable priority (lowest → highest): `env_file` → `[env]` → `[[params]]` defaults → connector row → step `env` → extracted vars → runtime overrides.
+
+### Campaign parameters
+
+`[[params]]` declares user-facing inputs with a description and a default. Params can be overridden from the CLI (`-p KEY=VALUE`) or the TUI params modal — without touching the TOML:
+
+```toml
+[[params]]
+name        = "DEPART"
+description = "Ville de départ"
+default     = "Paris"
+
+[[params]]
+name        = "ARRIVEE"
+description = "Ville d'arrivée"
+default     = "Lyon"
+```
+
+```bash
+terapi run itineraire_demo.toml -p DEPART=Bordeaux -p ARRIVEE=Nantes
+```
+
+In the TUI, pressing `r` on a campaign with `[[params]]` opens an interactive form to fill in values before running.
 
 ### Campaign pipeline
 
-Data flows through four stages — each one is optional:
+Data flows through five stages — each one is optional:
 
 ```
-[env_file / env]  →  [[connectors]]  →  [[steps]]  →  [[outputs]]
-  base vars           rows (CSV /        HTTP /          write JSON
-                       JSON file /       transform /     to disk
-                       seed step)        assertions
+[[params]]  →  [env_file / env]  →  [[connectors]]  →  [[steps]]  →  [[outputs]]
+  user           base vars            rows (CSV /        HTTP /          write JSON
+  inputs                              JSON file /        transform /     to disk
+                                      seed step)         assertions
 ```
 
 **Input connectors** — run the campaign once per row:

@@ -7,6 +7,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **Campaign parameters** (`[[params]]`) — declare user-facing inputs in the campaign TOML with `name`, `description`, and `default`. Internal variables stay in `[env]`; params are intended to be overridden at run time.
+
+  ```toml
+  [[params]]
+  name        = "DEPART"
+  description = "Ville de départ"
+  default     = "Paris"
+
+  [[params]]
+  name        = "ARRIVEE"
+  description = "Ville d'arrivée"
+  default     = "Lyon"
+  ```
+
+  Variable priority: `env_file` → `[env]` → param defaults → runtime overrides (CLI or TUI).
+
+- **CLI param overrides** — `-p` / `--param KEY=VALUE` (repeatable) on `terapi run` overrides any param:
+
+  ```bash
+  terapi run itineraire_demo.toml -p DEPART=Bordeaux -p ARRIVEE=Nantes
+  ```
+
+  The CLI header now lists all params and their effective values before running.
+
+- **TUI params modal** — pressing `r` on a campaign with `[[params]]` opens a form modal instead of starting immediately. Values are pre-filled from the defaults. `↑`/`↓` navigates, `Enter` edits the selected value, `r` launches the campaign with the current values, `Esc` cancels without running.
+
+- **Itinerary campaign example** (`examples/itineraire_demo.toml`) — demonstrates the full params + pipeline flow: geocode two French cities via the IGN Géoplateforme API, compose coordinates with a transform step, then compute the road itinerary (distance + duration). No API key required. `DEPART`, `ARRIVEE`, `PROFILE`, and `OPTIMIZATION` are declared as `[[params]]` so each run can target different cities.
+
 ---
 
 ## [0.6.5] — 2026-06-23 — Connector pipeline & UX improvements

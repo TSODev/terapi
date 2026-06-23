@@ -19,16 +19,19 @@
 - [Campaign runner](#campaign-runner)
   - [Campaign TOML format](#campaign-toml-format)
   - [Campaign pipeline overview](#campaign-pipeline-overview)
+  - [Campaign parameters](#campaign-parameters)
   - [Variable substitution](#variable-substitution)
   - [Variable extraction](#variable-extraction)
   - [Assertions](#assertions)
   - [Continue on error](#continue-on-error)
+  - [Pause steps](#pause-steps)
   - [Transform steps](#transform-steps)
   - [Input connectors](#input-connectors)
     - [CSV connector](#csv-connector)
     - [JSON connector — from file](#json-connector--from-file)
     - [JSON connector — from seed step](#json-connector--from-seed-step)
   - [Output connectors](#output-connectors)
+  - [Campaign examples](#campaign-examples)
   - [Silent mode (CI/cron)](#silent-mode-cicron)
 
 ---
@@ -694,8 +697,29 @@ The **right panel** adapts to the run state:
 | Key | Action |
 |-----|--------|
 | `↑` / `↓` | Navigate campaign list |
-| `r` | Run the selected campaign |
+| `r` | Run the selected campaign (opens params modal if `[[params]]` defined) |
 | `Esc` | Clear run result (return to Idle) |
+
+**Campaign parameters modal** — if the selected campaign declares `[[params]]`, pressing `r` opens a form instead of running immediately. Each parameter is shown with its current value (pre-filled from `default`):
+
+```
+┌──────────── Parameters — Itinéraire — Géoplateforme IGN ────────────────┐
+│                                                                           │
+│  DEPART               Paris                   Ville de départ            │
+│▶ ARRIVEE              Lyon                    Ville d'arrivée            │
+│  PROFILE              car                     car | pedestrian | cyclist  │
+│  OPTIMIZATION         fastest                 fastest | shortest          │
+│                                                                           │
+│  Enter: edit value   r: run   Esc: cancel                                │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Navigate parameters |
+| `Enter` | Edit the selected value (type, `Enter` to confirm, `Esc` to cancel) |
+| `r` | Run the campaign with the current values |
+| `Esc` | Close modal without running |
 
 **Setting up campaigns:** place `.toml` files in `<terapi_dir>/campaigns/` (same priority resolution as collections). The quickest way is `terapi import`:
 
@@ -780,8 +804,12 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `Enter` | History panel | Load entry into Request tab |
 | `d` | History panel | Delete selected entry |
 | `↑` / `↓` | Campaigns panel | Navigate campaign list |
-| `r` | Campaigns panel | Run the selected campaign |
+| `r` | Campaigns panel | Run campaign (or open params modal if `[[params]]` defined) |
 | `Esc` | Campaigns panel | Clear run result |
+| `↑` / `↓` | Campaign params modal | Navigate parameters |
+| `Enter` | Campaign params modal | Edit selected value |
+| `r` | Campaign params modal | Run with current values |
+| `Esc` | Campaign params modal | Cancel (close without running) |
 | `g` | Request panel | Toggle GraphQL mode (REST ↔ GraphQL) |
 | `i` | GraphQL Query tab | Enter query editor |
 | `Ctrl+Space` | GraphQL Query editor | Open autocompletion popup |
@@ -1018,6 +1046,12 @@ Campaigns can be run in two ways:
 
 ```bash
 terapi run campaign.toml
+
+# Override declared [[params]] at run time
+terapi run campaign.toml -p DEPART=Bordeaux -p ARRIVEE=Nantes
+
+# Multiple -p flags are cumulative; unset params fall back to their default
+terapi run campaign.toml -p ENV=staging -p TIMEOUT=60
 ```
 
 ### Campaign TOML format
@@ -1119,9 +1153,66 @@ A campaign is a directed pipeline. Data flows from left to right — each stage'
 |----------|--------|
 | 1 | `env_file` — named terapi environment loaded from disk |
 | 2 | `[env]` — inline block in the campaign TOML |
-| 3 | Connector row — CSV columns or JSON object fields |
-| 4 | Step `env` — named environment applied to one step only |
-| 5 | `[steps.extract]` — values extracted from previous step responses |
+| 3 | `[[params]]` defaults — user-facing inputs, override `[env]` if key not already set |
+| 4 | Connector row — CSV columns or JSON object fields |
+| 5 | Step `env` — named environment applied to one step only |
+| 6 | `[steps.extract]` — values extracted from previous step responses |
+| 7 | Runtime overrides — `-p KEY=VALUE` (CLI) or params modal (TUI) — highest priority |
+
+---
+
+### Campaign parameters
+
+`[[params]]` declares user-facing inputs that can be overridden at run time — by `-p` on the CLI or the TUI params modal. Internal/technical variables belong in `[env]`.
+
+```toml
+[[params]]
+name        = "DEPART"
+description = "Ville de départ"   # shown in CLI header and TUI modal
+default     = "Paris"             # used when no override is provided
+
+[[params]]
+name        = "ARRIVEE"
+description = "Ville d'arrivée"
+default     = "Lyon"
+
+[[params]]
+name        = "PROFILE"
+description = "car | pedestrian | cyclist"
+default     = "car"
+
+[env]
+# Internal variables — not intended to be overridden
+RESOURCE    = "bdtopo-valhalla"
+GEOCODE_URL = "https://data.geopf.fr/geocodage/search"
+```
+
+**Fields:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | yes | Variable name, used as `{{NAME}}` in steps |
+| `description` | no | Human-readable hint shown in CLI output and TUI modal |
+| `default` | no | Value used when no override is provided; omit to make the param required |
+
+**CLI override:**
+
+```bash
+terapi run campaign.toml -p DEPART=Bordeaux -p ARRIVEE=Nantes -p PROFILE=pedestrian
+```
+
+Params not overridden fall back to their `default`. The CLI header always shows each param with its effective value:
+
+```
+Campaign : Itinéraire — Géoplateforme IGN
+Params   :
+  DEPART       = Bordeaux  (Ville de départ)
+  ARRIVEE      = Nantes    (Ville d'arrivée)
+  PROFILE      = car       (car | pedestrian | cyclist)
+  OPTIMIZATION = fastest   (fastest | shortest)
+```
+
+**TUI override:** pressing `r` on a campaign with `[[params]]` opens the params modal. Edit values interactively, then press `r` to run.
 
 ---
 
@@ -1617,6 +1708,7 @@ Ready-to-run campaigns in `examples/` — no API key required:
 | `bulk_invite.toml` | *(mock)* | CSV connector: one campaign iteration per CSV row |
 | `json_connector_demo.toml` | JSONPlaceholder | JSON file connector: iterate over `examples/users.json`, fetch posts for each user |
 | `seed_step_demo.toml` | API Géo (France) | Seed step + JSON connector + output connector: fetch a city list, iterate for details, write to `/tmp/communes_bordeaux.json` |
+| `itineraire_demo.toml` | IGN Géoplateforme | **`[[params]]` + full pipeline**: geocode two cities, compose coordinates, compute road itinerary — no API key required |
 
 ```bash
 terapi run examples/crud_demo.toml
@@ -1624,6 +1716,11 @@ terapi run examples/debug_toolbox.toml
 terapi run examples/transform_demo.toml
 terapi run examples/json_connector_demo.toml
 terapi run examples/seed_step_demo.toml
+
+# itineraire_demo uses [[params]] — run with defaults or override:
+terapi run examples/itineraire_demo.toml
+terapi run examples/itineraire_demo.toml -p DEPART=Bordeaux -p ARRIVEE=Nantes
+terapi run examples/itineraire_demo.toml -p DEPART=Marseille -p ARRIVEE=Strasbourg -p PROFILE=car
 ```
 
 ### Silent mode (CI/cron)

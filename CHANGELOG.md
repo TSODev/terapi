@@ -7,6 +7,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [0.6.5] — 2026-06-23 — Connector pipeline & UX improvements
+
 ### Added
 - **GraphQL query autocompletion** — `Ctrl+Space` in the query editor (insert mode) opens a magenta completion popup. If a type detail is loaded from the Schema tab, its fields are proposed (name + type). Otherwise, all OBJECT/INTERFACE/INPUT_OBJECT type names are listed. Typing filters in real time; `Enter` or `Tab` inserts the selection (replacing the prefix already typed); `Esc` closes.
 - **History — GraphQL entries** — History now records `graphql`, `graphql_query`, and `graphql_variables` for every request. GraphQL entries show a magenta `GQL` badge in the list instead of the HTTP method. Loading a GraphQL entry (`Enter`) activates GraphQL mode, restores the query and variables, and positions the Request tab on the Query sub-tab. REST entries behave as before. Existing `history.toml` files remain valid (`#[serde(default)]`).

@@ -39,6 +39,8 @@
 
 **terapi** aims to be all of the above in one tool:
 
+> **Full documentation** → [USAGE.md](https://github.com/TSODev/terapi/blob/main/USAGE.md)
+
 - **GraphQL native** — schema introspection, variable editing, collections save/load
 - **Pipeline automation** — chain requests, extract variables, run campaigns headlessly
 - **Local-first** — collections stored as TOML, git-friendly, no account, no cloud
@@ -324,20 +326,66 @@ url    = "{{BASE_URL}}/health"
 
 Variable priority (lowest → highest): `env_file` → `[env]` → connector row → step `env` → extracted vars.
 
-### Data-driven campaigns (CSV connector)
+### Campaign pipeline
+
+Data flows through four stages — each one is optional:
+
+```
+[env_file / env]  →  [[connectors]]  →  [[steps]]  →  [[outputs]]
+  base vars           rows (CSV /        HTTP /          write JSON
+                       JSON file /       transform /     to disk
+                       seed step)        assertions
+```
+
+**Input connectors** — run the campaign once per row:
 
 ```toml
+# CSV file — column names become {{variables}}
 [[connectors]]
 type = "csv"
-path = "contacts.csv"   # columns become {{variables}}
+path = "contacts.csv"
 
-# Campaign runs once per CSV row
+# JSON file — iterate over an array
+[[connectors]]
+type   = "json"
+path   = "users.json"
+select = "users"        # dot-path to the array (omit for root)
+
+# Seed step — use an HTTP response as the data source (no file needed)
+[[connectors]]
+type      = "json"
+from_step = "Fetch items"   # name of the seed step below
+select    = ""              # empty = root of the response
+
 [[steps]]
-name   = "Invite contact"
-method = "POST"
-url    = "{{BASE_URL}}/invitations"
-body   = '{"email": "{{contact_email}}", "name": "{{contact_name}}"}'
+name   = "Fetch items"
+kind   = "seed"             # runs once before the loop
+method = "GET"
+url    = "https://api.example.com/items"
 ```
+
+**Transform steps** — reshape variables between HTTP steps:
+
+```toml
+[[steps]]
+name = "Extract ID"
+kind = "transform"
+transforms = [
+  { type = "regex",    input = "{{LOCATION}}", pattern = "/items/(\\d+)", group = 1, output = "ITEM_ID" },
+  { type = "template", input = "{{FIRST}} {{LAST}}",                                 output = "FULL_NAME" },
+]
+```
+
+**Output connectors** — write step results to disk after all iterations:
+
+```toml
+[[outputs]]
+from_step = "Fetch items"           # step whose response body to collect
+path      = "/tmp/items.json"       # written as a JSON array, one element per iteration
+select    = "data"                  # optional: extract a sub-field before writing
+```
+
+Outputs can be chained — the file written by campaign A becomes the `path` of campaign B's JSON connector.
 
 ### Variable extraction
 
@@ -452,6 +500,15 @@ Press `g` again to return to REST mode (URL and headers are preserved).
 
 ---
 
+## Feedback & contributions
+
+Bug reports, feature requests, and questions are welcome:
+
+- **GitHub issues** — [github.com/TSODev/terapi/issues](https://github.com/TSODev/terapi/issues)
+- **Email** — [thierry.soulie@tsodev.fr](mailto:thierry.soulie@tsodev.fr)
+
+---
+
 ## License
 
-MIT — © [TSODev](https://github.com/tsodev)
+MIT — © [TSODev](https://github.com/TSODev)

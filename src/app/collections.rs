@@ -25,6 +25,7 @@ impl App {
                     StoredRequest::new("Create user", "POST", "https://api.example.com/users"),
                     StoredRequest::new("Delete user", "DELETE", "https://api.example.com/users/{id}"),
                 ],
+                path: String::new(),
             },
             StoredCollection {
                 collection: CollectionMeta { name: "GraphQL".into(), description: String::new() },
@@ -33,6 +34,7 @@ impl App {
                     StoredRequest::new("Introspection", "POST", "https://api.example.com/graphql"),
                     StoredRequest::new("Get users", "POST", "https://api.example.com/graphql"),
                 ],
+                path: String::new(),
             },
         ]
     }
@@ -180,6 +182,7 @@ impl App {
             collection: CollectionMeta { name, description: String::new() },
             folders: vec![],
             requests: vec![],
+            path: String::new(),
         };
         crate::storage::save_collection(&col)?;
         let ci = self.stored_collections.len();

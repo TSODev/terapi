@@ -81,6 +81,7 @@ pub struct App {
     pub json_search: Option<String>,
     pub key_col_width: u16,
     pub status_message: String,
+    pub pending_editor_open: Option<String>,
     // History
     pub history: Vec<HistoryEntry>,
     pub history_cursor: usize,
@@ -183,6 +184,7 @@ impl App {
             json_search: None,
             key_col_width: 22,
             status_message: "Tab: panels  e: edit URL  s: send  S: save  n: new  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into(),
+            pending_editor_open: None,
             history,
             history_cursor: 0,
             graphql_mode: false,
@@ -293,10 +295,10 @@ impl App {
                 };
                 match self.active_tab {
                     Tab::Request     => self.update_request_status_hint(),
-                    Tab::Collections => self.status_message = "Tab: switch panel  ↑/↓: navigate  Enter: expand/load  n: new  f: folder  a: add  e: edit  d: delete  q: quit".into(),
+                    Tab::Collections => self.status_message = "Tab: switch panel  ↑/↓: navigate  Enter: expand/load  n: new  f: folder  a: add  e: edit  E: open in editor  d: delete  q: quit".into(),
                     Tab::Env         => self.status_message = "Tab: switch panel  ←/→: switch focus  ↑/↓: navigate  Enter: activate  n: new env  a: add var  d: delete  q: quit".into(),
                     Tab::History     => self.status_message = "Tab: switch panel  ↑/↓: navigate  Enter: load  d: delete  q: quit".into(),
-                    Tab::Campaigns   => self.status_message = "Tab: switch panel  ↑/↓: navigate  r: run  Esc: clear  q: quit".into(),
+                    Tab::Campaigns   => self.status_message = "Tab: switch panel  ↑/↓: navigate  r: run  E: open in editor  Esc: clear  q: quit".into(),
                 };
             }
 
@@ -862,6 +864,22 @@ impl App {
             KeyCode::Char('d') if self.active_tab == Tab::Collections => {
                 self.open_delete_modal();
             }
+            KeyCode::Char('E') if self.active_tab == Tab::Collections => {
+                let flat = flatten_stored(&self.stored_collections, &self.expanded_nodes);
+                if let Some(node) = flat.get(self.collection_cursor) {
+                    let ci = match &node.address {
+                        NodeAddress::Collection(ci)          => *ci,
+                        NodeAddress::Folder(ci, _)           => *ci,
+                        NodeAddress::RootRequest(ci, _)      => *ci,
+                        NodeAddress::FolderRequest(ci, _, _) => *ci,
+                        _ => return Ok(()),
+                    };
+                    let path = self.stored_collections[ci].path.clone();
+                    if !path.is_empty() {
+                        self.pending_editor_open = Some(path);
+                    }
+                }
+            }
 
             // ── Env panel ──────────────────────────────────────────────────
             KeyCode::Left if self.active_tab == Tab::Env => {
@@ -961,6 +979,11 @@ impl App {
             }
             KeyCode::Esc if self.active_tab == Tab::Campaigns => {
                 self.campaign_run_state = crate::campaign::CampaignRunState::Idle;
+            }
+            KeyCode::Char('E') if self.active_tab == Tab::Campaigns => {
+                if let Some(entry) = self.campaigns.get(self.campaign_cursor) {
+                    self.pending_editor_open = Some(entry.path.clone());
+                }
             }
 
             _ => {}

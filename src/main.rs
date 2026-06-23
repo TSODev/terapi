@@ -170,6 +170,25 @@ async fn run_tui(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, json: Op
             Event::Key(key) => app.handle_key(key)?,
             Event::Tick => app.tick(),
         }
+
+        if let Some(path) = app.pending_editor_open.take() {
+            let editor = std::env::var("EDITOR")
+                .or_else(|_| std::env::var("VISUAL"))
+                .unwrap_or_else(|_| "vi".to_string());
+            disable_raw_mode()?;
+            execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+            let _ = std::process::Command::new(&editor).arg(&path).status();
+            enable_raw_mode()?;
+            execute!(terminal.backend_mut(), EnterAlternateScreen)?;
+            terminal.clear()?;
+            // Reload collections and campaigns from disk
+            app.stored_collections = crate::storage::load_collections().unwrap_or_default();
+            let campaigns_data = crate::storage::load_campaigns();
+            app.campaigns = campaigns_data.into_iter()
+                .map(|(name, path, campaign)| crate::app::CampaignEntry { name, path, campaign })
+                .collect();
+            app.status_message = format!("Reloaded after editing in {}", editor);
+        }
     }
 
     Ok(())

@@ -10,6 +10,8 @@ pub struct StoredCollection {
     pub folders: Vec<StoredFolder>,
     #[serde(default)]
     pub requests: Vec<StoredRequest>,
+    #[serde(skip)]
+    pub path: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -131,8 +133,10 @@ pub fn load_collections() -> Result<Vec<StoredCollection>> {
 
     let mut collections = Vec::new();
     for entry in entries {
-        let content = std::fs::read_to_string(entry.path())?;
-        let stored: StoredCollection = toml::from_str(&content)?;
+        let path = entry.path();
+        let content = std::fs::read_to_string(&path)?;
+        let mut stored: StoredCollection = toml::from_str(&content)?;
+        stored.path = path.to_string_lossy().to_string();
         collections.push(stored);
     }
 

@@ -93,12 +93,16 @@ pub struct GqlArg {
 
 pub struct GqlField {
     pub name: String,
-    pub description: Option<String>,
     pub type_str: String,
     pub args: Vec<GqlArg>,
 }
 
-pub struct GqlType {
+pub struct GqlTypeSummary {
+    pub name: String,
+    pub kind: String,
+}
+
+pub struct GqlTypeDetail {
     pub name: String,
     pub kind: String,
     pub description: Option<String>,
@@ -107,14 +111,29 @@ pub struct GqlType {
     pub enum_values: Vec<String>,
 }
 
-pub enum SchemaState {
-    Idle,
+pub enum SchemaDetail {
+    None,
     Loading,
-    Loaded(Vec<GqlType>),
+    Loaded(GqlTypeDetail),
     Error(String),
 }
 
-pub type SchemaOutcome = Result<Vec<GqlType>, String>;
+pub enum SchemaState {
+    Idle,
+    LoadingList,
+    Ready {
+        types: Vec<GqlTypeSummary>,
+        detail: SchemaDetail,
+    },
+    Error(String),
+}
+
+pub enum SchemaMsg {
+    TypeList(Vec<GqlTypeSummary>),
+    TypeDetail(GqlTypeDetail),
+}
+
+pub type SchemaOutcome = Result<SchemaMsg, String>;
 
 // ── GraphQL ───────────────────────────────────────────────────────────────────
 

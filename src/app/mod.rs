@@ -462,6 +462,18 @@ impl App {
             {
                 self.fetch_schema();
             }
+            KeyCode::Enter
+                if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Schema =>
+            {
+                if let SchemaState::Ready { ref types, .. } = self.schema_state {
+                    if let Some(t) = types.get(self.schema_type_cursor) {
+                        let name = t.name.clone();
+                        self.fetch_type_detail(name);
+                    }
+                }
+            }
             KeyCode::Up
                 if self.active_tab == Tab::Request
                     && self.graphql_mode
@@ -470,6 +482,9 @@ impl App {
                 if self.schema_type_cursor > 0 {
                     self.schema_type_cursor -= 1;
                     self.schema_field_scroll = 0;
+                    if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {
+                        *detail = SchemaDetail::None;
+                    }
                 }
             }
             KeyCode::Down
@@ -477,7 +492,7 @@ impl App {
                     && self.graphql_mode
                     && self.active_graphql_tab == GraphqlTab::Schema =>
             {
-                let len = if let SchemaState::Loaded(ref types) = self.schema_state {
+                let len = if let SchemaState::Ready { ref types, .. } = self.schema_state {
                     types.len()
                 } else {
                     0
@@ -485,6 +500,9 @@ impl App {
                 if self.schema_type_cursor + 1 < len {
                     self.schema_type_cursor += 1;
                     self.schema_field_scroll = 0;
+                    if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {
+                        *detail = SchemaDetail::None;
+                    }
                 }
             }
 

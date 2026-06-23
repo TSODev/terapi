@@ -8,13 +8,31 @@ impl App {
     pub fn tick(&mut self) {
         if let Ok(outcome) = self.schema_rx.try_recv() {
             match outcome {
-                Ok(types) => {
+                Ok(SchemaMsg::TypeList(types)) => {
                     self.schema_type_cursor = 0;
                     self.schema_field_scroll = 0;
-                    self.schema_state = SchemaState::Loaded(types);
+                    self.schema_state = SchemaState::Ready {
+                        types,
+                        detail: SchemaDetail::None,
+                    };
+                }
+                Ok(SchemaMsg::TypeDetail(detail)) => {
+                    if let SchemaState::Ready { detail: ref mut d, .. } = self.schema_state {
+                        *d = SchemaDetail::Loaded(detail);
+                    }
                 }
                 Err(msg) => {
-                    self.schema_state = SchemaState::Error(msg);
+                    match self.schema_state {
+                        SchemaState::LoadingList => {
+                            self.schema_state = SchemaState::Error(msg);
+                        }
+                        SchemaState::Ready { detail: ref mut d, .. } => {
+                            *d = SchemaDetail::Error(msg);
+                        }
+                        _ => {
+                            self.schema_state = SchemaState::Error(msg);
+                        }
+                    }
                 }
             }
         }

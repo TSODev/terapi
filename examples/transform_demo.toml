@@ -1,0 +1,67 @@
+[campaign]
+name        = "JSONPlaceholder — Transform Demo"
+description = "Fetch a user, reshape the data with transform steps, then use the results downstream."
+
+[env]
+BASE_URL = "https://jsonplaceholder.typicode.com"
+USER_ID  = "1"
+
+# ── Step 1: fetch the user ────────────────────────────────────────────────────
+
+[[steps]]
+name   = "Fetch user"
+method = "GET"
+url    = "{{BASE_URL}}/users/{{USER_ID}}"
+assert = [
+  { on = "status",     eq     = 200  },
+  { on = "body.email", exists = true },
+  { on = "body.name",  exists = true },
+]
+
+[steps.extract]
+USER_EMAIL = "email"    # e.g. "Sincere@april.biz"
+USER_NAME  = "name"     # e.g. "Leanne Graham"
+USER_SITE  = "website"  # e.g. "hildegard.org"
+
+# ── Step 2: transform the data ────────────────────────────────────────────────
+# No HTTP request — reshapes the variables extracted above.
+# Each transform sees the outputs of previous transforms in this step.
+
+[[steps]]
+name = "Reshape user data"
+kind = "transform"
+transforms = [
+  # Extract the username part of the email (before @)
+  { type = "regex",    input = "{{USER_EMAIL}}", pattern = "^([^@]+)@", group = 1, output = "EMAIL_USER"   },
+  # Extract the email domain (after @)
+  { type = "regex",    input = "{{USER_EMAIL}}", pattern = "@(.+)$",    group = 1, output = "EMAIL_DOMAIN" },
+  # Uppercase the full name
+  { type = "upper",    input = "{{USER_NAME}}",                                    output = "NAME_UPPER"   },
+  # Compose a display label reusing the EMAIL_USER produced just above
+  { type = "template", input = "{{NAME_UPPER}} ({{EMAIL_USER}})",                  output = "DISPLAY"      },
+  # Trim in case the website has trailing spaces
+  { type = "trim",     input = "{{USER_SITE}}",                                    output = "SITE_CLEAN"   },
+]
+
+# ── Step 3: use the transformed values ───────────────────────────────────────
+
+[[steps]]
+name   = "Fetch posts by user"
+method = "GET"
+url    = "{{BASE_URL}}/posts?userId={{USER_ID}}"
+assert = [
+  { on = "status",        eq     = 200  },
+  { on = "body.0.userId", eq     = 1    },
+  { on = "body.0.title",  exists = true },
+]
+
+[steps.extract]
+FIRST_POST_TITLE = "0.title"
+
+[[steps]]
+name = "Build post summary"
+kind = "transform"
+transforms = [
+  { type = "lower",    input = "{{FIRST_POST_TITLE}}",                         output = "TITLE_LOWER"   },
+  { type = "template", input = "Author: {{DISPLAY}} — Post: {{TITLE_LOWER}}", output = "SUMMARY"       },
+]

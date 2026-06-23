@@ -1,6 +1,6 @@
 [campaign]
 name        = "httpbin — Debug Toolbox"
-description = "Edge cases: status codes, headers inspection, timeout, bearer auth. Uses httpbin.io (official hosted instance)."
+description = "Edge cases: status codes, headers inspection, bearer auth. Uses httpbin.io (official hosted instance)."
 
 [env]
 BASE_URL = "https://httpbin.io"
@@ -9,13 +9,24 @@ TOKEN    = "my-test-token"
 [[steps]]
 name   = "Echo GET params"
 method = "GET"
-url    = "{{BASE_URL}}/get?tool=terapi&version=0.2"
+url    = "{{BASE_URL}}/get?tool=terapi&version=0.5"
+assert = [
+  { on = "status",               eq       = 200      },
+  { on = "body.args.tool.0",     eq       = "terapi" },
+  { on = "body.url",             contains = "terapi" },
+  { on = "elapsed_ms",           lt       = 2000     },
+]
 
 [[steps]]
 name   = "Echo POST body"
 method = "POST"
 url    = "{{BASE_URL}}/post"
 body   = '{"tool": "terapi", "action": "test"}'
+assert = [
+  { on = "status",           eq = 200      },
+  { on = "body.json.tool",   eq = "terapi" },
+  { on = "body.json.action", eq = "test"   },
+]
 
 [steps.headers]
 Content-Type = "application/json"
@@ -24,15 +35,24 @@ Content-Type = "application/json"
 name   = "Inspect sent headers"
 method = "GET"
 url    = "{{BASE_URL}}/headers"
+assert = [
+  { on = "status",                          eq       = 200     },
+  { on = "body.headers.X-Terapi-Version.0",  eq       = "0.5"  },
+]
 
 [steps.headers]
-X-Terapi-Version = "0.2"
+X-Terapi-Version = "0.5"
 X-Custom-Header  = "hello"
 
 [[steps]]
 name   = "Bearer auth echo"
 method = "GET"
 url    = "{{BASE_URL}}/bearer"
+assert = [
+  { on = "status",               eq = 200             },
+  { on = "body.authenticated",   eq = true            },
+  { on = "body.token",           eq = "{{TOKEN}}"     },
+]
 
 [steps.headers]
 Authorization = "Bearer {{TOKEN}}"
@@ -44,6 +64,9 @@ AUTHENTICATED = "authenticated"
 name   = "Force 200 OK"
 method = "GET"
 url    = "{{BASE_URL}}/status/200"
+assert = [
+  { on = "status", eq = 200 },
+]
 
 # ── The steps below intentionally fail — uncomment to test failure handling ───
 
@@ -51,13 +74,9 @@ url    = "{{BASE_URL}}/status/200"
 # name   = "Force 401 Unauthorized"
 # method = "GET"
 # url    = "{{BASE_URL}}/status/401"
+# assert = [{ on = "status", eq = 200 }]   # will fail
 
 # [[steps]]
 # name   = "Force 500 Internal Server Error"
 # method = "GET"
 # url    = "{{BASE_URL}}/status/500"
-
-# [[steps]]
-# name   = "Delay 3s (timeout simulation)"
-# method = "GET"
-# url    = "{{BASE_URL}}/delay/3"

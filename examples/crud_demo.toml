@@ -1,27 +1,39 @@
 [campaign]
 name        = "JSONPlaceholder — CRUD Demo"
-description = "Demonstrates all HTTP methods. Note: JSONPlaceholder simulates mutations (POST always returns id=101 but doesn't persist), so GET/PUT/DELETE use a real existing id."
+description = "Demonstrates all HTTP methods with assertions. JSONPlaceholder simulates mutations (POST always returns id=101, not persisted), so GET/PUT/DELETE use a real existing id."
 
 [env]
 BASE_URL = "https://jsonplaceholder.typicode.com"
 POST_ID  = "1"
 
 [[steps]]
-name   = "Create post (POST — simulated)"
+name   = "Create post"
 method = "POST"
 url    = "{{BASE_URL}}/posts"
 body   = '{"title": "terapi test", "body": "Created by terapi campaign runner", "userId": 1}'
+assert = [
+  { on = "status",      eq     = 201            },
+  { on = "body.id",     exists = true            },
+  { on = "body.title",  eq     = "terapi test"  },
+]
 
 [steps.headers]
 Content-Type = "application/json"
 
 [steps.extract]
-CREATED_ID = "id"   # always 101 on JSONPlaceholder (not persisted)
+CREATED_ID = "id"   # always 101 on JSONPlaceholder (simulated)
 
 [[steps]]
 name   = "Get post"
 method = "GET"
 url    = "{{BASE_URL}}/posts/{{POST_ID}}"
+assert = [
+  { on = "status",      eq     = 200  },
+  { on = "body.id",     eq     = 1    },
+  { on = "body.title",  exists = true },
+  { on = "body.userId", gt     = 0    },
+  { on = "elapsed_ms",  lt     = 2000 },
+]
 
 [steps.extract]
 POST_TITLE = "title"
@@ -31,12 +43,21 @@ POST_USER  = "userId"
 name   = "Get comments on post"
 method = "GET"
 url    = "{{BASE_URL}}/posts/{{POST_ID}}/comments"
+assert = [
+  { on = "status",          eq     = 200              },
+  { on = "body.0.email",    exists = true              },
+  { on = "body.0.postId",   eq     = 1                },
+]
 
 [[steps]]
 name   = "Update post (PUT)"
 method = "PUT"
 url    = "{{BASE_URL}}/posts/{{POST_ID}}"
 body   = '{"id": 1, "title": "updated by terapi", "body": "Updated!", "userId": 1}'
+assert = [
+  { on = "status",     eq = 200              },
+  { on = "body.title", eq = "updated by terapi" },
+]
 
 [steps.headers]
 Content-Type = "application/json"
@@ -46,6 +67,10 @@ name   = "Patch post title (PATCH)"
 method = "PATCH"
 url    = "{{BASE_URL}}/posts/{{POST_ID}}"
 body   = '{"title": "patched title"}'
+assert = [
+  { on = "status",     eq = 200           },
+  { on = "body.title", eq = "patched title" },
+]
 
 [steps.headers]
 Content-Type = "application/json"
@@ -54,3 +79,6 @@ Content-Type = "application/json"
 name   = "Delete post"
 method = "DELETE"
 url    = "{{BASE_URL}}/posts/{{POST_ID}}"
+assert = [
+  { on = "status", eq = 200 },
+]

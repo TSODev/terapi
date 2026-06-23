@@ -92,13 +92,13 @@ fn render_request_panel(frame: &mut Frame, app: &App, area: Rect) {
     let url_text = Line::from(vec![
         Span::raw(" "),
         if editing && !app.graphql_mode {
-            Span::styled("◀ ", Style::default().fg(Color::DarkGray))
+            Span::styled("◀ ", Style::default().fg(Color::Indexed(242)))
         } else {
             Span::raw("  ")
         },
         Span::styled(method_label, Style::default().fg(method_col).add_modifier(Modifier::BOLD)),
         if editing && !app.graphql_mode {
-            Span::styled(" ▶  ", Style::default().fg(Color::DarkGray))
+            Span::styled(" ▶  ", Style::default().fg(Color::Indexed(242)))
         } else {
             Span::raw("  ")
         },
@@ -547,7 +547,7 @@ fn render_options_editor(frame: &mut Frame, app: &App, area: Rect) {
         let cursor_style = if selected {
             Style::default().fg(Color::Cyan)
         } else {
-            Style::default().fg(Color::DarkGray)
+            Style::default().fg(Color::Indexed(242))
         };
         Line::from(vec![
             Span::styled(cursor_marker.to_string(), cursor_style),
@@ -559,7 +559,7 @@ fn render_options_editor(frame: &mut Frame, app: &App, area: Rect) {
 
     // Timeout row (numeric, cycles through presets)
     let timeout_selected = cursor == 2;
-    let timeout_cursor_style = if timeout_selected { Style::default().fg(Color::Cyan) } else { Style::default().fg(Color::DarkGray) };
+    let timeout_cursor_style = if timeout_selected { Style::default().fg(Color::Cyan) } else { Style::default().fg(Color::Indexed(242)) };
     let timeout_label_style = if timeout_selected {
         Style::default().fg(Color::White).add_modifier(Modifier::BOLD)
     } else {
@@ -753,7 +753,7 @@ fn render_url_params_editor(frame: &mut Frame, app: &App, area: Rect) {
         app.request_url_params.iter().enumerate().map(|(i, (k, v))| {
             let line = Line::from(vec![
                 Span::styled(format!("  {:<28}", k), Style::default().fg(Color::Cyan)),
-                Span::styled("= ", Style::default().fg(Color::DarkGray)),
+                Span::styled("= ", Style::default().fg(Color::Indexed(242))),
                 Span::styled(v.clone(), Style::default().fg(Color::Yellow)),
             ]);
             let style = if i == app.url_params_cursor {
@@ -864,7 +864,7 @@ fn render_body_json(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn json_value_color(v: &str) -> Color {
-    if v == "null" { Color::DarkGray }
+    if v == "null" { Color::Indexed(242) }
     else if v == "true" || v == "false" { Color::Magenta }
     else if v.parse::<f64>().is_ok() { Color::Yellow }
     else { Color::Green }
@@ -880,7 +880,7 @@ fn render_headers_editor(frame: &mut Frame, app: &App, area: Rect) {
         app.request_headers.iter().enumerate().map(|(i, (k, v))| {
             let line = Line::from(vec![
                 Span::styled(format!("  {:<28}", k), Style::default().fg(Color::Cyan)),
-                Span::styled(": ", Style::default().fg(Color::DarkGray)),
+                Span::styled(": ", Style::default().fg(Color::Indexed(242))),
                 Span::styled(v.clone(), Style::default().fg(Color::White)),
             ]);
             let style = if i == app.header_cursor {
@@ -923,7 +923,7 @@ fn render_response(frame: &mut Frame, app: &App, area: Rect) {
                 Style::default().fg(Color::Indexed(244))
             }
         };
-        let sep = Span::styled(" · ", Style::default().fg(Color::DarkGray));
+        let sep = Span::styled(" · ", Style::default().fg(Color::Indexed(242)));
         let mut spans = vec![
             Span::raw(" "),
             Span::styled("JSON", style_for(&ResponseView::Json)),
@@ -939,7 +939,7 @@ fn render_response(frame: &mut Frame, app: &App, area: Rect) {
                 400..=499 => Color::Yellow,
                 _         => Color::Red,
             };
-            spans.push(Span::styled("  ·  ", Style::default().fg(Color::DarkGray)));
+            spans.push(Span::styled("  ·  ", Style::default().fg(Color::Indexed(242))));
             spans.push(Span::styled(
                 format!("{}", status),
                 Style::default().fg(status_color).add_modifier(Modifier::BOLD),
@@ -997,14 +997,14 @@ fn render_response_json(frame: &mut Frame, app: &App, area: Rect) {
             ValueType::Str     => (Color::Green,   "String "),
             ValueType::Number  => (Color::Yellow,  "Number "),
             ValueType::Boolean => (Color::Magenta, "Boolean"),
-            ValueType::Null    => (Color::DarkGray,"Null   "),
+            ValueType::Null    => (Color::Indexed(242),"Null   "),
         };
         let value_color = match r.value_type {
             ValueType::Object | ValueType::Array => Color::White,
             ValueType::Str     => Color::Green,
             ValueType::Number  => Color::Yellow,
             ValueType::Boolean => Color::Magenta,
-            ValueType::Null    => Color::DarkGray,
+            ValueType::Null    => Color::Indexed(242),
         };
         Row::new(vec![
             key_cell,
@@ -1306,7 +1306,7 @@ fn render_env_vars(frame: &mut Frame, app: &App, area: Rect) {
         vars.iter().enumerate().map(|(i, (k, v))| {
             let line = Line::from(vec![
                 Span::styled(format!("  {:<22}", k), Style::default().fg(Color::Cyan)),
-                Span::styled("= ", Style::default().fg(Color::DarkGray)),
+                Span::styled("= ", Style::default().fg(Color::Indexed(242))),
                 Span::styled(v.clone(), Style::default().fg(Color::Green)),
             ]);
             let style = if i == app.env_var_cursor && focused {
@@ -1500,9 +1500,9 @@ fn render_modal(frame: &mut Frame, app: &App) {
                 Line::from(""),
                 Line::from(vec![
                     Span::raw("  Method: "),
-                    Span::styled("◀ ", Style::default().fg(Color::DarkGray)),
+                    Span::styled("◀ ", Style::default().fg(Color::Indexed(242))),
                     Span::styled(method, Style::default().fg(method_color(method)).add_modifier(Modifier::BOLD)),
-                    Span::styled(" ▶", Style::default().fg(Color::DarkGray)),
+                    Span::styled(" ▶", Style::default().fg(Color::Indexed(242))),
                     Span::styled("  (←/→ to change)", Style::default().fg(Color::Gray)),
                 ]),
                 Line::from(""),
@@ -1827,11 +1827,11 @@ fn render_history_panel(frame: &mut Frame, app: &App, area: Rect) {
         let bg = if selected { Color::Indexed(236) } else { Color::Reset };
 
         let line = Line::from(vec![
-            Span::styled(format!("  {}", ts), Style::default().fg(Color::DarkGray).bg(bg)),
+            Span::styled(format!("  {}", ts), Style::default().fg(Color::Indexed(242)).bg(bg)),
             Span::styled("  ", Style::default().bg(bg)),
             Span::styled(format!("{:<6}", entry.method), Style::default().fg(method_col).add_modifier(Modifier::BOLD).bg(bg)),
             Span::styled(format!("{:<3}", status_str), Style::default().fg(status_color).bg(bg)),
-            Span::styled(format!("{:<7}", elapsed_str), Style::default().fg(Color::DarkGray).bg(bg)),
+            Span::styled(format!("{:<7}", elapsed_str), Style::default().fg(Color::Indexed(242)).bg(bg)),
             Span::styled(format!("  {}", url_display), Style::default().fg(if selected { Color::White } else { Color::Gray }).bg(bg)),
         ]);
         ListItem::new(line)

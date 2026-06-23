@@ -22,6 +22,16 @@ pub struct JsonRow {
     /// Some(path) if this row can be folded/unfolded.
     pub fold_path: Option<String>,
     pub is_folded: bool,
+    /// Full dot-notation path usable in campaign `extract` fields (e.g. `results.0.city`).
+    pub dot_path: String,
+}
+
+/// Convert an internal slash-path to the dot-notation used by campaign extraction.
+pub fn to_dot_path(internal: &str) -> String {
+    if internal.is_empty() {
+        return String::new();
+    }
+    internal.trim_start_matches('/').replace('/', ".")
 }
 
 /// Build a flat list of rows from a JSON string, respecting the current fold state.
@@ -39,6 +49,7 @@ pub fn rows(json: &str, folds: &HashSet<String>) -> Vec<JsonRow> {
             value_preview: format!("Parse error: {e}"),
             fold_path: None,
             is_folded: false,
+            dot_path: String::new(),
         }],
     }
 }
@@ -59,6 +70,7 @@ fn collect(
             value_preview: "null".into(),
             fold_path: None,
             is_folded: false,
+            dot_path: to_dot_path(path),
         }),
 
         Value::Bool(b) => result.push(JsonRow {
@@ -68,6 +80,7 @@ fn collect(
             value_preview: b.to_string(),
             fold_path: None,
             is_folded: false,
+            dot_path: to_dot_path(path),
         }),
 
         Value::Number(n) => result.push(JsonRow {
@@ -77,6 +90,7 @@ fn collect(
             value_preview: n.to_string(),
             fold_path: None,
             is_folded: false,
+            dot_path: to_dot_path(path),
         }),
 
         Value::String(s) => result.push(JsonRow {
@@ -86,6 +100,7 @@ fn collect(
             value_preview: format!("\"{}\"", s),
             fold_path: None,
             is_folded: false,
+            dot_path: to_dot_path(path),
         }),
 
         Value::Array(arr) => {
@@ -108,6 +123,7 @@ fn collect(
                 value_preview,
                 fold_path,
                 is_folded,
+                dot_path: to_dot_path(path),
             });
 
             if !is_folded {
@@ -144,6 +160,7 @@ fn collect(
                 value_preview,
                 fold_path,
                 is_folded,
+                dot_path: to_dot_path(path),
             });
 
             if !is_folded {

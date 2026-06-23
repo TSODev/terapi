@@ -975,15 +975,31 @@ fn render_response(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_response_json(frame: &mut Frame, app: &App, area: Rect) {
-    // Split 1 line at the bottom for the search bar when active
-    let (table_area, search_area) = if app.json_search.is_some() {
+    // Reserve bottom lines: 1 for path bar (always), +1 for search bar when active
+    let has_body = app.response_body.is_some();
+    let has_search = app.json_search.is_some();
+    let bottom_lines = if has_body && has_search { 2 } else if has_body { 1 } else { 0 };
+
+    let (table_area, path_area, search_area) = if bottom_lines == 2 {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(1), Constraint::Length(1), Constraint::Length(1)])
+            .split(area);
+        (chunks[0], Some(chunks[1]), Some(chunks[2]))
+    } else if bottom_lines == 1 && has_search {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Min(1), Constraint::Length(1)])
             .split(area);
-        (chunks[0], Some(chunks[1]))
+        (chunks[0], None, Some(chunks[1]))
+    } else if bottom_lines == 1 {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(1), Constraint::Length(1)])
+            .split(area);
+        (chunks[0], Some(chunks[1]), None)
     } else {
-        (area, None)
+        (area, None, None)
     };
 
     let term = app.json_search.as_deref().unwrap_or("").to_lowercase();
@@ -1077,6 +1093,22 @@ fn render_response_json(frame: &mut Frame, app: &App, area: Rect) {
         .with_offset(app.response_scroll as usize);
 
     frame.render_stateful_widget(table, table_area, &mut state);
+
+    // ── path bar (always visible when there is a response) ────────────────────
+    if let Some(pbar_area) = path_area {
+        let dot = json_rows.get(app.response_cursor)
+            .map(|r| r.dot_path.as_str())
+            .unwrap_or("");
+        let path_display = if dot.is_empty() { "(root)".to_string() } else { dot.to_string() };
+        let path_line = Line::from(vec![
+            Span::styled(" ↳ ", Style::default().fg(Color::Indexed(244))),
+            Span::styled(path_display, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        ]);
+        frame.render_widget(
+            Paragraph::new(path_line).style(Style::default().bg(Color::Indexed(234))),
+            pbar_area,
+        );
+    }
 
     // ── search bar ────────────────────────────────────────────────────────────
     if let Some(bar_area) = search_area {

@@ -9,6 +9,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 - **Raw response view — word wrap** — long lines now wrap to the panel width instead of being clipped horizontally. `↑`/`↓` still scroll one visual (wrapped) line at a time.
+- **Low-contrast gray** — `Color::DarkGray` (ANSI 8, near-invisible on dark terminals) replaced by `Color::Indexed(242)` throughout the UI: separators (`·`, `=`, `:`), unselected cursor markers, JSON `null` values, and unselected Options rows.
 
 ### Changed
 - **Quit behaviour** — `q` now requires a second press to exit: the first press shows `Press q again to quit` in yellow in the status bar; any other key cancels. `Esc` is no longer a quit shortcut — it only closes modals or exits edit modes; at the top level it does nothing.

@@ -592,17 +592,21 @@ Every request sent from the TUI is recorded automatically in `<terapi_dir>/histo
 
 Each entry shows:
 - **Timestamp** — UTC date and time (`YYYY-MM-DD HH:MM:SS`)
-- **Method** — HTTP verb
+- **Mode** — `GQL` (magenta) for GraphQL requests, HTTP verb for REST
 - **Status** — HTTP status code, colour-coded: green 2xx, yellow 3xx/4xx, red 5xx, grey for transport errors
 - **Elapsed** — response time in ms (blank for errors)
 - **URL** — the fully-resolved URL that was sent
+
+Pressing `Enter` on an entry:
+- **REST entry** — restores method, URL, headers, body; positions on Description sub-tab
+- **GraphQL entry** — activates GraphQL mode, restores the query and variables; positions on the Query sub-tab
 
 **Keybindings**
 
 | Key | Action |
 |-----|--------|
 | `↑` / `↓` | Navigate entries |
-| `Enter` | Load entry into the Request tab (method, URL, headers, body restored; switches to Request tab) |
+| `Enter` | Load entry into the Request tab |
 | `d` | Delete the selected entry (removed from list and saved to disk) |
 
 ### Campaigns panel

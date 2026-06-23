@@ -159,7 +159,7 @@ terapi --help
 |-----|--------|
 | `Tab` | Switch panel |
 | `↑` / `↓` | Navigate entries |
-| `Enter` | Load request into Request tab |
+| `Enter` | Load entry into Request tab (GraphQL entries restore GQL mode + query) |
 | `d` | Delete entry |
 | `q` `q` | Quit (press twice to confirm) |
 

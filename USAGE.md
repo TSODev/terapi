@@ -8,12 +8,14 @@
   - [Request panel](#request-panel)
   - [Collections panel](#collections-panel)
   - [History panel](#history-panel)
+  - [Campaigns panel](#campaigns-panel)
   - [GraphQL mode](#graphql-mode)
   - [Keybindings](#keybindings)
 - [Collections](#collections)
   - [Directory resolution](#directory-resolution)
   - [Collection TOML format](#collection-toml-format)
 - [Demo mode](#demo-mode)
+- [Import](#import)
 - [Campaign runner](#campaign-runner)
   - [Campaign TOML format](#campaign-toml-format)
   - [Variable substitution](#variable-substitution)
@@ -60,6 +62,7 @@ The interface is divided into three top-level panels, navigated with `Tab`:
 | **Request** | Build and send HTTP requests, view responses |
 | **Env** | Create and manage environment variables across multiple environments |
 | **History** | Persistent log of all sent requests and their responses |
+| **Campaigns** | List, inspect, and run campaign TOML files with live step-by-step progress |
 
 ### Request panel
 
@@ -594,6 +597,52 @@ Each entry shows:
 | `Enter` | Load entry into the Request tab (method, URL, headers, body restored; switches to Request tab) |
 | `d` | Delete the selected entry (removed from list and saved to disk) |
 
+### Campaigns panel
+
+The Campaigns tab lists all `.toml` campaign files found in `<terapi_dir>/campaigns/` and lets you run them without leaving the TUI.
+
+```
+┌─ Campaigns (2) ──────────────────┐  ┌─ crud_demo ───────────────────────────────────────┐
+│▶ crud_demo          (6 steps)    │  │  Name        JSONPlaceholder — CRUD Demo            │
+│  transform_demo     (4 steps)    │  │  Description All HTTP methods with assertions       │
+│                                  │  │                                                      │
+│                                  │  │  Steps                                              │
+│                                  │  │    POST   Create post                               │
+│                                  │  │    GET    Read post                                 │
+│                                  │  │    PUT    Update post                               │
+│                                  │  │    PATCH  Patch post                                │
+│                                  │  │    DELETE Delete post                               │
+│                                  │  │    GET    Assert deleted                            │
+│                                  │  │                                                      │
+│                                  │  │  r to run this campaign                             │
+└──────────────────────────────────┘  └──────────────────────────────────────────────────────┘
+```
+
+The **right panel** adapts to the run state:
+
+| State | Content |
+|-------|---------|
+| **Idle** | Campaign metadata (name, description, step list with methods) and a `r` hint |
+| **Running** | Completed steps appear one by one; `⟳ current step…` indicates what is in flight |
+| **Done** | Colour-coded verdict, per-step status / timing / extracted vars / assertion failures |
+
+**Keybindings:**
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Navigate campaign list |
+| `r` | Run the selected campaign |
+| `Esc` | Clear run result (return to Idle) |
+
+**Setting up campaigns:** place `.toml` files in `<terapi_dir>/campaigns/` (same priority resolution as collections). The quickest way is `terapi import`:
+
+```bash
+terapi import examples/crud_demo.toml
+terapi import examples/transform_demo.toml
+# or manually:
+cp examples/crud_demo.toml ~/.config/terapi/campaigns/
+```
+
 ### Context bar
 
 A permanent two-line bar is always visible at the bottom of the screen:
@@ -663,6 +712,9 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `↑` / `↓` | History panel | Navigate entries |
 | `Enter` | History panel | Load entry into Request tab |
 | `d` | History panel | Delete selected entry |
+| `↑` / `↓` | Campaigns panel | Navigate campaign list |
+| `r` | Campaigns panel | Run the selected campaign |
+| `Esc` | Campaigns panel | Clear run result |
 | `g` | Request panel | Toggle GraphQL mode (REST ↔ GraphQL) |
 | `i` | GraphQL Query tab | Enter query editor |
 | `Esc` | GraphQL Query editor | Exit editor |
@@ -855,36 +907,35 @@ Useful for exploring the JSON viewer, testing fold behaviour, or demoing the TUI
 
 ## Import
 
-Import a collection TOML file directly into your terapi collections directory:
+`terapi import` accepts both **collection** and **campaign** TOML files. It auto-detects the type from the TOML content (`[collection]` vs `[campaign]`) and copies the file to the correct sub-directory:
+
+| TOML section | Destination |
+|---|---|
+| `[collection]` | `<terapi_dir>/collections/` |
+| `[campaign]` | `<terapi_dir>/campaigns/` |
 
 ```bash
+# Import a collection
 terapi import examples/collections/france-geo.toml
-terapi import examples/collections/sncf.toml
+
+# Import a campaign
+terapi import examples/crud_demo.toml
+
+# Import everything at once
+for f in examples/collections/*.toml examples/*.toml; do terapi import "$f"; done
 ```
 
-Terapi validates that the file is readable and is a well-formed collection TOML, then copies it to the resolved collections directory (same priority as the TUI: `$TERAPI_DIR` → `./.terapi/collections/` → `~/.config/terapi/collections/`).
-
-The destination filename is derived from the `[collection] name` field in the TOML. If a file with the same name already exists it is overwritten.
+The destination filename is derived from the `name` field in `[collection]` or `[campaign]`. If a file already exists it is overwritten and reported as `Updated`.
 
 **Output:**
 
 ```
-Imported "France — Géographie" → /Users/you/.config/terapi/collections/france-géographie.toml
-Updated  "France — Géographie" → /Users/you/.config/terapi/collections/france-géographie.toml
+Imported collection "France — Géographie" → /Users/you/.config/terapi/collections/france-géographie.toml
+Updated  collection "France — Géographie" → /Users/you/.config/terapi/collections/france-géographie.toml
+Imported campaign  "JSONPlaceholder — CRUD Demo" → /Users/you/.config/terapi/campaigns/jsonplaceholder-crud-demo.toml
 ```
 
-**Typical workflow with the example collections:**
-
-```bash
-# Import a single collection
-terapi import examples/collections/france-geo.toml
-
-# Import all example collections at once
-for f in examples/collections/*.toml; do terapi import "$f"; done
-
-# Then launch the TUI — collections appear immediately
-terapi
-```
+Files with neither `[collection]` nor `[campaign]` produce a clear error. The directory resolution follows the same priority as the TUI: `$TERAPI_DIR` → `./.terapi/` → `~/.config/terapi/`.
 
 For collections that require authentication (`sncf.toml`, `france-meteo.toml`), open the **Env** tab, create an environment, add the required variable (`SNCF_TOKEN` or `METEO_TOKEN`), and activate it with `Enter`.
 
@@ -892,7 +943,10 @@ For collections that require authentication (`sncf.toml`, `france-meteo.toml`), 
 
 ## Campaign runner
 
-Run a sequence of HTTP requests headlessly from a TOML file:
+Campaigns can be run in two ways:
+
+- **TUI** — open the **Campaigns** tab, select a campaign, press `r` (see [Campaigns panel](#campaigns-panel))
+- **CLI headless** — `terapi run campaign.toml` (ideal for CI/cron)
 
 ```bash
 terapi run campaign.toml

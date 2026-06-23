@@ -9,7 +9,7 @@
 
 ```
 ┌─────────────────────────── terapi ────────────────────────────┐
-│  Collections  |  Request  |  Env  |  History                   │
+│  Collections  |  Request  |  Env  |  History  |  Campaigns     │
 ├────────────────────────────────────────────────────────────────┤
 │ ┌─ URL ──────────────────────────────────────────────────────┐ │
 │ │ GET  https://api.example.com/users                         │ │
@@ -72,7 +72,7 @@ terapi                        # launch TUI (empty)
 terapi --demo response.json   # launch TUI with a JSON file pre-loaded
 terapi run campaign.toml            # run a campaign headlessly
 terapi run campaign.toml --silent   # run silently — exit 0/1 only (CI/cron)
-terapi import collection.toml       # import a collection into the terapi directory
+terapi import file.toml             # import a collection or campaign TOML
 terapi --version
 terapi --help
 ```
@@ -162,6 +162,55 @@ terapi --help
 | `d` | Delete entry |
 | `q` `q` | Quit (press twice to confirm) |
 
+**Campaigns panel**
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Switch panel |
+| `↑` / `↓` | Navigate campaigns |
+| `r` | Run selected campaign (live progress in right panel) |
+| `Esc` | Clear run result |
+| `q` `q` | Quit (press twice to confirm) |
+
+---
+
+## Campaigns panel
+
+The Campaigns tab lists all `.toml` campaign files found in `<terapi_dir>/campaigns/` and lets you run them interactively without leaving the terminal.
+
+```
+┌─ Campaigns (2) ────────────────┐ ┌─ crud_demo ─────────────────────────────────────┐
+│▶ crud_demo         (6 steps)   │ │  ✓ Create post     POST   201    312ms           │
+│  transform_demo    (4 steps)   │ │  ✓ Read post       GET    200     98ms           │
+│                                │ │  ✓ Update post     PUT    200    105ms           │
+│                                │ │  ✓ Patch post      PATCH  200     87ms           │
+│                                │ │  ✓ Delete post     DELETE 200     91ms           │
+│                                │ │  ✓ Assert deleted  GET    404     77ms           │
+│                                │ │                                                  │
+│                                │ │  ✓  ALL PASSED  Steps: 6 ok / 0 failed  770ms   │
+│                                │ │  Esc to clear  r to re-run                       │
+└────────────────────────────────┘ └──────────────────────────────────────────────────┘
+```
+
+The right panel has three states:
+- **Idle** — campaign metadata (name, description, step list) and a `r` reminder
+- **Running** — each completed step appears immediately; `⟳ current step…` shows what is in flight
+- **Done** — colour-coded verdict (`✓ ALL PASSED` / `✗ SOME STEPS FAILED`), per-step results, extracted variables, assertion failures
+
+Place campaign files in the campaigns directory:
+
+```bash
+# Global
+cp examples/crud_demo.toml ~/.config/terapi/campaigns/
+
+# Per-project
+mkdir -p .terapi/campaigns
+cp examples/transform_demo.toml .terapi/campaigns/
+
+# Or use the import command (auto-detects collection vs campaign)
+terapi import examples/crud_demo.toml
+```
+
 ---
 
 ## Collections
@@ -232,7 +281,7 @@ cp examples/collections/sncf.toml .terapi/collections/
 
 ## Campaign runner
 
-Terapi includes a headless campaign runner for API automation.
+Terapi includes a headless campaign runner for API automation — and the same campaigns can be run interactively from the **Campaigns** TUI tab (see above).
 
 ### Campaign TOML format
 
@@ -328,7 +377,7 @@ Press `g` on the Request tab to activate GraphQL mode. The URL bar shows a magen
 
 ```
 ┌─────────────────────────── terapi ────────────────────────────┐
-│  Collections  |  Request  |  Env  |  History                   │
+│  Collections  |  Request  |  Env  |  History  |  Campaigns     │
 ├────────────────────────────────────────────────────────────────┤
 │ ┌─ GQL  https://countries.trevorblades.com/graphql ──────────┐ │
 │ └────────────────────────────────────────────────────────────┘ │

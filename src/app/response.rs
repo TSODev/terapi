@@ -129,6 +129,10 @@ impl App {
 
     fn record_history(&mut self, status: Option<u16>, elapsed_ms: Option<u64>, response_body: Option<String>) {
         if let Some(raw) = &self.last_request_raw {
+            let gql_query = if self.graphql_mode {
+                let q = self.graphql_query_textarea.lines().join("\n");
+                if q.trim().is_empty() { None } else { Some(q) }
+            } else { None };
             let entry = HistoryEntry {
                 timestamp_secs: std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
@@ -141,6 +145,13 @@ impl App {
                 status,
                 elapsed_ms,
                 response_body,
+                graphql: self.graphql_mode,
+                graphql_query: gql_query,
+                graphql_variables: if self.graphql_mode {
+                    self.graphql_vars.iter().cloned().collect()
+                } else {
+                    HashMap::new()
+                },
             };
             self.history.insert(0, entry);
             if self.history.len() > 100 {

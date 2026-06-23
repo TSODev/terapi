@@ -1819,8 +1819,7 @@ fn render_history_panel(frame: &mut Frame, app: &App, area: Rect) {
             Some(ms) => format!("  {}ms", ms),
             None => String::new(),
         };
-        let method_col = method_color(&entry.method);
-        let url_max = area.width.saturating_sub(42) as usize;
+        let url_max = area.width.saturating_sub(46) as usize;
         let url_display = if entry.url.len() > url_max {
             format!("{}…", &entry.url[..url_max.saturating_sub(1)])
         } else {
@@ -1830,12 +1829,19 @@ fn render_history_panel(frame: &mut Frame, app: &App, area: Rect) {
         let selected = i == app.history_cursor;
         let bg = if selected { Color::Indexed(236) } else { Color::Reset };
 
+        let mode_span = if entry.graphql {
+            Span::styled(" GQL  ", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD).bg(bg))
+        } else {
+            let col = method_color(&entry.method);
+            Span::styled(format!("{:<6}", entry.method), Style::default().fg(col).add_modifier(Modifier::BOLD).bg(bg))
+        };
+
         let line = Line::from(vec![
-            Span::styled(format!("  {}", ts), Style::default().fg(Color::Indexed(242)).bg(bg)),
+            Span::styled(format!("  {}", ts), Style::default().fg(Color::Indexed(250)).bg(bg)),
             Span::styled("  ", Style::default().bg(bg)),
-            Span::styled(format!("{:<6}", entry.method), Style::default().fg(method_col).add_modifier(Modifier::BOLD).bg(bg)),
+            mode_span,
             Span::styled(format!("{:<3}", status_str), Style::default().fg(status_color).bg(bg)),
-            Span::styled(format!("{:<7}", elapsed_str), Style::default().fg(Color::Indexed(242)).bg(bg)),
+            Span::styled(format!("{:<7}", elapsed_str), Style::default().fg(Color::Indexed(250)).bg(bg)),
             Span::styled(format!("  {}", url_display), Style::default().fg(if selected { Color::White } else { Color::Gray }).bg(bg)),
         ]);
         ListItem::new(line)

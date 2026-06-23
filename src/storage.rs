@@ -252,6 +252,12 @@ pub struct HistoryEntry {
     pub elapsed_ms: Option<u64>,
     #[serde(default)]
     pub response_body: Option<String>,
+    #[serde(default)]
+    pub graphql: bool,
+    #[serde(default)]
+    pub graphql_query: Option<String>,
+    #[serde(default)]
+    pub graphql_variables: HashMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize, Default)]

@@ -428,22 +428,12 @@ impl App {
 
     pub(super) fn load_from_history(&mut self, idx: usize) {
         if let Some(entry) = self.history.get(idx).cloned() {
-            self.request_method_idx = METHODS.iter().position(|&m| m == entry.method).unwrap_or(0);
             self.request_url = entry.url.clone();
             self.request_url_params = Vec::new();
             self.url_params_cursor = 0;
             self.request_headers = entry.headers.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
             self.request_headers.sort_by(|a, b| a.0.cmp(&b.0));
             self.header_cursor = 0;
-            self.body_textarea = if let Some(body) = &entry.body {
-                let lines: Vec<String> = body.lines().map(|l| l.to_string()).collect();
-                TextArea::from(lines)
-            } else {
-                TextArea::default()
-            };
-            self.body_mode = BodyMode::Text;
-            self.body_json_pairs = Vec::new();
-            self.body_json_cursor = 0;
             self.request_focus = RequestFocus::Response;
             self.response_body = None;
             self.response_status = None;
@@ -453,11 +443,42 @@ impl App {
             self.response_scroll = 0;
             self.response_folds = HashSet::new();
             self.active_tab = Tab::Request;
-            self.active_request_tab = RequestTab::Description;
-            self.status_message = format!(
-                "Loaded from history: {}  —  s: send  e: edit URL  q: quit",
-                entry.url
-            );
+
+            if entry.graphql {
+                self.graphql_mode = true;
+                self.graphql_query_textarea = if let Some(q) = &entry.graphql_query {
+                    let lines: Vec<String> = q.lines().map(|l| l.to_string()).collect();
+                    TextArea::from(lines)
+                } else {
+                    TextArea::default()
+                };
+                self.graphql_vars = entry.graphql_variables.iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
+                self.graphql_vars_cursor = 0;
+                self.active_graphql_tab = GraphqlTab::Query;
+                self.status_message = format!(
+                    "GQL loaded from history: {}  —  i: edit query  s: send  S: save  q: quit",
+                    entry.url
+                );
+            } else {
+                self.graphql_mode = false;
+                self.request_method_idx = METHODS.iter().position(|&m| m == entry.method).unwrap_or(0);
+                self.body_textarea = if let Some(body) = &entry.body {
+                    let lines: Vec<String> = body.lines().map(|l| l.to_string()).collect();
+                    TextArea::from(lines)
+                } else {
+                    TextArea::default()
+                };
+                self.body_mode = BodyMode::Text;
+                self.body_json_pairs = Vec::new();
+                self.body_json_cursor = 0;
+                self.active_request_tab = RequestTab::Description;
+                self.status_message = format!(
+                    "Loaded from history: {}  —  s: send  e: edit URL  q: quit",
+                    entry.url
+                );
+            }
         }
     }
 

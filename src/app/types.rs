@@ -84,6 +84,38 @@ pub struct VarPickerState {
     pub cursor: usize,
 }
 
+// ── GraphQL Schema ────────────────────────────────────────────────────────────
+
+pub struct GqlArg {
+    pub name: String,
+    pub type_str: String,
+}
+
+pub struct GqlField {
+    pub name: String,
+    pub description: Option<String>,
+    pub type_str: String,
+    pub args: Vec<GqlArg>,
+}
+
+pub struct GqlType {
+    pub name: String,
+    pub kind: String,
+    pub description: Option<String>,
+    pub fields: Vec<GqlField>,
+    pub input_fields: Vec<GqlField>,
+    pub enum_values: Vec<String>,
+}
+
+pub enum SchemaState {
+    Idle,
+    Loading,
+    Loaded(Vec<GqlType>),
+    Error(String),
+}
+
+pub type SchemaOutcome = Result<Vec<GqlType>, String>;
+
 // ── GraphQL ───────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, PartialEq)]

@@ -8,7 +8,7 @@ use ratatui::{
 
 use crate::app::{
     flatten_stored, sorted_vars, App, BodyMode, EnvFocus, GraphqlTab, InputField, ModalState,
-    RequestFocus, RequestTab, ResponseView, SaveField, Tab, VarField,
+    RequestFocus, RequestTab, ResponseView, SaveField, SchemaState, Tab, VarField,
     COMMON_CONTENT_TYPES, COMMON_HEADERS, METHODS,
 };
 use crate::json_highlight::{self, ValueType};
@@ -166,7 +166,7 @@ fn render_request_content(frame: &mut Frame, app: &App, area: Rect) {
             GraphqlTab::Query     => render_graphql_query_editor(frame, app, area),
             GraphqlTab::Variables => render_graphql_vars_editor(frame, app, area),
             GraphqlTab::Headers   => render_headers_editor(frame, app, area),
-            GraphqlTab::Schema    => render_graphql_schema_placeholder(frame, area),
+            GraphqlTab::Schema    => render_graphql_schema(frame, app, area),
             GraphqlTab::Options   => render_options_editor(frame, app, area),
         }
         return;
@@ -298,27 +298,198 @@ fn render_graphql_vars_editor(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(Paragraph::new(hint), chunks[1]);
 }
 
-fn render_graphql_schema_placeholder(frame: &mut Frame, area: Rect) {
-    let block = Block::default()
+fn render_graphql_schema(frame: &mut Frame, app: &App, area: Rect) {
+    let outer = Block::default()
         .borders(Borders::ALL)
         .title(" Schema ")
         .border_style(Style::default().fg(Color::Magenta));
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
+    let inner = outer.inner(area);
+    frame.render_widget(outer, area);
 
-    let text = vec![
-        Line::from(""),
-        Line::from(Span::styled(
-            "  No schema loaded.",
-            Style::default().fg(Color::Indexed(244)),
-        )),
-        Line::from(""),
-        Line::from(Span::styled(
-            "  Schema introspection coming in a future version.",
-            Style::default().fg(Color::Indexed(238)),
-        )),
-    ];
-    frame.render_widget(Paragraph::new(text), inner);
+    match &app.schema_state {
+        SchemaState::Idle => {
+            let url_hint = if app.request_url.is_empty() {
+                "Set an endpoint URL first (press e), then".to_string()
+            } else {
+                format!("Endpoint: {}  —", app.request_url)
+            };
+            let text = vec![
+                Line::from(""),
+                Line::from(Span::styled(
+                    format!("  {}", url_hint),
+                    Style::default().fg(Color::Indexed(244)),
+                )),
+                Line::from(""),
+                Line::from(Span::styled(
+                    "  Press f to fetch schema via introspection",
+                    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                )),
+            ];
+            frame.render_widget(Paragraph::new(text), inner);
+        }
+
+        SchemaState::Loading => {
+            let text = vec![
+                Line::from(""),
+                Line::from(Span::styled(
+                    "  ⟳ Fetching schema…",
+                    Style::default().fg(Color::Yellow),
+                )),
+            ];
+            frame.render_widget(Paragraph::new(text), inner);
+        }
+
+        SchemaState::Error(msg) => {
+            let mut lines = vec![
+                Line::from(""),
+                Line::from(Span::styled(
+                    "  Schema error:",
+                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                )),
+                Line::from(""),
+            ];
+            for line in msg.lines() {
+                lines.push(Line::from(Span::styled(
+                    format!("  {}", line),
+                    Style::default().fg(Color::Indexed(244)),
+                )));
+            }
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                "  Press f to retry",
+                Style::default().fg(Color::Indexed(238)),
+            )));
+            frame.render_widget(Paragraph::new(lines), inner);
+        }
+
+        SchemaState::Loaded(types) => {
+            let chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Percentage(35), Constraint::Percentage(65)])
+                .split(inner);
+
+            // ── Left: type list ───────────────────────────────────────────
+            let left_block = Block::default()
+                .borders(Borders::RIGHT)
+                .border_style(Style::default().fg(Color::Indexed(238)));
+            let left_inner = left_block.inner(chunks[0]);
+            frame.render_widget(left_block, chunks[0]);
+
+            let items: Vec<ListItem> = types
+                .iter()
+                .enumerate()
+                .map(|(i, t)| {
+                    let (kind_abbr, kind_color) = match t.kind.as_str() {
+                        "OBJECT"       => ("OBJ", Color::Cyan),
+                        "INTERFACE"    => ("INT", Color::Blue),
+                        "UNION"        => ("UNI", Color::Magenta),
+                        "ENUM"         => ("ENM", Color::Yellow),
+                        "INPUT_OBJECT" => ("INP", Color::Green),
+                        "SCALAR"       => ("SCL", Color::Indexed(244)),
+                        _              => ("???", Color::Indexed(244)),
+                    };
+                    let selected = i == app.schema_type_cursor;
+                    let name_style = if selected {
+                        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default().fg(Color::White)
+                    };
+                    let prefix = if selected { "► " } else { "  " };
+                    ListItem::new(Line::from(vec![
+                        Span::raw(prefix),
+                        Span::styled(kind_abbr, Style::default().fg(kind_color)),
+                        Span::raw("  "),
+                        Span::styled(t.name.clone(), name_style),
+                    ]))
+                })
+                .collect();
+
+            let list = List::new(items)
+                .highlight_style(Style::default());
+            let mut list_state = ratatui::widgets::ListState::default();
+            list_state.select(Some(app.schema_type_cursor));
+            frame.render_stateful_widget(list, left_inner, &mut list_state);
+
+            // ── Right: type detail ────────────────────────────────────────
+            if let Some(t) = types.get(app.schema_type_cursor) {
+                let mut lines: Vec<Line> = Vec::new();
+
+                // Header
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        t.name.clone(),
+                        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!("  {}", t.kind),
+                        Style::default().fg(Color::Indexed(244)),
+                    ),
+                ]));
+
+                // Description
+                if let Some(desc) = &t.description {
+                    lines.push(Line::from(Span::styled(
+                        desc.chars().take(120).collect::<String>(),
+                        Style::default().fg(Color::Indexed(238)),
+                    )));
+                }
+                lines.push(Line::from(""));
+
+                // Fields (OBJECT, INTERFACE)
+                let fields_to_show = if !t.fields.is_empty() {
+                    &t.fields[..]
+                } else if !t.input_fields.is_empty() {
+                    &t.input_fields[..]
+                } else {
+                    &[]
+                };
+
+                if !fields_to_show.is_empty() {
+                    for f in fields_to_show {
+                        let name_width = 24usize;
+                        let padded = format!("{:<width$}", f.name, width = name_width);
+                        lines.push(Line::from(vec![
+                            Span::raw("  "),
+                            Span::styled(padded, Style::default().fg(Color::White)),
+                            Span::styled(
+                                f.type_str.clone(),
+                                Style::default().fg(Color::Magenta),
+                            ),
+                        ]));
+                        if !f.args.is_empty() {
+                            let args_str = f
+                                .args
+                                .iter()
+                                .map(|a| format!("{}: {}", a.name, a.type_str))
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            lines.push(Line::from(Span::styled(
+                                format!("    ↳ ({})", args_str),
+                                Style::default().fg(Color::Indexed(244)),
+                            )));
+                        }
+                    }
+                } else if !t.enum_values.is_empty() {
+                    // ENUM values
+                    for val in &t.enum_values {
+                        lines.push(Line::from(vec![
+                            Span::raw("  "),
+                            Span::styled(val.clone(), Style::default().fg(Color::Yellow)),
+                        ]));
+                    }
+                } else {
+                    lines.push(Line::from(Span::styled(
+                        "  (no fields)",
+                        Style::default().fg(Color::Indexed(238)),
+                    )));
+                }
+
+                let detail = Paragraph::new(lines)
+                    .scroll((app.schema_field_scroll, 0));
+                frame.render_widget(detail, chunks[1]);
+            }
+        }
+    }
 }
 
 fn render_options_editor(frame: &mut Frame, app: &App, area: Rect) {

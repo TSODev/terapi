@@ -6,6 +6,19 @@ use crate::storage::HistoryEntry;
 
 impl App {
     pub fn tick(&mut self) {
+        if let Ok(outcome) = self.schema_rx.try_recv() {
+            match outcome {
+                Ok(types) => {
+                    self.schema_type_cursor = 0;
+                    self.schema_field_scroll = 0;
+                    self.schema_state = SchemaState::Loaded(types);
+                }
+                Err(msg) => {
+                    self.schema_state = SchemaState::Error(msg);
+                }
+            }
+        }
+
         if let Ok(outcome) = self.response_rx.try_recv() {
             self.request_loading = false;
             match outcome {

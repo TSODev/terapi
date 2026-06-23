@@ -11,6 +11,7 @@ mod envs;
 mod http;
 mod request;
 mod response;
+mod schema;
 mod types;
 mod var_picker;
 
@@ -85,9 +86,15 @@ pub struct App {
     pub graphql_vars: Vec<(String, String)>,
     pub graphql_vars_cursor: usize,
     pub active_graphql_tab: GraphqlTab,
-    // Async channel — receives HTTP results from spawned tasks
+    // GraphQL schema introspection
+    pub schema_state: SchemaState,
+    pub schema_type_cursor: usize,
+    pub schema_field_scroll: u16,
+    // Async channels — receive results from spawned tasks
     pub(super) response_rx: mpsc::UnboundedReceiver<HttpOutcome>,
     pub(super) response_tx: mpsc::UnboundedSender<HttpOutcome>,
+    pub(super) schema_rx: mpsc::UnboundedReceiver<SchemaOutcome>,
+    pub(super) schema_tx: mpsc::UnboundedSender<SchemaOutcome>,
 }
 
 impl App {
@@ -103,6 +110,7 @@ impl App {
         let environments = crate::storage::load_envs().unwrap_or_default();
         let history = crate::storage::load_history().unwrap_or_default();
         let (response_tx, response_rx) = mpsc::unbounded_channel();
+        let (schema_tx, schema_rx) = mpsc::unbounded_channel();
         Self {
             running: true,
             confirm_quit: false,
@@ -165,8 +173,13 @@ impl App {
             graphql_vars: Vec::new(),
             graphql_vars_cursor: 0,
             active_graphql_tab: GraphqlTab::Query,
+            schema_state: SchemaState::Idle,
+            schema_type_cursor: 0,
+            schema_field_scroll: 0,
             response_rx,
             response_tx,
+            schema_rx,
+            schema_tx,
         }
     }
 
@@ -441,6 +454,40 @@ impl App {
                     self.graphql_vars_cursor += 1;
                 }
             }
+            // ── Request panel — GraphQL Schema tab ────────────────────────
+            KeyCode::Char('f')
+                if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Schema =>
+            {
+                self.fetch_schema();
+            }
+            KeyCode::Up
+                if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Schema =>
+            {
+                if self.schema_type_cursor > 0 {
+                    self.schema_type_cursor -= 1;
+                    self.schema_field_scroll = 0;
+                }
+            }
+            KeyCode::Down
+                if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Schema =>
+            {
+                let len = if let SchemaState::Loaded(ref types) = self.schema_state {
+                    types.len()
+                } else {
+                    0
+                };
+                if self.schema_type_cursor + 1 < len {
+                    self.schema_type_cursor += 1;
+                    self.schema_field_scroll = 0;
+                }
+            }
+
             KeyCode::Char('s') if self.active_tab == Tab::Request => {
                 self.send_request();
             }

@@ -397,7 +397,7 @@ impl App {
             GraphqlTab::Query     => "GraphQL — i: edit query  ←/→: section  s: send  S: save  g: REST mode  q: quit".into(),
             GraphqlTab::Variables => "GraphQL — a: add var  d: delete  Enter: edit  ↑/↓: navigate  ←/→: section  s: send  g: REST mode  q: quit".into(),
             GraphqlTab::Headers   => "GraphQL — a: add  d: delete  ↑/↓: navigate  ←/→: section  s: send  g: REST mode  q: quit".into(),
-            GraphqlTab::Schema    => "GraphQL — i: introspect endpoint  ←/→: section  s: send  g: REST mode  q: quit".into(),
+            GraphqlTab::Schema    => "GraphQL — f: fetch schema  ↑/↓: navigate types  ←/→: section  g: REST mode  q: quit".into(),
             GraphqlTab::Options   => "GraphQL — ↑/↓: navigate  Space/Enter: toggle/cycle  ←/→: section  s: send  g: REST mode  q: quit".into(),
         };
     }

@@ -439,6 +439,8 @@ impl App {
     pub(super) fn load_from_history(&mut self, idx: usize) {
         if let Some(entry) = self.history.get(idx).cloned() {
             self.request_url = entry.url.clone();
+            self.request_url_params = Vec::new();
+            self.url_params_cursor = 0;
             self.parse_url_into_params();
             self.request_headers = entry.headers.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
             self.request_headers.sort_by(|a, b| a.0.cmp(&b.0));

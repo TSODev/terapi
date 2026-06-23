@@ -595,6 +595,8 @@ Press `n` to discard all edits and start a new blank request instead.
 
 **Deleting (`d`)** — a confirmation modal shows the item name. Press `y` or `Enter` to confirm, `n` or `Esc` to cancel.
 
+**Open in external editor (`E`)** — pressing `E` on any node in the tree (collection, folder, or request) opens the collection's TOML file in `$EDITOR` (fallback: `$VISUAL`, then `vi`). The TUI suspends, the editor takes the full terminal, and on exit terapi reloads all collections from disk. Any change made in the editor (rename, add a request, restructure folders) is immediately reflected in the TUI.
+
 Method badges are colour-coded:
 
 | Colour | Method |
@@ -698,6 +700,7 @@ The **right panel** adapts to the run state:
 |-----|--------|
 | `↑` / `↓` | Navigate campaign list |
 | `r` | Run the selected campaign (opens params modal if `[[params]]` defined) |
+| `E` | Open campaign TOML in `$EDITOR`, reload on exit |
 | `Esc` | Clear run result (return to Idle) |
 
 **Campaign parameters modal** — if the selected campaign declares `[[params]]`, pressing `r` opens a form instead of running immediately. Each parameter is shown with its current value (pre-filled from `default`):
@@ -793,6 +796,7 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `f` | Collections panel | New folder in selected collection |
 | `a` | Collections panel | Add request to selected collection / folder |
 | `e` | Collections panel (request) | Edit request (name, method, URL) |
+| `E` | Collections panel | Open collection TOML in `$EDITOR`, reload on exit |
 | `d` | Collections panel | Delete selected item |
 | `←` / `→` | Env panel | Switch focus: Environments ↔ Variables |
 | `↑` / `↓` | Env panel | Navigate within focused panel |
@@ -805,6 +809,7 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `d` | History panel | Delete selected entry |
 | `↑` / `↓` | Campaigns panel | Navigate campaign list |
 | `r` | Campaigns panel | Run campaign (or open params modal if `[[params]]` defined) |
+| `E` | Campaigns panel | Open campaign TOML in `$EDITOR`, reload on exit |
 | `Esc` | Campaigns panel | Clear run result |
 | `↑` / `↓` | Campaign params modal | Navigate parameters |
 | `Enter` | Campaign params modal | Edit selected value |

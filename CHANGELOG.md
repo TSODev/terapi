@@ -36,6 +36,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - **Itinerary campaign example** (`examples/itineraire_demo.toml`) — demonstrates the full params + pipeline flow: geocode two French cities via the IGN Géoplateforme API, compose coordinates with a transform step, then compute the road itinerary (distance + duration). No API key required. `DEPART`, `ARRIVEE`, `PROFILE`, and `OPTIMIZATION` are declared as `[[params]]` so each run can target different cities.
 
+- **Open in external editor (`E`)** — pressing `E` on a selected item in the Collections or Campaigns tab suspends the TUI, launches `$EDITOR` (fallback: `$VISUAL`, then `vi`) with the corresponding TOML file, and waits for the editor to close. On return, both collections and campaigns are reloaded from disk automatically. Works with any terminal editor (vim, neovim, nano, helix…) or GUI editors that block the terminal (e.g. `EDITOR=code --wait`).
+
 ---
 
 ## [0.6.5] — 2026-06-23 — Connector pipeline & UX improvements

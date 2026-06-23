@@ -140,6 +140,7 @@ terapi --help
 | `f` | New folder in selected collection |
 | `a` | Add request to selected collection / folder |
 | `e` | Edit selected request — loads into Request tab with all fields editable (URL, headers, body, auth, description); `S` opens Update Request modal (pre-filled name/location; change location to save as new) |
+| `E` | Open collection TOML in `$EDITOR` — TUI suspends, reloads on exit |
 | `d` | Delete selected item |
 | `q` `q` | Quit (press twice to confirm) |
 
@@ -173,6 +174,7 @@ terapi --help
 | `Tab` | Switch panel |
 | `↑` / `↓` | Navigate campaigns |
 | `r` | Run selected campaign — or open params modal if `[[params]]` defined |
+| `E` | Open campaign TOML in `$EDITOR` — TUI suspends, reloads on exit |
 | `Esc` | Clear run result |
 | `q` `q` | Quit (press twice to confirm) |
 

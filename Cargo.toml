@@ -1,6 +1,6 @@
 [package]
 name = "terapi"
-version = "0.3.0"
+version = "0.5.0"
 edition = "2021"
 authors = ["Thierry Soulie <thierry.soulie@tsodev.fr>"]
 description = "A terminal UI for REST API and GraphQL automation"

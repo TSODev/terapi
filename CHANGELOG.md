@@ -7,6 +7,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [0.5.0] — 2026-06-23 — GraphQL native
+
 ### Fixed
 - **Raw response view — word wrap** — long lines now wrap to the panel width instead of being clipped horizontally. `↑`/`↓` still scroll one visual (wrapped) line at a time.
 - **Low-contrast gray** — `Color::DarkGray` (ANSI 8, near-invisible on dark terminals) replaced by `Color::Indexed(242)` throughout the UI: separators (`·`, `=`, `:`), unselected cursor markers, JSON `null` values, and unselected Options rows.

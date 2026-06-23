@@ -7,11 +7,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [0.6.0] — 2026-06-23 — Campaigns TUI & Assertions
+
 ### Added
-- **Campaign `continue_on_error`** — `continue_on_error = true` at campaign level (default for all steps) or step level (overrides campaign). A non-blocking step that fails is marked `✗ [continu]` in the CLI output and `✗ [↷]` in the TUI, the pipeline continues, extracted variables are not propagated. Exit code remains `1` if any step fails. Step-level `continue_on_error` takes priority over campaign-level.
 - **Campaigns TUI tab** — 5th tab (after History) listing all `.toml` campaign files found in `<terapi_dir>/campaigns/`. Left panel shows the campaign list with step counts; right panel shows campaign metadata at idle, live step-by-step progress while running, and a full colour-coded report when done. `r` runs the selected campaign, `Esc` clears the result. Streaming architecture: `run_streaming()` sends `CampaignEvent`s over an async channel; `tick()` polls and updates the UI. The CLI `run` command now reuses the same streaming engine.
-- **Campaign transform steps** — `kind = "transform"` step type runs a sequence of data transformations without making an HTTP request. Each transform reads `input` (supports `{{VAR}}`), applies an operation, and writes the result to `output`. Transforms within a step chain — each sees the outputs of previous transforms. Types: `template` (resolve `{{VAR}}`), `regex` (capture group extraction), `replace` (literal substitution), `split` (delimiter + index), `trim`, `upper`, `lower`. Transform steps appear as `TRSF` in the campaign output.
-- **Campaign assertions** — `assert = [...]` field on campaign steps: validate status code, response body fields, headers, and elapsed time before extracting variables. Operators: `eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in`, `exists`, `contains`, `matches` (regex). All assertions in a step are evaluated; failures are printed inline and in the boxed report. A step with any assertion failure is marked `✗` and stops the pipeline. `{{VAR}}` placeholders resolved in `on`, `eq`, `contains`, and `matches`. String `"42"` and number `42` are considered equal by `eq`. Adds `regex` crate dependency.
+- **Campaign `continue_on_error`** — `continue_on_error = true` at campaign level (default for all steps) or step level (overrides campaign). A non-blocking step that fails is marked `✗ [continu]` in the CLI output and `✗ [↷]` in the TUI; the pipeline continues but extracted variables are not propagated. Exit code remains `1` if any step fails.
+- **Campaign assertions** — `assert = [...]` field on campaign steps: validate status code, response body fields, headers, and elapsed time. Operators: `eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in`, `exists`, `contains`, `matches` (regex). `{{VAR}}` placeholders resolved in assertion values. Adds `regex` crate dependency.
+- **Assertion visualization in TUI** — Idle panel shows each step's assertions as `?` hints. Running and Done panels show all assertions with `✓` (green) / `✗` (red) in real time after each step completes.
+- **Campaign transform steps** — `kind = "transform"` step type runs data transformations without HTTP. Types: `template`, `regex`, `replace`, `split`, `trim`, `upper`, `lower`. Appear as `TRSF` in the output.
+- **Universal `terapi import`** — auto-detects whether the file is a collection or a campaign TOML and places it in the right directory (`collections/` or `campaigns/`).
+
+### Fixed
+- **`continue_on_error` TOML placement** — the field belongs at root level (before `[campaign]`), not inside the `[campaign]` table. Documentation corrected.
+- **Assertion result storage** — `StepResult` now stores all assertions as `Vec<(description, passed)>` instead of failures only; CLI report still shows failures only.
 
 ---
 

@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **GraphQL query autocompletion** — `Ctrl+Space` in the query editor (insert mode) opens a magenta completion popup. If a type detail is loaded from the Schema tab, its fields are proposed (name + type). Otherwise, all OBJECT/INTERFACE/INPUT_OBJECT type names are listed. Typing filters in real time; `Enter` or `Tab` inserts the selection (replacing the prefix already typed); `Esc` closes.
+
+### Fixed
+- **Request tab status hints** — switching to the Request tab via `Tab` now shows the full context-aware hint for the active sub-tab instead of the generic `Tab: switch panel ←/→: section q: quit`. Each sub-tab now exposes its key actions: `e`, `m`, `g`, `n`, `i`, `a`, `d`, `s`, `S` as appropriate.
+
 ---
 
 ## [0.6.0] — 2026-06-23 — Campaigns TUI & Assertions

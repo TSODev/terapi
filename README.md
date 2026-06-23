@@ -115,6 +115,7 @@ terapi --help
 | `g` | Toggle GraphQL mode (REST ↔ GraphQL) |
 | `←` / `→` | Navigate GraphQL sub-tabs (Query / Variables / Headers / Schema / Options) |
 | `i` | Query tab — enter query editor |
+| `Ctrl+Space` | Query tab — open autocompletion popup (fields / type names) |
 | `Esc` | Query tab — exit query editor |
 | `a` / `d` | Variables tab — add / delete variable |
 | `Enter` | Variables tab — edit selected variable |
@@ -405,7 +406,7 @@ Press `g` on the Request tab to activate GraphQL mode. The URL bar shows a magen
 
 | Sub-tab | Purpose |
 |---------|---------|
-| Query | Multi-line query editor — `i` to edit, `Esc` to exit; `{{VAR}}` picker works here |
+| Query | Multi-line editor — `i` to edit, `Esc` to exit; `{{VAR}}` picker; `Ctrl+Space` to autocomplete |
 | Variables | Key/value pairs serialised as the `variables` JSON object |
 | Headers | Same header picker as REST mode |
 | Schema | Schema browser — `f` fetch types, `↑/↓` navigate, `Enter` load fields |
@@ -414,13 +415,15 @@ Press `g` on the Request tab to activate GraphQL mode. The URL bar shows a magen
 **Sending a GraphQL request:**
 1. Press `e` to edit the endpoint URL
 2. Press `←`/`→` to reach the **Query** tab, then `i` to write the query
-3. Optionally switch to **Variables** (`←`/`→`) and press `a` to add variables
-4. Press `s` — terapi posts `{"query": "...", "variables": {...}}` with `Content-Type: application/json` injected automatically
+3. Press `Ctrl+Space` to open the autocompletion popup — fields from the loaded schema type, or type names if no detail is loaded
+4. Optionally switch to **Variables** (`←`/`→`) and press `a` to add variables
+5. Press `s` — terapi posts `{"query": "...", "variables": {...}}` with `Content-Type: application/json` injected automatically
 
 **Browsing the schema** (Schema tab):
 1. Press `f` — fetches `{ __schema { types { name kind } } }` and shows all user-defined types on the left (OBJ / ENM / INP / INT / UNI badges)
 2. Navigate with `↑`/`↓`, press `Enter` to load fields, arg types and return types on the right
-3. Uses two shallow queries (depth ≤ 3) — works even on APIs with CDN query depth limits
+3. Once a type is loaded, switch to the **Query** tab and press `Ctrl+Space` to complete field names from that type
+4. Uses two shallow queries (depth ≤ 3) — works even on APIs with CDN query depth limits
 
 **Collections** — press `S` to save. The TOML stores `graphql = true`, `graphql_query`, and `graphql_variables`. Loading a GQL request from Collections (`Enter` on the node) restores everything and activates GraphQL mode automatically. The node shows a magenta `GQL` badge in the tree.
 

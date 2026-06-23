@@ -369,7 +369,7 @@ Press `g` on the Request tab to switch to **GraphQL mode**. The URL bar shows a 
 
 | Sub-tab | Purpose |
 |---------|---------|
-| Query | Multi-line query editor — `i` to edit, `Esc` to exit; `{{VAR}}` picker works here |
+| Query | Multi-line editor — `i` to edit, `Esc` to exit; `{{VAR}}` picker; `Ctrl+Space` autocompletion |
 | Variables | Key/value pairs serialised as the `variables` JSON object |
 | Headers | Same header picker as REST mode (`a` add, `d` delete) |
 | Schema | Schema browser — `f` fetch types, `↑/↓` navigate, `Enter` load fields |
@@ -379,6 +379,11 @@ Press `g` on the Request tab to switch to **GraphQL mode**. The URL bar shows a 
 - Press `i` to enter the editor (border turns magenta)
 - Full multi-line editing: arrows, Home/End, Backspace, Enter for new line
 - Type `{{` to open the variable picker and insert `{{VAR_NAME}}` from the active environment
+- Press `Ctrl+Space` to open the **autocompletion popup** (magenta border):
+  - If a type detail is loaded from the Schema tab → lists its fields with their types
+  - Otherwise → lists all OBJECT / INTERFACE / INPUT_OBJECT type names
+  - `↑`/`↓` navigate, `Enter` or `Tab` inserts (replacing the prefix already typed), `Esc` closes
+  - Typing filters in real time; no match closes the popup and passes the character through
 - Press `Esc` to exit the editor
 
 **Managing variables** (Variables tab):
@@ -720,6 +725,7 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `Esc` | Campaigns panel | Clear run result |
 | `g` | Request panel | Toggle GraphQL mode (REST ↔ GraphQL) |
 | `i` | GraphQL Query tab | Enter query editor |
+| `Ctrl+Space` | GraphQL Query editor | Open autocompletion popup |
 | `Esc` | GraphQL Query editor | Exit editor |
 | `a` | GraphQL Variables tab | Add variable |
 | `d` | GraphQL Variables tab | Delete selected variable |

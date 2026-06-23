@@ -1,0 +1,39 @@
+# Démonstration du connecteur JSON
+#
+# Ce fichier utilise un tableau JSON inline comme source de données.
+# En pratique, remplace `path` par un fichier JSON local récupéré au préalable
+# (ex: réponse sauvegardée d'une API géographique).
+#
+# Pour tester :
+#   terapi run examples/json_connector_demo.toml
+#
+# Exemple avec un GeoJSON (API Géo Française) :
+#   curl -s "https://geo.api.gouv.fr/communes?nom=Bordeaux&fields=nom,code,codesPostaux&format=json" \
+#        -o /tmp/communes.json
+#   Puis remplacer path = "/tmp/communes.json" et select = "" (racine)
+
+continue_on_error = true
+
+[campaign]
+name        = "JSON Connector — démo"
+description = "Itère sur un tableau JSON et interroge une API pour chaque élément"
+
+[env]
+BASE_URL = "https://jsonplaceholder.typicode.com"
+
+[[connectors]]
+type   = "json"
+path   = "examples/users.json"
+select = "users"   # dot-path vers le tableau ; omets select si la racine est déjà un tableau
+
+[[steps]]
+name   = "Get posts for user"
+method = "GET"
+url    = "{{BASE_URL}}/posts?userId={{id}}"
+
+assert = [
+  { on = "status", eq = 200 },
+]
+
+[steps.extract]
+first_post_title = "0.title"

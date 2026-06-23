@@ -1,5 +1,6 @@
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
+use serde_json::Value;
 use std::collections::HashMap;
 
 pub type Row = HashMap<String, String>;
@@ -11,6 +12,9 @@ pub struct ConnectorConfig {
     #[serde(rename = "type")]
     pub kind: String,
     pub path: String,
+    /// JSON connector: dot-path to the array to iterate (optional — root if omitted).
+    #[serde(default)]
+    pub select: Option<String>,
 }
 
 // ── public API ────────────────────────────────────────────────────────────────
@@ -19,8 +23,9 @@ pub struct ConnectorConfig {
 /// that will be merged into the campaign env for one iteration.
 pub fn load_rows(config: &ConnectorConfig) -> Result<Vec<Row>> {
     match config.kind.as_str() {
-        "csv" => load_csv(&config.path),
-        other => bail!("unknown connector type '{}' (supported: csv)", other),
+        "csv"  => load_csv(&config.path),
+        "json" => load_json(&config.path, config.select.as_deref()),
+        other  => bail!("unknown connector type '{}' (supported: csv, json)", other),
     }
 }
 
@@ -43,4 +48,76 @@ fn load_csv(path: &str) -> Result<Vec<Row>> {
     }
 
     Ok(rows)
+}
+
+fn load_json(path: &str, select: Option<&str>) -> Result<Vec<Row>> {
+    let content = std::fs::read_to_string(path)
+        .with_context(|| format!("cannot open JSON file '{}'", path))?;
+    let root: Value = serde_json::from_str(&content)
+        .with_context(|| format!("invalid JSON in '{}'", path))?;
+
+    // Navigate to the target array via dot-path if provided.
+    let target = if let Some(expr) = select {
+        let mut cur = &root;
+        for segment in expr.split('.') {
+            cur = if let Ok(idx) = segment.parse::<usize>() {
+                cur.get(idx).with_context(|| format!("JSON path '{}': index {} out of bounds", expr, idx))?
+            } else {
+                cur.get(segment).with_context(|| format!("JSON path '{}': key '{}' not found", expr, segment))?
+            };
+        }
+        cur
+    } else {
+        &root
+    };
+
+    let array = target.as_array()
+        .with_context(|| format!("JSON connector: '{}' is not an array", select.unwrap_or("(root)")))?;
+
+    if array.is_empty() {
+        bail!("JSON connector: array at '{}' is empty", select.unwrap_or("(root)"));
+    }
+
+    let rows = array.iter().map(|elem| flatten_value(elem, "")).collect();
+    Ok(rows)
+}
+
+/// Recursively flatten a JSON value into dot-notation variable names.
+/// Scalars → stringified; objects → recurse with `prefix.key`; arrays → JSON string.
+fn flatten_value(value: &Value, prefix: &str) -> Row {
+    let mut row = Row::new();
+    flatten_into(value, prefix, &mut row);
+    row
+}
+
+fn flatten_into(value: &Value, prefix: &str, out: &mut Row) {
+    match value {
+        Value::Object(map) => {
+            for (k, v) in map {
+                let key = if prefix.is_empty() { k.clone() } else { format!("{}.{}", prefix, k) };
+                flatten_into(v, &key, out);
+            }
+        }
+        Value::Array(_) => {
+            // Serialize nested arrays as JSON strings — use a transform step to split if needed.
+            let key = if prefix.is_empty() { "value".to_string() } else { prefix.to_string() };
+            out.insert(key, value.to_string());
+        }
+        Value::String(s) => {
+            let key = if prefix.is_empty() { "value".to_string() } else { prefix.to_string() };
+            out.insert(key, s.clone());
+        }
+        Value::Number(n) => {
+            let key = if prefix.is_empty() { "value".to_string() } else { prefix.to_string() };
+            out.insert(key, n.to_string());
+        }
+        Value::Bool(b) => {
+            let key = if prefix.is_empty() { "value".to_string() } else { prefix.to_string() };
+            out.insert(key, b.to_string());
+        }
+        Value::Null => {
+            let key = if prefix.is_empty() { "value".to_string() } else { prefix.to_string() };
+            out.insert(key, String::new());
+        }
+    }
 }

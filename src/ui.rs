@@ -2454,7 +2454,7 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
             for iter in results {
                 if results.len() > 1 {
                     let row_label = iter.row_vars.iter()
-                        .map(|(k, v)| format!("{}={}", k, if v.len() > 15 { &v[..15] } else { v }))
+                        .map(|(k, v)| format!("{}={}", k, if v.chars().count() > 15 { v.chars().take(15).collect::<String>() } else { v.clone() }))
                         .collect::<Vec<_>>().join("  ");
                     lines.push(Line::from(vec![
                         Span::styled(format!("  Row {} — ", iter.row_index.map_or(0, |i| i + 1)), Style::default().fg(dim)),
@@ -2464,7 +2464,7 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
                 for sr in &iter.steps {
                     lines.push(render_step_result_line(sr));
                     for (var, val) in &sr.extracted {
-                        let v = if val.len() > 40 { format!("{}…", &val[..40]) } else { val.clone() };
+                        let v = if val.chars().count() > 40 { format!("{}…", val.chars().take(40).collect::<String>()) } else { val.clone() };
                         lines.push(Line::from(vec![
                             Span::styled(format!("      ↳ {} = {}", var, v), Style::default().fg(hint)),
                         ]));
@@ -2503,7 +2503,11 @@ fn render_step_result_line(sr: &crate::campaign::StepResult) -> Line<'static> {
     let status_color = sr.status.map(|s| if s < 400 { Color::Green } else { Color::Red })
         .unwrap_or(if sr.error.is_some() { Color::Red } else { Color::Indexed(250) });
     let method_c = method_color(&sr.method);
-    let name = if sr.name.len() > 22 { format!("{}…", &sr.name[..21]) } else { sr.name.clone() };
+    let name = if sr.name.chars().count() > 22 {
+        format!("{}…", sr.name.chars().take(21).collect::<String>())
+    } else {
+        sr.name.clone()
+    };
     let err = sr.error.as_deref().unwrap_or("").chars().take(28).collect::<String>();
 
     let mut spans = vec![

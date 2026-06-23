@@ -43,9 +43,9 @@ enum Commands {
         silent: bool,
     },
 
-    /// Import a collection TOML file into the terapi collections directory
+    /// Import a collection or campaign TOML file into the terapi directory
     Import {
-        /// Path to the collection TOML file to import
+        /// Path to the collection or campaign TOML file to import
         #[arg(value_name = "FILE")]
         file: String,
     },
@@ -75,22 +75,52 @@ fn import_collection(path: &str) -> Result<()> {
     let content = std::fs::read_to_string(path)
         .with_context(|| format!("cannot read '{}'", path))?;
 
-    let col: storage::StoredCollection = toml::from_str(&content)
-        .with_context(|| format!("'{}' is not a valid collection TOML", path))?;
+    let parsed: toml::Value = toml::from_str(&content)
+        .with_context(|| format!("'{}' is not valid TOML", path))?;
 
-    let dir = storage::resolve_terapi_dir().join("collections");
-    std::fs::create_dir_all(&dir)?;
+    if parsed.get("campaign").is_some() {
+        // ── Campaign ──────────────────────────────────────────────────────────
+        let camp: campaign::Campaign = toml::from_str(&content)
+            .with_context(|| format!("'{}' is not a valid campaign TOML", path))?;
 
-    let filename = storage::sanitize_filename(&col.collection.name);
-    let dest = dir.join(format!("{}.toml", filename));
-    let existed = dest.exists();
-    std::fs::write(&dest, &content)?;
+        let dir = storage::resolve_terapi_dir().join("campaigns");
+        std::fs::create_dir_all(&dir)?;
 
-    if existed {
-        println!("Updated  \"{}\" → {}", col.collection.name, dest.display());
+        let filename = storage::sanitize_filename(&camp.campaign.name);
+        let dest = dir.join(format!("{}.toml", filename));
+        let existed = dest.exists();
+        std::fs::write(&dest, &content)?;
+
+        if existed {
+            println!("Updated  campaign \"{}\" → {}", camp.campaign.name, dest.display());
+        } else {
+            println!("Imported campaign \"{}\" → {}", camp.campaign.name, dest.display());
+        }
+    } else if parsed.get("collection").is_some() {
+        // ── Collection ────────────────────────────────────────────────────────
+        let col: storage::StoredCollection = toml::from_str(&content)
+            .with_context(|| format!("'{}' is not a valid collection TOML", path))?;
+
+        let dir = storage::resolve_terapi_dir().join("collections");
+        std::fs::create_dir_all(&dir)?;
+
+        let filename = storage::sanitize_filename(&col.collection.name);
+        let dest = dir.join(format!("{}.toml", filename));
+        let existed = dest.exists();
+        std::fs::write(&dest, &content)?;
+
+        if existed {
+            println!("Updated  collection \"{}\" → {}", col.collection.name, dest.display());
+        } else {
+            println!("Imported collection \"{}\" → {}", col.collection.name, dest.display());
+        }
     } else {
-        println!("Imported \"{}\" → {}", col.collection.name, dest.display());
+        anyhow::bail!(
+            "'{}' is not a recognised terapi file (must have a [collection] or [campaign] section)",
+            path
+        );
     }
+
     Ok(())
 }
 

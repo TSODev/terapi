@@ -8,7 +8,7 @@ use std::str::FromStr;
 use std::time::Instant;
 use tokio::sync::mpsc;
 
-use crate::connector::{self, ConnectorConfig, Row};
+use crate::connector::{self, ConnectorConfig, Row, load_rows_from_json};
 
 // ── TOML schema ───────────────────────────────────────────────────────────────
 
@@ -24,7 +24,17 @@ pub struct Campaign {
     #[serde(default)]
     pub steps: Vec<Step>,
     #[serde(default)]
+    pub outputs: Vec<OutputConfig>,
+    #[serde(default)]
     pub continue_on_error: bool,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct OutputConfig {
+    pub from_step: String,
+    pub path: String,
+    #[serde(default)]
+    pub select: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -123,6 +133,8 @@ pub struct StepResult {
     pub extracted: HashMap<String, String>,
     /// All assertion results: (description, passed).
     pub assertion_results: Vec<(String, bool)>,
+    /// Raw JSON body — used by output connectors; None for transform/seed steps.
+    pub body_json: Option<Value>,
 }
 
 #[derive(Debug, Clone)]
@@ -203,26 +215,6 @@ pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<Campaig
     };
     base_env.extend(campaign.env.clone());
 
-    let rows: Vec<Row> = match campaign.connectors.as_slice() {
-        [] => vec![HashMap::new()],
-        [single] => match connector::load_rows(single) {
-            Ok(rows) => rows,
-            Err(e) => {
-                let _ = tx.send(CampaignEvent::Error(e.to_string()));
-                return;
-            }
-        },
-        _ => {
-            let _ = tx.send(CampaignEvent::Error(
-                "multiple connectors per campaign are not yet supported".into()
-            ));
-            return;
-        }
-    };
-
-    let total = rows.len();
-    let multi = total > 1;
-
     let client = match reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()
@@ -233,6 +225,69 @@ pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<Campaig
             return;
         }
     };
+
+    // Separate seed steps (kind = "seed") from iteration steps.
+    let iteration_steps: Vec<Step> = campaign.steps.iter()
+        .filter(|s| s.kind != "seed")
+        .cloned()
+        .collect();
+
+    let rows: Vec<Row> = match campaign.connectors.as_slice() {
+        [] => vec![HashMap::new()],
+        [single] => {
+            if let Some(ref seed_name) = single.from_step {
+                // Find the seed step and run it once to obtain the JSON source.
+                let seed = match campaign.steps.iter().find(|s| &s.name == seed_name) {
+                    Some(s) => s,
+                    None => {
+                        let _ = tx.send(CampaignEvent::Error(
+                            format!("seed step '{}' not found in steps", seed_name)
+                        ));
+                        return;
+                    }
+                };
+                let url  = resolve(&seed.url, &base_env);
+                let body = seed.body.as_deref().map(|b| resolve(b, &base_env));
+                match execute_step(&client, seed, &url, body.as_deref(), &base_env).await {
+                    Ok(http) => {
+                        let json_str = http.body_value
+                            .map(|v| v.to_string())
+                            .unwrap_or_default();
+                        match load_rows_from_json(&json_str, single.select.as_deref()) {
+                            Ok(rows) => rows,
+                            Err(e) => {
+                                let _ = tx.send(CampaignEvent::Error(e.to_string()));
+                                return;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        let _ = tx.send(CampaignEvent::Error(
+                            format!("seed step '{}' failed: {}", seed_name, e)
+                        ));
+                        return;
+                    }
+                }
+            } else {
+                match connector::load_rows(single) {
+                    Ok(rows) => rows,
+                    Err(e) => {
+                        let _ = tx.send(CampaignEvent::Error(e.to_string()));
+                        return;
+                    }
+                }
+            }
+        }
+        _ => {
+            let _ = tx.send(CampaignEvent::Error(
+                "multiple connectors per campaign are not yet supported".into()
+            ));
+            return;
+        }
+    };
+
+    let total = rows.len();
+    let multi = total > 1;
 
     let mut all: Vec<IterationResult> = Vec::new();
 
@@ -248,13 +303,58 @@ pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<Campaig
             let _ = tx.send(CampaignEvent::IterationStarted { idx, total, row_summary });
         }
 
-        let step_results = run_steps_streaming(&client, &campaign.steps, campaign.continue_on_error, &env, &tx).await;
+        let step_results = run_steps_streaming(&client, &iteration_steps, campaign.continue_on_error, &env, &tx).await;
 
         all.push(IterationResult {
             row_index: if multi { Some(idx) } else { None },
             row_vars,
             steps: step_results,
         });
+    }
+
+    // Write output connectors: one JSON file per [[outputs]] entry.
+    for output in &campaign.outputs {
+        let bodies: Vec<Value> = all.iter()
+            .flat_map(|iter| &iter.steps)
+            .filter(|s| s.name == output.from_step && s.success)
+            .filter_map(|s| {
+                let body = s.body_json.clone()?;
+                if let Some(ref sel) = output.select {
+                    if !sel.is_empty() {
+                        return extract_value_at(&body, sel).cloned();
+                    }
+                }
+                Some(body)
+            })
+            .collect();
+
+        if bodies.is_empty() {
+            let _ = tx.send(CampaignEvent::Warning(
+                format!("output '{}': no successful results from step '{}'", output.path, output.from_step)
+            ));
+            continue;
+        }
+
+        let json_out = Value::Array(bodies);
+        if let Some(parent) = std::path::Path::new(&output.path).parent() {
+            if !parent.as_os_str().is_empty() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+        }
+        match serde_json::to_string_pretty(&json_out) {
+            Ok(s) => {
+                if let Err(e) = std::fs::write(&output.path, s) {
+                    let _ = tx.send(CampaignEvent::Warning(
+                        format!("output '{}': write failed: {}", output.path, e)
+                    ));
+                }
+            }
+            Err(e) => {
+                let _ = tx.send(CampaignEvent::Warning(
+                    format!("output '{}': serialization failed: {}", output.path, e)
+                ));
+            }
+        }
     }
 
     let _ = tx.send(CampaignEvent::Finished(all));
@@ -273,7 +373,11 @@ pub async fn run(campaign: &Campaign, silent: bool) -> Result<()> {
         out!("Env file  : {}", name);
     }
     if let Some(conn) = campaign.connectors.first() {
-        out!("Connector : {}\n", conn.path);
+        if let Some(ref from) = conn.from_step {
+            out!("Connector : json — seed step '{}'\n", from);
+        } else {
+            out!("Connector : {}\n", conn.path);
+        }
     } else {
         out!();
     }
@@ -293,7 +397,12 @@ pub async fn run(campaign: &Campaign, silent: bool) -> Result<()> {
                 if !silent { print_step_result(&sr); }
             }
             CampaignEvent::Finished(results) => {
-                if !silent { print_report(campaign, &results); }
+                if !silent {
+                    print_report(campaign, &results);
+                    for o in &campaign.outputs {
+                        out!("  → output written: {}", o.path);
+                    }
+                }
                 let total_fail: usize = results.iter().map(|r| r.fail_count()).sum();
                 if total_fail > 0 { std::process::exit(1); }
                 break;
@@ -357,6 +466,7 @@ async fn run_steps_streaming(
                         error: None,
                         extracted: produced,
                         assertion_results: vec![],
+                        body_json: None,
                     }
                 }
                 Err(e) => StepResult {
@@ -370,6 +480,7 @@ async fn run_steps_streaming(
                     error: Some(e.to_string()),
                     extracted: HashMap::new(),
                     assertion_results: vec![],
+                    body_json: None,
                 },
             }
         } else {
@@ -412,6 +523,7 @@ async fn run_steps_streaming(
                         error,
                         extracted: if success { http.extracted } else { HashMap::new() },
                         assertion_results,
+                        body_json: http.body_value,
                     }
                 }
                 Err(e) => StepResult {
@@ -425,6 +537,7 @@ async fn run_steps_streaming(
                     error: Some(e.to_string()),
                     extracted: HashMap::new(),
                     assertion_results: vec![],
+                    body_json: None,
                 },
             }
         };

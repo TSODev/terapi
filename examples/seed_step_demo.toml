@@ -1,0 +1,45 @@
+# Démonstration du connecteur JSON avec seed step
+#
+# Le premier step (kind = "seed") est exécuté une seule fois pour récupérer
+# la liste des communes. Le connecteur JSON utilise la réponse de ce step
+# comme source de données, puis itère sur chaque commune pour le step suivant.
+#
+# Pour tester :
+#   terapi run examples/seed_step_demo.toml
+
+continue_on_error = true
+
+[campaign]
+name        = "Seed step — démo (communes françaises)"
+description = "Récupère une liste de communes via API, puis itère pour obtenir le détail de chacune"
+
+[[connectors]]
+type      = "json"
+from_step = "Recherche communes"
+select    = ""   # la racine de la réponse est déjà un tableau
+
+[[steps]]
+name   = "Recherche communes"
+kind   = "seed"
+method = "GET"
+url    = "https://geo.api.gouv.fr/communes?nom=Bordeaux&fields=nom,code,codesPostaux&format=json"
+
+[[steps]]
+name   = "Détail commune"
+method = "GET"
+url    = "https://geo.api.gouv.fr/communes/{{code}}?fields=nom,code,population,superficie,codeDepartement"
+
+assert = [
+  { on = "status", eq = 200 },
+]
+
+[steps.extract]
+nom_commune      = "nom"
+departement      = "codeDepartement"
+population       = "population"
+superficie       = "superficie"
+
+# Connecteur de sortie : enregistre le body JSON de chaque itération dans un fichier
+[[outputs]]
+from_step = "Détail commune"
+path      = "/tmp/communes_bordeaux.json"

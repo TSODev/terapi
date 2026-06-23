@@ -11,10 +11,16 @@ pub type Row = HashMap<String, String>;
 pub struct ConnectorConfig {
     #[serde(rename = "type")]
     pub kind: String,
+    /// File path (csv or json). Not required when from_step is set.
+    #[serde(default)]
     pub path: String,
     /// JSON connector: dot-path to the array to iterate (optional — root if omitted).
     #[serde(default)]
     pub select: Option<String>,
+    /// JSON connector: name of a seed step whose response body is used as source.
+    /// When set, `path` is ignored.
+    #[serde(default)]
+    pub from_step: Option<String>,
 }
 
 // ── public API ────────────────────────────────────────────────────────────────
@@ -50,15 +56,25 @@ fn load_csv(path: &str) -> Result<Vec<Row>> {
     Ok(rows)
 }
 
+/// Parse rows from a JSON string — used by the `from_step` seed response path.
+pub fn load_rows_from_json(json_str: &str, select: Option<&str>) -> Result<Vec<Row>> {
+    let root: Value = serde_json::from_str(json_str)
+        .context("seed step response is not valid JSON")?;
+    json_to_rows(&root, select)
+}
+
 fn load_json(path: &str, select: Option<&str>) -> Result<Vec<Row>> {
     let content = std::fs::read_to_string(path)
         .with_context(|| format!("cannot open JSON file '{}'", path))?;
     let root: Value = serde_json::from_str(&content)
         .with_context(|| format!("invalid JSON in '{}'", path))?;
+    json_to_rows(&root, select)
+}
 
+fn json_to_rows(root: &Value, select: Option<&str>) -> Result<Vec<Row>> {
     // Navigate to the target array via dot-path if provided.
-    let target = if let Some(expr) = select {
-        let mut cur = &root;
+    let target = if let Some(expr) = select.filter(|s| !s.is_empty()) {
+        let mut cur = root;
         for segment in expr.split('.') {
             cur = if let Ok(idx) = segment.parse::<usize>() {
                 cur.get(idx).with_context(|| format!("JSON path '{}': index {} out of bounds", expr, idx))?

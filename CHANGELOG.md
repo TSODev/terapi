@@ -7,6 +7,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **Campaign assertions** — `assert = [...]` field on campaign steps: validate status code, response body fields, headers, and elapsed time before extracting variables. Operators: `eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in`, `exists`, `contains`, `matches` (regex). All assertions in a step are evaluated; failures are printed inline and in the boxed report. A step with any assertion failure is marked `✗` and stops the pipeline. `{{VAR}}` placeholders resolved in `on`, `eq`, `contains`, and `matches`. String `"42"` and number `42` are considered equal by `eq`. Adds `regex` crate dependency.
+
 ---
 
 ## [0.5.0] — 2026-06-23 — GraphQL native

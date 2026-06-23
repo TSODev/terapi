@@ -981,6 +981,68 @@ Use dot-path notation in `[steps.extract]` to pull values out of a JSON response
 
 Extracted values are injected into all subsequent steps.
 
+### Assertions
+
+Add `assert = [...]` to any step to validate the response. All assertions are evaluated; if any fails the step is marked `✗` and the campaign stops. Extracted vars are only propagated on full success.
+
+```toml
+[[steps]]
+name   = "Login"
+method = "POST"
+url    = "{{BASE_URL}}/auth/login"
+body   = '{"email": "{{ADMIN}}", "password": "secret"}'
+
+[steps.headers]
+Content-Type = "application/json"
+
+assert = [
+  { on = "status",              eq      = 200            },
+  { on = "body.user.active",    eq      = true            },
+  { on = "body.token",          exists  = true            },
+  { on = "elapsed_ms",          lt      = 500             },
+  { on = "header.content-type", contains = "json"         },
+]
+
+[steps.extract]
+TOKEN   = "token"
+USER_ID = "user.id"
+```
+
+**`on` — what to assert against:**
+
+| Value | Targets |
+|-------|---------|
+| `"status"` | HTTP status code (number) |
+| `"elapsed_ms"` | Response time in milliseconds (number) |
+| `"body"` | Full parsed JSON body |
+| `"body.x.y"` | Dot-path inside the JSON body |
+| `"header.x-name"` | Response header value (case-insensitive) |
+
+**Operators:**
+
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `eq` | Strict equality — string, number, or bool | `{ on = "status", eq = 201 }` |
+| `ne` | Not equal | `{ on = "body.error", ne = true }` |
+| `lt` / `lte` | Less than / less than or equal (numeric) | `{ on = "elapsed_ms", lt = 500 }` |
+| `gt` / `gte` | Greater than / greater than or equal (numeric) | `{ on = "body.count", gt = 0 }` |
+| `in` | Value is in allowed list | `{ on = "status", in = [200, 201] }` |
+| `exists` | Field is present and non-null | `{ on = "body.token", exists = true }` |
+| `contains` | String contains substring | `{ on = "header.content-type", contains = "json" }` |
+| `matches` | String matches regex | `{ on = "header.location", matches = "/users/\\d+" }` |
+
+`{{VAR}}` placeholders are resolved in `on`, `eq`, `contains`, and `matches` before comparison. String `"42"` and number `42` are considered equal by `eq`.
+
+**Output when assertions fail:**
+
+```
+  ✗ Login             POST    200    684 ms  2 assertion(s) failed
+      ✗ assert: body.user.active == true  (got false)
+      ✗ assert: elapsed_ms < 500  (got 684)
+```
+
+Assertion failures also appear in the boxed report under the failed step.
+
 ### Data-driven campaigns (CSV)
 
 Add a CSV connector to run the campaign once per row:

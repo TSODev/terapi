@@ -1,45 +1,42 @@
-# EU Countries — capitals, coordinates & languages
+# EU Countries — capitals, language & weather
 #
-# Seed step : récupère tous les pays d'Europe via l'API GraphQL Countries
-#             (code, name, capital, emoji, languages).
-# Connecteur JSON : itère sur chaque pays.
-# Step 2 — transform : extrait le nom de la première langue officielle.
-# Step 3 — HTTP : géocode la capitale via Open-Meteo, extrait lat/lon.
+# Pipeline complet sans clé API :
 #
-# Aucune clé API requise.
+#   Seed     → GraphQL Countries : liste des 53 pays EU
+#              (code, name, capital, emoji, languages)
+#   Transform → regex : extrait la première langue officielle
+#   HTTP     → Open-Meteo Geocoding : lat/lon de la capitale
+#   HTTP     → Open-Meteo Weather   : météo actuelle (temp, vent, code WMO)
+#   Output   → /tmp/eu_capitals_weather.json
 #
 # Pour tester :
 #   terapi run examples/eu_capitals.toml
 #
-# Variables disponibles depuis le connecteur (seed) :
-#   {{code}}      — code ISO du pays  (ex. FR)
-#   {{name}}      — nom du pays       (ex. France)
-#   {{capital}}   — capitale          (ex. Paris)
-#   {{emoji}}     — drapeau           (ex. 🇫🇷)
-#   {{languages}} — tableau JSON sérialisé des langues officelles
-#
-# Après transform :
-#   {{primary_language}} — première langue officielle (ex. French)
-#
-# Après extraction HTTP :
-#   {{lat}}     — latitude de la capitale
-#   {{lon}}     — longitude de la capitale
-#   {{country}} — pays retourné par le géocodeur (vérification croisée)
+# Variables disponibles en cours de pipeline :
+#   {{code}}             — code ISO du pays       (ex. FR)
+#   {{name}}             — nom du pays            (ex. France)
+#   {{capital}}          — capitale               (ex. Paris)
+#   {{emoji}}            — drapeau                (ex. 🇫🇷)
+#   {{primary_language}} — première langue off.   (ex. French)      [après transform]
+#   {{lat}} {{lon}}      — coordonnées capitale   (ex. 48.85/2.35)  [après géocode]
+#   {{temperature}}      — °C courant             (ex. 17.4)        [après météo]
+#   {{wind_speed}}       — km/h                   (ex. 12.3)        [après météo]
+#   {{weather_code}}     — code WMO               (ex. 3)           [après météo]
 
-continue_on_error = true   # certains micro-états ont des capitales ambiguës
+continue_on_error = true   # micro-états avec capitales ambiguës (Guernsey, San Marino)
 
 [campaign]
-name        = "EU Countries — capitals, coordinates & languages"
-description = "Liste les pays européens via GraphQL, extrait la langue officielle, géocode chaque capitale (Open-Meteo). Sans clé API."
+name        = "EU Countries — capitals, language & weather"
+description = "GraphQL seed → langue officielle → géocodage → météo actuelle. Open-Meteo uniquement, sans clé API."
 
-# ── Connecteur : source = réponse du seed step ────────────────────────────────
+# ── Connecteur ────────────────────────────────────────────────────────────────
 
 [[connectors]]
 type      = "json"
 from_step = "EU countries"
-select    = "data.continent.countries"   # tableau à itérer dans la réponse GraphQL
+select    = "data.continent.countries"
 
-# ── Step 1 — seed : exécuté une seule fois ────────────────────────────────────
+# ── Step 1 — seed ─────────────────────────────────────────────────────────────
 
 [[steps]]
 name   = "EU countries"
@@ -51,9 +48,8 @@ body   = '{"query":"{ continent(code: \"EU\") { countries { code name capital em
 [steps.headers]
 Content-Type = "application/json"
 
-# ── Step 2 — transform : extrait la première langue du tableau JSON ────────────
-# {{languages}} est sérialisé sous la forme : [{"name":"French"},{"name":"German"},…]
-# Le regex capture le premier "name":"…" rencontré.
+# ── Step 2 — transform : première langue officielle ───────────────────────────
+# {{languages}} = '[{"name":"French"},{"name":"German"},…]'  (JSON sérialisé)
 
 [[steps]]
 name = "Langue officielle"
@@ -62,7 +58,7 @@ transforms = [
   { type = "regex", input = "{{languages}}", pattern = "\"name\":\"([^\"]+)\"", group = 1, output = "primary_language" },
 ]
 
-# ── Step 3 — HTTP : une itération par pays ────────────────────────────────────
+# ── Step 3 — géocodage de la capitale ─────────────────────────────────────────
 
 [[steps]]
 name   = "Géocode capitale"
@@ -77,10 +73,26 @@ assert = [
 [steps.extract]
 lat     = "results.0.latitude"
 lon     = "results.0.longitude"
-country = "results.0.country"
 
-# ── Sortie : écrit les résultats dans un fichier JSON ─────────────────────────
+# ── Step 4 — météo actuelle à la capitale ─────────────────────────────────────
+# Utilise {{lat}} et {{lon}} extraits à l'étape précédente.
+# weather_code : codes WMO (0=ciel clair, 1-3=nuages, 45-48=brouillard,
+#                51-67=pluie, 71-77=neige, 80-82=averses, 95-99=orage)
+
+[[steps]]
+name   = "Météo capitale"
+method = "GET"
+url    = "https://api.open-meteo.com/v1/forecast?latitude={{lat}}&longitude={{lon}}&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto&format=json"
+
+assert = [{ on = "status", eq = 200 }]
+
+[steps.extract]
+temperature  = "current.temperature_2m"
+wind_speed   = "current.wind_speed_10m"
+weather_code = "current.weather_code"
+
+# ── Sortie ────────────────────────────────────────────────────────────────────
 
 [[outputs]]
-from_step = "Géocode capitale"
-path      = "/tmp/eu_capitals.json"
+from_step = "Météo capitale"
+path      = "/tmp/eu_capitals_weather.json"

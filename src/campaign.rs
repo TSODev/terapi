@@ -153,6 +153,9 @@ pub struct StepResult {
     /// Raw JSON body — used by output connectors; None for transform/seed steps.
     pub body_json: Option<Value>,
     pub graphql: bool,
+    /// Resolved request snapshot for TUI "Load in Request tab" feature.
+    pub request_headers: Vec<(String, String)>,
+    pub request_body: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -523,6 +526,8 @@ async fn run_single_step(
             assertion_results: vec![],
             body_json: None,
             graphql: false,
+            request_headers: vec![],
+            request_body: None,
         };
     }
 
@@ -542,6 +547,8 @@ async fn run_single_step(
                 assertion_results: vec![],
                 body_json: None,
                 graphql: false,
+                request_headers: vec![],
+                request_body: None,
             },
             Err(e) => StepResult {
                 name: step.name.clone(),
@@ -556,14 +563,20 @@ async fn run_single_step(
                 assertion_results: vec![],
                 body_json: None,
                 graphql: false,
+                request_headers: vec![],
+                request_body: None,
             },
         };
     }
 
-    // HTTP step
+    // HTTP step — capture the fully-resolved request snapshot for the TUI "Load in Request" feature.
     let url     = resolve(&step.url, effective);
     let body    = step.body.as_deref().map(|b| resolve(b, effective));
     let graphql = body.as_deref().map(is_graphql_body).unwrap_or(false);
+    let request_headers: Vec<(String, String)> = step.headers.iter()
+        .map(|(k, v)| (k.clone(), resolve(v, effective)))
+        .collect();
+    let request_body = body.clone();
     let t0      = Instant::now();
 
     match execute_step(client, step, &url, body.as_deref(), effective).await {
@@ -602,6 +615,8 @@ async fn run_single_step(
                 assertion_results,
                 body_json: http.body_value,
                 graphql,
+                request_headers,
+                request_body,
             }
         }
         Err(e) => StepResult {
@@ -617,6 +632,8 @@ async fn run_single_step(
             assertion_results: vec![],
             body_json: None,
             graphql,
+            request_headers,
+            request_body,
         },
     }
 }

@@ -103,6 +103,7 @@ pub struct App {
     pub campaign_cursor: usize,
     pub campaign_focus: CampaignFocus,
     pub campaign_result_scroll: u16,
+    pub campaign_done_cursor: usize,
     pub campaign_run_state: crate::campaign::CampaignRunState,
     // OAuth2
     pub oauth2_token_cache: std::collections::HashMap<String, CachedToken>,
@@ -214,6 +215,7 @@ impl App {
             campaign_cursor: 0,
             campaign_focus: CampaignFocus::List,
             campaign_result_scroll: 0,
+            campaign_done_cursor: 0,
             campaign_run_state: crate::campaign::CampaignRunState::Idle,
             response_rx,
             response_tx,
@@ -1048,11 +1050,23 @@ impl App {
                         if self.campaign_cursor > 0 {
                             self.campaign_cursor -= 1;
                             self.campaign_result_scroll = 0;
+                            self.campaign_done_cursor = 0;
                             self.campaign_run_state = crate::campaign::CampaignRunState::Idle;
                         }
                     }
                     CampaignFocus::Result => {
-                        self.campaign_result_scroll = self.campaign_result_scroll.saturating_sub(1);
+                        if let crate::campaign::CampaignRunState::Done { .. } = &self.campaign_run_state {
+                            if self.campaign_done_cursor > 0 {
+                                self.campaign_done_cursor -= 1;
+                                // Scroll up to keep cursor roughly visible (3 header lines + ~2 per step).
+                                let target = (self.campaign_done_cursor as u16).saturating_mul(2).saturating_add(3);
+                                if target < self.campaign_result_scroll {
+                                    self.campaign_result_scroll = target;
+                                }
+                            }
+                        } else {
+                            self.campaign_result_scroll = self.campaign_result_scroll.saturating_sub(1);
+                        }
                     }
                 }
             }
@@ -1062,11 +1076,27 @@ impl App {
                         if self.campaign_cursor + 1 < self.campaigns.len() {
                             self.campaign_cursor += 1;
                             self.campaign_result_scroll = 0;
+                            self.campaign_done_cursor = 0;
                             self.campaign_run_state = crate::campaign::CampaignRunState::Idle;
                         }
                     }
                     CampaignFocus::Result => {
-                        self.campaign_result_scroll = self.campaign_result_scroll.saturating_add(1);
+                        if let crate::campaign::CampaignRunState::Done { ref results, .. } = self.campaign_run_state {
+                            let total: usize = results.iter()
+                                .flat_map(|r| r.steps.iter())
+                                .filter(|s| s.method != "WAIT" && s.method != "TRSF")
+                                .count();
+                            if self.campaign_done_cursor + 1 < total {
+                                self.campaign_done_cursor += 1;
+                                // Scroll down to keep cursor roughly visible.
+                                let target = (self.campaign_done_cursor as u16).saturating_mul(2).saturating_add(3);
+                                if target > self.campaign_result_scroll + 20 {
+                                    self.campaign_result_scroll = target.saturating_sub(20);
+                                }
+                            }
+                        } else {
+                            self.campaign_result_scroll = self.campaign_result_scroll.saturating_add(1);
+                        }
                     }
                 }
             }
@@ -1078,7 +1108,13 @@ impl App {
             KeyCode::Esc if self.active_tab == Tab::Campaigns => {
                 self.campaign_run_state = crate::campaign::CampaignRunState::Idle;
                 self.campaign_result_scroll = 0;
+                self.campaign_done_cursor = 0;
                 self.campaign_focus = CampaignFocus::List;
+            }
+            KeyCode::Char('L') if self.active_tab == Tab::Campaigns => {
+                if matches!(self.campaign_focus, CampaignFocus::Result) {
+                    self.load_campaign_step_to_request();
+                }
             }
             KeyCode::Char('E') if self.active_tab == Tab::Campaigns => {
                 if let Some(entry) = self.campaigns.get(self.campaign_cursor) {

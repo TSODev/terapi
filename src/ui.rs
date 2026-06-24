@@ -2747,7 +2747,7 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
                 Line::from(""),
             ];
             for sr in step_results.iter() {
-                lines.push(render_step_result_line(sr));
+                lines.push(render_step_result_line(sr, false));
                 for (desc, ok) in &sr.assertion_results {
                     let (sym, color) = if *ok { ("✓", Color::Green) } else { ("✗", Color::Red) };
                     lines.push(Line::from(vec![
@@ -2781,6 +2781,12 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
             let verdict_color = if total_fail == 0 { Color::Green } else { Color::Red };
             let verdict = if total_fail == 0 { "✓  ALL PASSED" } else { "✗  SOME STEPS FAILED" };
 
+            // Build flat list of HTTP steps for cursor tracking.
+            let http_steps: Vec<&crate::campaign::StepResult> = results.iter()
+                .flat_map(|r| r.steps.iter())
+                .filter(|s| s.method != "WAIT" && s.method != "TRSF")
+                .collect();
+
             let mut lines: Vec<Line> = vec![
                 Line::from(vec![
                     Span::styled(format!("  {}", verdict), Style::default().fg(verdict_color).add_modifier(Modifier::BOLD)),
@@ -2795,6 +2801,7 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
                 Line::from(""),
             ];
 
+            let mut http_step_idx: usize = 0;
             for iter in results {
                 if results.len() > 1 {
                     let row_label = iter.row_vars.iter()
@@ -2806,7 +2813,11 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
                     ]));
                 }
                 for sr in &iter.steps {
-                    lines.push(render_step_result_line(sr));
+                    let is_http = sr.method != "WAIT" && sr.method != "TRSF";
+                    let selected = is_http && !list_focused
+                        && http_step_idx == app.campaign_done_cursor;
+                    lines.push(render_step_result_line(sr, selected));
+                    if is_http { http_step_idx += 1; }
                     for (var, val) in &sr.extracted {
                         let v = if val.chars().count() > 40 { format!("{}…", val.chars().take(40).collect::<String>()) } else { val.clone() };
                         lines.push(Line::from(vec![
@@ -2824,10 +2835,24 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
             }
 
             lines.push(Line::from(""));
-            lines.push(Line::from(vec![
-                Span::styled("  Esc", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                Span::styled(" to clear  r to re-run", Style::default().fg(dim)),
-            ]));
+            // Show L hint only when there are loadable HTTP steps.
+            if !http_steps.is_empty() && !list_focused {
+                lines.push(Line::from(vec![
+                    Span::styled("  ↑/↓", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                    Span::styled(" select step  ", Style::default().fg(dim)),
+                    Span::styled("L", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                    Span::styled(" load in Request  ", Style::default().fg(dim)),
+                    Span::styled("Esc", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                    Span::styled(" clear  ", Style::default().fg(dim)),
+                    Span::styled("r", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                    Span::styled(" re-run", Style::default().fg(dim)),
+                ]));
+            } else {
+                lines.push(Line::from(vec![
+                    Span::styled("  Esc", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                    Span::styled(" to clear  r to re-run", Style::default().fg(dim)),
+                ]));
+            }
 
             let right_border_color = if !list_focused { Color::Cyan } else { verdict_color };
             let p = Paragraph::new(lines)
@@ -2841,7 +2866,7 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
     }
 }
 
-fn render_step_result_line(sr: &crate::campaign::StepResult) -> Line<'static> {
+fn render_step_result_line(sr: &crate::campaign::StepResult, selected: bool) -> Line<'static> {
     let (mark, mark_color) = if sr.success { ("✓", Color::Green) } else { ("✗", Color::Red) };
     let status_str = sr.status
         .map(|s| format!("{}", s))
@@ -2860,9 +2885,22 @@ fn render_step_result_line(sr: &crate::campaign::StepResult) -> Line<'static> {
     };
     let err = sr.error.as_deref().unwrap_or("").chars().take(28).collect::<String>();
 
+    // Cursor marker: ▶ (cyan) for selected HTTP steps, space otherwise.
+    let cursor_span = if selected {
+        Span::styled("▶ ", Style::default().fg(Color::Cyan))
+    } else {
+        Span::styled("  ", Style::default())
+    };
+    let name_style = if selected {
+        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::White)
+    };
+
     let mut spans = vec![
-        Span::styled(format!("  {} ", mark), Style::default().fg(mark_color)),
-        Span::styled(format!("{:<23}", name), Style::default().fg(Color::White)),
+        cursor_span,
+        Span::styled(format!("{} ", mark), Style::default().fg(mark_color)),
+        Span::styled(format!("{:<23}", name), name_style),
         Span::styled(format!("{:<7}", method_display), Style::default().fg(method_c).add_modifier(Modifier::BOLD)),
         Span::styled(format!("{:<5}", status_str), Style::default().fg(status_color)),
         Span::styled(format!("{:>6}ms  ", sr.duration_ms), Style::default().fg(Color::Indexed(250))),

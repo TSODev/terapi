@@ -275,8 +275,8 @@ impl App {
     pub(super) fn delete_node(&mut self, address: NodeAddress) -> Result<()> {
         match address {
             NodeAddress::Collection(ci) => {
-                let name = self.stored_collections[ci].collection.name.clone();
-                crate::storage::delete_collection(&name)?;
+                let path = self.stored_collections[ci].path.clone();
+                crate::storage::delete_collection_by_path(&path)?;
                 self.stored_collections.remove(ci);
                 self.expanded_nodes.clear();
                 if !self.stored_collections.is_empty() {

@@ -169,11 +169,10 @@ pub fn save_collection(col: &StoredCollection) -> Result<()> {
     Ok(())
 }
 
-pub fn delete_collection(name: &str) -> Result<()> {
-    let dir = resolve_terapi_dir().join("collections");
-    let path = dir.join(format!("{}.toml", sanitize_filename(name)));
-    if path.exists() {
-        std::fs::remove_file(path)?;
+pub fn delete_collection_by_path(path: &str) -> Result<()> {
+    let p = std::path::Path::new(path);
+    if p.exists() {
+        std::fs::remove_file(p)?;
     }
     Ok(())
 }

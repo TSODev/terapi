@@ -2461,6 +2461,14 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
                 for step in &c.steps {
                     let (method_str, method_color) = if step.kind == "transform" {
                         ("TRSF".to_string(), Color::Magenta)
+                    } else if step.kind == "pause" {
+                        ("WAIT".to_string(), Color::Indexed(245))
+                    } else if step.body.as_deref()
+                        .and_then(|b| serde_json::from_str::<serde_json::Value>(b).ok())
+                        .and_then(|v| v.get("query").cloned())
+                        .is_some()
+                    {
+                        ("GQL".to_string(), Color::Magenta)
                     } else {
                         (step.method.clone(), method_color(&step.method))
                     };
@@ -2602,7 +2610,11 @@ fn render_step_result_line(sr: &crate::campaign::StepResult) -> Line<'static> {
         .unwrap_or_else(|| if sr.error.is_some() { "ERR".into() } else { "-".into() });
     let status_color = sr.status.map(|s| if s < 400 { Color::Green } else { Color::Red })
         .unwrap_or(if sr.error.is_some() { Color::Red } else { Color::Indexed(250) });
-    let method_c = method_color(&sr.method);
+    let (method_display, method_c) = if sr.graphql {
+        ("GQL".to_string(), Color::Magenta)
+    } else {
+        (sr.method.clone(), method_color(&sr.method))
+    };
     let name = if sr.name.chars().count() > 22 {
         format!("{}…", sr.name.chars().take(21).collect::<String>())
     } else {
@@ -2613,7 +2625,7 @@ fn render_step_result_line(sr: &crate::campaign::StepResult) -> Line<'static> {
     let mut spans = vec![
         Span::styled(format!("  {} ", mark), Style::default().fg(mark_color)),
         Span::styled(format!("{:<23}", name), Style::default().fg(Color::White)),
-        Span::styled(format!("{:<7}", sr.method), Style::default().fg(method_c).add_modifier(Modifier::BOLD)),
+        Span::styled(format!("{:<7}", method_display), Style::default().fg(method_c).add_modifier(Modifier::BOLD)),
         Span::styled(format!("{:<5}", status_str), Style::default().fg(status_color)),
         Span::styled(format!("{:>6}ms  ", sr.duration_ms), Style::default().fg(Color::Indexed(250))),
         Span::styled(err, Style::default().fg(Color::Red)),

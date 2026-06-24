@@ -150,6 +150,7 @@ pub struct StepResult {
     pub assertion_results: Vec<(String, bool)>,
     /// Raw JSON body — used by output connectors; None for transform/seed steps.
     pub body_json: Option<Value>,
+    pub graphql: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -479,6 +480,13 @@ pub async fn run(campaign: &Campaign, silent: bool, overrides: HashMap<String, S
     Ok(())
 }
 
+fn is_graphql_body(body: &str) -> bool {
+    serde_json::from_str::<Value>(body)
+        .ok()
+        .and_then(|v| v.get("query").cloned())
+        .is_some()
+}
+
 // ── streaming step runner ─────────────────────────────────────────────────────
 
 async fn run_steps_streaming(
@@ -525,6 +533,7 @@ async fn run_steps_streaming(
                 extracted: HashMap::new(),
                 assertion_results: vec![],
                 body_json: None,
+                graphql: false,
             }
         } else if step.kind == "transform" {
             let t0 = Instant::now();
@@ -543,6 +552,7 @@ async fn run_steps_streaming(
                         extracted: produced,
                         assertion_results: vec![],
                         body_json: None,
+                        graphql: false,
                     }
                 }
                 Err(e) => StepResult {
@@ -557,11 +567,13 @@ async fn run_steps_streaming(
                     extracted: HashMap::new(),
                     assertion_results: vec![],
                     body_json: None,
+                    graphql: false,
                 },
             }
         } else {
             let url  = resolve(&step.url, &effective);
             let body = step.body.as_deref().map(|b| resolve(b, &effective));
+            let graphql = body.as_deref().map(is_graphql_body).unwrap_or(false);
             let t0   = Instant::now();
 
             match execute_step(client, step, &url, body.as_deref(), &effective).await {
@@ -600,6 +612,7 @@ async fn run_steps_streaming(
                         extracted: if success { http.extracted } else { HashMap::new() },
                         assertion_results,
                         body_json: http.body_value,
+                        graphql,
                     }
                 }
                 Err(e) => StepResult {
@@ -614,6 +627,7 @@ async fn run_steps_streaming(
                     extracted: HashMap::new(),
                     assertion_results: vec![],
                     body_json: None,
+                    graphql,
                 },
             }
         };

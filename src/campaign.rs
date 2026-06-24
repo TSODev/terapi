@@ -58,6 +58,17 @@ pub struct Meta {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+pub struct StepCondition {
+    pub var: String,
+    #[serde(default)]
+    pub eq: Option<String>,
+    #[serde(default)]
+    pub ne: Option<String>,
+    #[serde(default)]
+    pub exists: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub struct Step {
     pub name: String,
     #[serde(default = "default_http")]
@@ -84,6 +95,8 @@ pub struct Step {
     pub continue_on_error: Option<bool>,
     #[serde(default)]
     pub foreach: Option<String>,
+    #[serde(default)]
+    pub when: Option<StepCondition>,
 }
 
 fn default_http() -> String { "http".into() }
@@ -145,6 +158,7 @@ pub struct StepResult {
     pub status: Option<u16>,
     pub duration_ms: u64,
     pub success: bool,
+    pub skipped: bool,
     pub non_blocking: bool,
     pub error: Option<String>,
     pub extracted: HashMap<String, String>,
@@ -520,6 +534,7 @@ async fn run_single_step(
             status: None,
             duration_ms: t0.elapsed().as_millis() as u64,
             success: true,
+            skipped: false,
             non_blocking: effective_coe,
             error: None,
             extracted: HashMap::new(),
@@ -541,6 +556,7 @@ async fn run_single_step(
                 status: None,
                 duration_ms: t0.elapsed().as_millis() as u64,
                 success: true,
+                skipped: false,
                 non_blocking: effective_coe,
                 error: None,
                 extracted: produced,
@@ -557,6 +573,7 @@ async fn run_single_step(
                 status: None,
                 duration_ms: t0.elapsed().as_millis() as u64,
                 success: false,
+                skipped: false,
                 non_blocking: effective_coe,
                 error: Some(e.to_string()),
                 extracted: HashMap::new(),
@@ -609,6 +626,7 @@ async fn run_single_step(
                 status: Some(http.status),
                 duration_ms,
                 success,
+                skipped: false,
                 non_blocking: effective_coe,
                 error,
                 extracted: if success { http.extracted } else { HashMap::new() },
@@ -626,6 +644,7 @@ async fn run_single_step(
             status: None,
             duration_ms: t0.elapsed().as_millis() as u64,
             success: false,
+            skipped: false,
             non_blocking: effective_coe,
             error: Some(e.to_string()),
             extracted: HashMap::new(),
@@ -664,6 +683,32 @@ async fn run_steps_streaming(
             }
         }
         effective.extend(extracted.clone());
+
+        // ── when condition ────────────────────────────────────────────────────
+        if let Some(ref cond) = step.when {
+            if !evaluate_when_condition(cond, &effective) {
+                let skipped = StepResult {
+                    name: step.name.clone(),
+                    method: "SKIP".into(),
+                    url: String::new(),
+                    status: None,
+                    duration_ms: 0,
+                    success: true,
+                    skipped: true,
+                    non_blocking: effective_coe,
+                    error: None,
+                    extracted: HashMap::new(),
+                    assertion_results: vec![],
+                    body_json: None,
+                    graphql: false,
+                    request_headers: vec![],
+                    request_body: None,
+                };
+                let _ = tx.send(CampaignEvent::StepDone(skipped.clone()));
+                results.push(skipped);
+                continue;
+            }
+        }
 
         // ── foreach ──────────────────────────────────────────────────────────
         if let Some(ref foreach_expr) = step.foreach {
@@ -962,6 +1007,27 @@ fn evaluate_assertions(
 }
 
 /// Compact label for an assertion — used in the TUI idle preview.
+fn evaluate_when_condition(cond: &StepCondition, env: &HashMap<String, String>) -> bool {
+    let value = env.get(&cond.var).map(|s| s.as_str()).unwrap_or("");
+    if let Some(ref eq) = cond.eq {
+        return value == resolve(eq, env).as_str();
+    }
+    if let Some(ref ne) = cond.ne {
+        return value != resolve(ne, env).as_str();
+    }
+    if let Some(exists) = cond.exists {
+        return env.contains_key(&cond.var) == exists;
+    }
+    !value.is_empty()
+}
+
+pub fn when_label(cond: &StepCondition) -> String {
+    if let Some(ref v) = cond.eq     { return format!("{} == {:?}", cond.var, v); }
+    if let Some(ref v) = cond.ne     { return format!("{} != {:?}", cond.var, v); }
+    if let Some(e)      = cond.exists { return format!("{} exists={}", cond.var, e); }
+    format!("{} set", cond.var)
+}
+
 pub fn assertion_label(a: &Assertion) -> String {
     if let Some(ref v) = a.eq      { return format!("{} == {}", a.on, fmt_val(v)); }
     if let Some(ref v) = a.ne      { return format!("{} != {}", a.on, fmt_val(v)); }
@@ -982,6 +1048,10 @@ pub fn assertion_label(a: &Assertion) -> String {
 // ── CLI report ────────────────────────────────────────────────────────────────
 
 fn print_step_result(sr: &StepResult) {
+    if sr.skipped {
+        println!("  ⊘ {:<22} (skipped)", sr.name);
+        return;
+    }
     let status_str = sr.status
         .map(|s| s.to_string())
         .unwrap_or_else(|| if sr.error.is_some() { "ERR".into() } else { "-".into() });

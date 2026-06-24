@@ -12,6 +12,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - **Charger un step de campagne dans le Request tab (`L`)** — dans le panel Done de l'onglet Campaigns (focus Result), `↑`/`↓` déplace un curseur `▶` (cyan) entre les steps HTTP. Appuyer sur `L` charge le step sélectionné dans l'onglet Request avec tous les champs résolus (URL, méthode, headers, body — les `{{VAR}}` sont déjà substitués) puis bascule sur cet onglet. Permet de rejouer le step (`s`), de l'inspecter en vue HTTP (`r` deux fois), de modifier les headers, ou de le sauvegarder dans une collection (`S`). Les steps WAIT et TRSF sont ignorés par le curseur. `StepResult` stocke désormais un snapshot `request_headers` + `request_body` capturé au moment de l'exécution.
 
+- **`when` — exécution conditionnelle de step** — tout step accepte désormais un champ `when` (table TOML inline) qui évalue une variable de campagne avant d'exécuter le step. Si la condition est fausse, le step est ignoré (`⊘ skipped`) sans interrompre la campagne ni compter comme échec. Opérateurs supportés :
+  - `eq = "valeur"` — la variable est égale à la valeur
+  - `ne = "valeur"` — la variable est différente de la valeur
+  - `exists = true/false` — la variable est (ou n'est pas) définie dans l'environnement
+  - *(sans opérateur)* — la variable existe et est non vide
+
+  La valeur de comparaison supporte `{{VAR}}` pour comparer deux variables. Le champ `var` désigne une variable de campagne (extraite d'un step précédent, de l'env ou du CSV).
+
+  Exemple TOML :
+  ```toml
+  extract = { USER_TYPE = "user.type" }
+
+  [[steps]]
+  name = "Premium flow"
+  when = { var = "USER_TYPE", eq = "premium" }
+  method = "POST"
+  url = "{{BASE}}/premium/activate"
+  ```
+
+  Affichage TUI : dans la vue idle, chaque step avec `when` affiche `⊘ if VAR == "valeur"` en gris sous le nom du step (comme les hints `?` d'assertions). Dans les vues Running/Done, les steps ignorés affichent `⊘ (skipped)` en gris.
+
 ### Fixed
 - **Suppression de collection non persistée** — `delete_collection()` reconstruisait le chemin du fichier depuis le nom de la collection via `sanitize_filename()` (ex. `"Public GraphQL APIs"` → `public-graphql-apis.toml`), ce qui échouait silencieusement quand le fichier avait été importé sous un nom différent (ex. `02-graphql.toml`). La suppression utilisait désormais `StoredCollection.path`, le chemin réel du fichier rempli à la lecture.
 

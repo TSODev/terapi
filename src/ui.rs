@@ -2715,6 +2715,13 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
                         Span::styled(format!("{:<6}", method_str), Style::default().fg(method_color).add_modifier(Modifier::BOLD)),
                         Span::styled(step.name.clone(), Style::default().fg(Color::White)),
                     ]));
+                    if let Some(ref cond) = step.when {
+                        let label = crate::campaign::when_label(cond);
+                        lines.push(Line::from(vec![
+                            Span::styled("          ⊘ ", Style::default().fg(hint)),
+                            Span::styled(format!("if {}", label), Style::default().fg(hint)),
+                        ]));
+                    }
                     for a in &step.assert {
                         let label = crate::campaign::assertion_label(a);
                         lines.push(Line::from(vec![
@@ -2781,10 +2788,10 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
             let verdict_color = if total_fail == 0 { Color::Green } else { Color::Red };
             let verdict = if total_fail == 0 { "✓  ALL PASSED" } else { "✗  SOME STEPS FAILED" };
 
-            // Build flat list of HTTP steps for cursor tracking.
+            // Build flat list of HTTP steps for cursor tracking (exclude WAIT/TRSF/SKIP).
             let http_steps: Vec<&crate::campaign::StepResult> = results.iter()
                 .flat_map(|r| r.steps.iter())
-                .filter(|s| s.method != "WAIT" && s.method != "TRSF")
+                .filter(|s| s.method != "WAIT" && s.method != "TRSF" && !s.skipped)
                 .collect();
 
             let mut lines: Vec<Line> = vec![
@@ -2813,7 +2820,7 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
                     ]));
                 }
                 for sr in &iter.steps {
-                    let is_http = sr.method != "WAIT" && sr.method != "TRSF";
+                    let is_http = sr.method != "WAIT" && sr.method != "TRSF" && !sr.skipped;
                     let selected = is_http && !list_focused
                         && http_step_idx == app.campaign_done_cursor;
                     lines.push(render_step_result_line(sr, selected));
@@ -2867,6 +2874,24 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_step_result_line(sr: &crate::campaign::StepResult, selected: bool) -> Line<'static> {
+    if sr.skipped {
+        let name = if sr.name.chars().count() > 22 {
+            format!("{}…", sr.name.chars().take(21).collect::<String>())
+        } else {
+            sr.name.clone()
+        };
+        let cursor_span = if selected {
+            Span::styled("▶ ", Style::default().fg(Color::Cyan))
+        } else {
+            Span::styled("  ", Style::default())
+        };
+        return Line::from(vec![
+            cursor_span,
+            Span::styled("⊘ ", Style::default().fg(Color::Indexed(245))),
+            Span::styled(format!("{:<30}", name), Style::default().fg(Color::Indexed(245))),
+            Span::styled("(skipped)", Style::default().fg(Color::Indexed(245))),
+        ]);
+    }
     let (mark, mark_color) = if sr.success { ("✓", Color::Green) } else { ("✗", Color::Red) };
     let status_str = sr.status
         .map(|s| format!("{}", s))

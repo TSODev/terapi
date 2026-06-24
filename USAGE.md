@@ -1480,8 +1480,23 @@ assert  = [{ on = "status", eq = 200 }]
 
 | Variable | Value |
 |----------|-------|
-| `{{item}}` | current element (string or number) |
+| `{{item}}` | current element, serialised (string, number, or JSON for arrays/objects) |
 | `{{item_index}}` | 0-based position in the array |
+| `{{item_0}}`, `{{item_1}}`, … | when element is a JSON array — each sub-element by index |
+| `{{item_fieldname}}` | when element is a JSON object — each field by name |
+
+**Iterating over arrays of arrays** (e.g. GPS coordinates `[lon, lat]`):
+
+```toml
+[steps.extract]
+coords = "portions.0.steps.*.geometry.coordinates.0"  # → [[lon0,lat0],…]
+
+[[steps]]
+name    = "Reverse geocode"
+foreach = "{{coords}}"
+method  = "GET"
+url     = "https://api.example.com/reverse?lon={{item_0}}&lat={{item_1}}"
+```
 
 **Behaviour:**
 
@@ -1998,7 +2013,7 @@ Ready-to-run campaigns in `examples/campaigns/` — no API key required:
 | `bulk_invite.toml` | *(mock)* | CSV connector: one campaign iteration per CSV row |
 | `json_connector_demo.toml` | JSONPlaceholder | JSON file connector: iterate over `examples/campaigns/users.json`, fetch posts for each user |
 | `seed_step_demo.toml` | API Géo (France) | Seed step + JSON connector + output connector: fetch a city list, iterate for details, write to `/tmp/communes_bordeaux.json` |
-| `itineraire_demo.toml` | IGN Géoplateforme | **`[[params]]` + full pipeline**: geocode two cities, compose coordinates, compute road itinerary — no API key required |
+| `itineraire_demo.toml` | IGN Géoplateforme | **`[[params]]` + full pipeline**: geocode two cities, compute road itinerary, reverse-geocode each route waypoint via `{{item_0}}/{{item_1}}`, output `itineraire_etapes.json` with labelled steps — no API key required |
 | `eu_capitals.toml` | Countries GraphQL + Open-Meteo | **4-step pipeline**: GraphQL seed (53 EU countries) → language transform → geocode capital → live weather; writes `examples/campaigns/eu_capitals_weather.json` |
 | `foreach_demo.toml` | JSONPlaceholder | **`foreach`**: GET /users → extract IDs with `*.id` wildcard → iterate over each user to fetch their todos |
 | `when_demo.toml` | JSONPlaceholder | **`when`**: `eq` / `ne` / `exists` — branches admin vs standard user; cascade automatique (step skippé → var non extraite → step suivant skippé) |

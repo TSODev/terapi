@@ -486,6 +486,17 @@ foreach = "{{user_ids}}"   # iterates over each element
 url     = "https://api.example.com/users/{{item}}/profile"
 ```
 
+When each element is itself an array (e.g. `[lon, lat]`), terapi automatically injects `{{item_0}}`, `{{item_1}}`, … into the iteration env. When it is an object, fields are accessible as `{{item_fieldname}}`:
+
+```toml
+[steps.extract]
+coords = "features.*.geometry.coordinates"   # → [[lon0,lat0],[lon1,lat1],…]
+
+[[steps]]
+foreach = "{{coords}}"
+url     = "https://api.example.com/reverse?lon={{item_0}}&lat={{item_1}}"
+```
+
 - Each iteration streams live: `✓ Get profile [3/10]`
 - The step shows a `↻` badge in the Campaign panel idle view
 - `continue_on_error` and `assert` apply per iteration
@@ -530,7 +541,7 @@ Ready-to-run examples in `examples/campaigns/` — no API key required:
 | `crud_demo.toml` | All HTTP methods with assertions |
 | `transform_demo.toml` | Transform steps: regex, template, upper, split |
 | `seed_step_demo.toml` | Seed step + JSON connector + output connector |
-| `itineraire_demo.toml` | `[[params]]` + geocoding + routing pipeline (IGN) |
+| `itineraire_demo.toml` | **`[[params]]` + full pipeline**: geocode two cities, route via IGN, reverse-geocode each waypoint with `{{item_0}}/{{item_1}}`, output labelled step list |
 | `eu_capitals.toml` | **4-step pipeline**: GraphQL seed (53 EU countries) → language transform → geocode capital → live weather (Open-Meteo); paired with `eu_capitals_map.html` |
 | `foreach_demo.toml` | **`foreach`**: fetch user list, extract IDs with `*.id` wildcard, iterate over each user to fetch their todos |
 | `when_demo.toml` | **`when`**: `eq` / `ne` / `exists` operators — admin vs standard user branches with automatic cascade |

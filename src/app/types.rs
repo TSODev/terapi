@@ -428,7 +428,7 @@ impl AuthConfig {
     }
 
     pub fn oauth2_cache_key(&self) -> String {
-        format!("{}:{}", self.oauth2_token_url, self.oauth2_client_id)
+        format!("{}:{}:{}", self.auth_type.as_str(), self.oauth2_token_url, self.oauth2_client_id)
     }
 }
 

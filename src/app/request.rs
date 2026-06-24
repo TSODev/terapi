@@ -90,6 +90,7 @@ impl App {
             return;
         }
 
+        let cache_key = self.auth_config.oauth2_cache_key();
         let client    = self.http_client.clone();
         let token_url = self.auth_config.oauth2_token_url.clone();
         let client_id = self.auth_config.oauth2_client_id.clone();
@@ -104,7 +105,7 @@ impl App {
                 let result = super::oauth2::fetch_client_credentials_token(
                     client, token_url, client_id, secret, scope,
                 ).await;
-                let _ = tx.send(result);
+                let _ = tx.send((cache_key, result));
             });
         } else {
             // Authorization Code
@@ -144,7 +145,7 @@ impl App {
                         client, token_url, client_id, secret, code, port,
                     ).await
                 }.await;
-                let _ = tx.send(result);
+                let _ = tx.send((cache_key, result));
             });
         }
     }

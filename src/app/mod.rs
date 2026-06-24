@@ -110,8 +110,8 @@ pub struct App {
     pub(super) schema_tx: mpsc::UnboundedSender<SchemaOutcome>,
     pub(super) campaign_rx: mpsc::UnboundedReceiver<crate::campaign::CampaignEvent>,
     pub(super) campaign_tx: mpsc::UnboundedSender<crate::campaign::CampaignEvent>,
-    pub(super) oauth2_rx: mpsc::UnboundedReceiver<Result<CachedToken, String>>,
-    pub(super) oauth2_tx: mpsc::UnboundedSender<Result<CachedToken, String>>,
+    pub(super) oauth2_rx: mpsc::UnboundedReceiver<(String, Result<CachedToken, String>)>,
+    pub(super) oauth2_tx: mpsc::UnboundedSender<(String, Result<CachedToken, String>)>,
 }
 
 impl App {

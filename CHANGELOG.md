@@ -28,6 +28,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 - L'hint de l'onglet Auth mentionne désormais `f: fetch token`
 
+### Fixed
+- **Race condition sur la clé de cache OAuth2** — si l'utilisateur modifiait les champs auth pendant qu'un fetch asynchrone était en cours, le token était stocké sous la mauvaise clé (la config courante au moment de l'insertion, pas celle au moment du fetch). La clé est maintenant calculée avant le `tokio::spawn` et transportée avec le résultat dans le canal.
+- **CC et AC partageaient la même clé de cache** — deux flows OAuth2 avec les mêmes `token_url` et `client_id` mais des types différents (Client Credentials vs Authorization Code) écrasaient mutuellement leur cache. La clé inclut désormais le type d'auth (`auth_type:token_url:client_id`).
+- **Type selector Auth** — `OAuth2 CC` et `OAuth2 AC` absents de la liste de sélection dans l'onglet Auth. Labels courts ajoutés dans le sélecteur.
+
 ---
 
 ## [0.6.7] — 2026-06-24 — Fix panic UTF-8 dans le rendu campaigns

@@ -117,10 +117,9 @@ impl App {
         }
 
         // ── poll OAuth2 token results ──────────────────────────────────────
-        if let Ok(outcome) = self.oauth2_rx.try_recv() {
+        if let Ok((key, outcome)) = self.oauth2_rx.try_recv() {
             match outcome {
                 Ok(token) => {
-                    let key = self.auth_config.oauth2_cache_key();
                     self.oauth2_token_cache.insert(key, token);
                     self.oauth2_wait_state = OAuth2WaitState::Idle;
                     self.status_message = "OAuth2 token obtained — press s to send".into();

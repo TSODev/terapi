@@ -622,16 +622,23 @@ fn render_auth_editor(frame: &mut Frame, app: &App, area: Rect) {
     let cursor = app.auth_field_cursor;
 
     // ── Row 0: type selector ─────────────────────────────────────────────────
-    let types = [AuthType::None, AuthType::Bearer, AuthType::Basic, AuthType::ApiKey];
-    let type_spans: Vec<Span> = types.iter().enumerate().flat_map(|(i, t)| {
+    let types: &[(AuthType, &str)] = &[
+        (AuthType::None,                    "No Auth"),
+        (AuthType::Bearer,                  "Bearer"),
+        (AuthType::Basic,                   "Basic"),
+        (AuthType::ApiKey,                  "API Key"),
+        (AuthType::OAuth2ClientCredentials, "OAuth2 CC"),
+        (AuthType::OAuth2AuthorizationCode, "OAuth2 AC"),
+    ];
+    let type_spans: Vec<Span> = types.iter().enumerate().flat_map(|(i, (t, label))| {
         let active = &auth.auth_type == t;
-        let label = format!(" {} ", t.label());
+        let styled_label = format!(" {} ", label);
         let style = if active {
             Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(Color::Indexed(244))
         };
-        let mut spans = vec![Span::styled(label, style)];
+        let mut spans = vec![Span::styled(styled_label, style)];
         if i < types.len() - 1 {
             spans.push(Span::styled("  ", Style::default()));
         }

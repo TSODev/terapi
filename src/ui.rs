@@ -1236,11 +1236,98 @@ fn render_response_json(frame: &mut Frame, app: &App, area: Rect) {
 
 fn render_response_raw(frame: &mut Frame, app: &App, area: Rect) {
     let text = app.response_body.as_deref().unwrap_or("No response.");
-    let para = Paragraph::new(text)
-        .style(Style::default().fg(Color::White))
+    let lines = highlight_raw(text);
+    let para = Paragraph::new(lines)
         .wrap(Wrap { trim: false })
         .scroll((app.response_scroll, 0));
     frame.render_widget(para, area);
+}
+
+/// JSON-aware syntax highlighter for the Raw response view.
+/// Tokenises line by line; degrades gracefully for non-JSON text.
+fn highlight_raw(text: &str) -> Vec<Line<'static>> {
+    let s_key    = Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD);
+    let s_str    = Style::default().fg(Color::Green);
+    let s_num    = Style::default().fg(Color::Yellow);
+    let s_bool   = Style::default().fg(Color::Magenta);
+    let s_null   = Style::default().fg(Color::Indexed(245));
+    let s_punct  = Style::default().fg(Color::Indexed(240));
+    let s_plain  = Style::default().fg(Color::White);
+
+    text.lines().map(|line| {
+        let chars: Vec<char> = line.chars().collect();
+        let mut spans: Vec<Span<'static>> = Vec::new();
+        let mut i = 0;
+
+        while i < chars.len() {
+            let c = chars[i];
+            match c {
+                // ── whitespace ────────────────────────────────────────────
+                ' ' | '\t' => {
+                    let start = i;
+                    while i < chars.len() && (chars[i] == ' ' || chars[i] == '\t') { i += 1; }
+                    spans.push(Span::raw(chars[start..i].iter().collect::<String>()));
+                }
+                // ── quoted string ─────────────────────────────────────────
+                '"' => {
+                    let mut s = String::from('"');
+                    i += 1;
+                    let mut escaped = false;
+                    while i < chars.len() {
+                        let ch = chars[i];
+                        s.push(ch);
+                        if escaped { escaped = false; }
+                        else if ch == '\\' { escaped = true; }
+                        else if ch == '"' { i += 1; break; }
+                        i += 1;
+                    }
+                    // key if next non-space char is ':'
+                    let mut j = i;
+                    while j < chars.len() && chars[j] == ' ' { j += 1; }
+                    let style = if j < chars.len() && chars[j] == ':' { s_key } else { s_str };
+                    spans.push(Span::styled(s, style));
+                }
+                // ── number ────────────────────────────────────────────────
+                '0'..='9' | '-' => {
+                    let start = i;
+                    while i < chars.len() && matches!(chars[i], '0'..='9' | '.' | '-' | 'e' | 'E' | '+') { i += 1; }
+                    spans.push(Span::styled(chars[start..i].iter().collect::<String>(), s_num));
+                }
+                // ── literals: true / false / null ─────────────────────────
+                'a'..='z' | 'A'..='Z' => {
+                    let start = i;
+                    while i < chars.len() && chars[i].is_ascii_alphabetic() { i += 1; }
+                    let word: String = chars[start..i].iter().collect();
+                    let style = match word.as_str() {
+                        "true" | "false" => s_bool,
+                        "null"           => s_null,
+                        _                => s_plain,
+                    };
+                    spans.push(Span::styled(word, style));
+                }
+                // ── structural punctuation ────────────────────────────────
+                '{' | '}' | '[' | ']' => {
+                    spans.push(Span::styled(c.to_string(), s_punct.add_modifier(Modifier::BOLD)));
+                    i += 1;
+                }
+                ':' | ',' => {
+                    spans.push(Span::styled(c.to_string(), s_punct));
+                    i += 1;
+                }
+                // ── anything else (plain) ─────────────────────────────────
+                _ => {
+                    spans.push(Span::styled(c.to_string(), s_plain));
+                    i += 1;
+                }
+            }
+        }
+
+        if spans.is_empty() {
+            Line::from(Span::raw(""))
+        } else {
+            Line::from(spans)
+        }
+    }).collect()
 }
 
 fn render_response_http(frame: &mut Frame, app: &App, area: Rect) {
@@ -1249,7 +1336,6 @@ fn render_response_http(frame: &mut Frame, app: &App, area: Rect) {
     let sep_style    = Style::default().fg(Color::Indexed(238));
     let header_key   = Style::default().fg(Color::Yellow);
     let header_val   = Style::default().fg(Color::White);
-    let body_style   = Style::default().fg(Color::White);
     let hint_style   = Style::default().fg(Color::Indexed(244));
 
     // ── Request ───────────────────────────────────────────────────────────
@@ -1298,9 +1384,7 @@ fn render_response_http(frame: &mut Frame, app: &App, area: Rect) {
                     Span::styled(body.len().to_string(), header_val),
                 ]));
                 lines.push(Line::from(Span::raw("")));
-                for l in body.lines() {
-                    lines.push(Line::from(Span::styled(l.to_string(), body_style)));
-                }
+                lines.extend(highlight_raw(body));
             } else {
                 lines.push(Line::from(Span::raw("")));
             }
@@ -1339,9 +1423,7 @@ fn render_response_http(frame: &mut Frame, app: &App, area: Rect) {
             }
             lines.push(Line::from(Span::raw("")));
             let body = app.response_body.as_deref().unwrap_or("");
-            for l in body.lines() {
-                lines.push(Line::from(Span::styled(l.to_string(), body_style)));
-            }
+            lines.extend(highlight_raw(body));
         }
     }
 

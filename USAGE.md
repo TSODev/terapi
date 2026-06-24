@@ -23,6 +23,7 @@
   - [Campaign parameters](#campaign-parameters)
   - [Variable substitution](#variable-substitution)
   - [Variable extraction](#variable-extraction)
+  - [Conditional execution (`when`)](#conditional-execution-when)
   - [Assertions](#assertions)
   - [Continue on error](#continue-on-error)
   - [Pause steps](#pause-steps)
@@ -1488,6 +1489,56 @@ path      = "/tmp/todos.json"
 ```
 
 See `examples/foreach_demo.toml` for a complete working example.
+
+### Conditional execution (`when`)
+
+Add `when` to any step to make its execution conditional on a campaign variable. If the condition is false, the step is silently skipped (`⊘ skipped`) — it is not counted as a failure and the pipeline continues normally.
+
+```toml
+[[steps]]
+name    = "Extract user type"
+method  = "GET"
+url     = "{{BASE_URL}}/users/{{USER_ID}}"
+
+[steps.extract]
+USER_TYPE = "type"   # e.g. "premium" or "free"
+
+[[steps]]
+name   = "Premium activation"
+when   = { var = "USER_TYPE", eq = "premium" }
+method = "POST"
+url    = "{{BASE_URL}}/premium/activate"
+
+[[steps]]
+name   = "Send welcome email"
+when   = { var = "TOKEN", exists = true }
+method = "POST"
+url    = "{{BASE_URL}}/emails/welcome"
+```
+
+**`when` fields:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `var` | yes | Name of the campaign variable to test (no `{{` `}}`) |
+| `eq` | no | Skip if `VAR != value` |
+| `ne` | no | Skip if `VAR == value` |
+| `exists` | no | Skip if var presence ≠ `true` / `false` |
+| *(no operator)* | — | Skip if var is absent or empty |
+
+The comparison value (`eq`, `ne`) supports `{{VAR}}` to compare two variables:
+
+```toml
+when = { var = "STATUS", eq = "{{EXPECTED_STATUS}}" }
+```
+
+**TUI display:**
+- **Idle** — each step with `when` shows `⊘ if VAR == "value"` in grey below the step name (like assertion hints)
+- **Running / Done** — skipped steps show `⊘ (skipped)` in grey; they are excluded from the `L`-key cursor
+
+**Combining `when` with other attributes** — `when` is evaluated first. If it passes, the step runs normally with all its `assert`, `extract`, `foreach`, and `continue_on_error` settings in effect.
+
+---
 
 ### Assertions
 

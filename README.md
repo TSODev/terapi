@@ -490,6 +490,36 @@ url     = "https://api.example.com/users/{{item}}/profile"
 - `continue_on_error` and `assert` apply per iteration
 - Output connector collects all N bodies into the JSON array
 
+### Conditional steps (`when`)
+
+Add `when` to any step to make its execution depend on a campaign variable. If the condition is false, the step is skipped (`⊘ skipped`) without failing the pipeline:
+
+```toml
+[[steps]]
+name    = "Get user"
+url     = "https://api.example.com/users/{{ID}}"
+[steps.extract]
+USER_TYPE = "type"   # "premium" or "free"
+
+[[steps]]
+name   = "Premium flow"
+when   = { var = "USER_TYPE", eq = "premium" }
+method = "POST"
+url    = "https://api.example.com/premium/activate"
+
+[[steps]]
+name   = "Retry if no token"
+when   = { var = "TOKEN", exists = false }
+method = "POST"
+url    = "https://api.example.com/auth/refresh"
+```
+
+**Operators:** `eq` / `ne` / `exists = true|false` / *(no operator: var non-empty)*. Comparison values support `{{VAR}}`.
+
+In the TUI idle view, steps with `when` show `⊘ if VAR == "value"` in grey below the step name.
+
+---
+
 ### Campaign examples
 
 Ready-to-run examples in `examples/` — no API key required:

@@ -1,0 +1,71 @@
+# EU Countries — capitals & coordinates
+#
+# Seed step : récupère tous les pays d'Europe via l'API GraphQL Countries.
+# Connecteur JSON : itère sur chaque pays (code, name, capital, emoji).
+# Step 2 : géocode la capitale via Open-Meteo, extrait latitude et longitude.
+#
+# Aucune clé API requise.
+#
+# Pour tester :
+#   terapi run examples/eu_capitals.toml
+#
+# Variables disponibles dans le step "Géocode capitale" :
+#   {{code}}     — code ISO du pays (ex. FR)
+#   {{name}}     — nom du pays      (ex. France)
+#   {{capital}}  — capitale         (ex. Paris)
+#   {{emoji}}    — drapeau          (ex. 🇫🇷)
+#
+# Après extraction :
+#   {{lat}}      — latitude de la capitale
+#   {{lon}}      — longitude de la capitale
+#   {{country}}  — pays retourné par le géocodeur (vérification croisée)
+
+continue_on_error = true   # certains micro-états ont des capitales ambiguës
+
+[campaign]
+name        = "EU Countries — capitals & coordinates"
+description = "Liste les pays européens via GraphQL puis géocode chaque capitale (Open-Meteo). Sans clé API."
+
+# ── Connecteur : source = réponse du seed step ────────────────────────────────
+
+[[connectors]]
+type      = "json"
+from_step = "EU countries"
+select    = "data.continent.countries"   # tableau à itérer dans la réponse GraphQL
+
+# ── Step 1 — seed : exécuté une seule fois ────────────────────────────────────
+
+[[steps]]
+name   = "EU countries"
+kind   = "seed"
+method = "POST"
+url    = "https://countries.trevorblades.com/graphql"
+body   = '{"query":"{ continent(code: \"EU\") { countries { code name capital emoji } } }"}'
+
+[steps.headers]
+Content-Type = "application/json"
+
+# ── Step 2 — une itération par pays ───────────────────────────────────────────
+
+[[steps]]
+name   = "Géocode capitale"
+method = "GET"
+url    = "https://geocoding-api.open-meteo.com/v1/search?name={{capital}}&count=1&language=en&format=json"
+
+assert = [
+  { on = "status",       eq     = 200  },
+  { on = "body.results", exists = true },
+]
+
+[steps.extract]
+lat     = "results.0.latitude"
+lon     = "results.0.longitude"
+country = "results.0.country"
+
+# ── Sortie : écrit les résultats dans un fichier JSON ─────────────────────────
+
+[[outputs]]
+from_step = "Géocode capitale"
+path      = "/tmp/eu_capitals.json"
+# Chaque élément du fichier contiendra la réponse brute du géocodeur pour
+# la capitale. Chaînez ce fichier dans une autre campagne si besoin.

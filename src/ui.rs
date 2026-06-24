@@ -2472,8 +2472,14 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
                     } else {
                         (step.method.clone(), method_color(&step.method))
                     };
+                    let foreach_badge = if step.foreach.is_some() {
+                        Span::styled("↻ ", Style::default().fg(Color::Cyan))
+                    } else {
+                        Span::raw("  ")
+                    };
                     lines.push(Line::from(vec![
-                        Span::styled("    ", Style::default()),
+                        Span::styled("  ", Style::default()),
+                        foreach_badge,
                         Span::styled(format!("{:<6}", method_str), Style::default().fg(method_color).add_modifier(Modifier::BOLD)),
                         Span::styled(step.name.clone(), Style::default().fg(Color::White)),
                     ]));

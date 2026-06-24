@@ -82,6 +82,8 @@ pub struct Step {
     pub transforms: Vec<Transform>,
     #[serde(default)]
     pub continue_on_error: Option<bool>,
+    #[serde(default)]
+    pub foreach: Option<String>,
 }
 
 fn default_http() -> String { "http".into() }
@@ -336,26 +338,36 @@ pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<Campaig
 
     // Write output connectors: one JSON file per [[outputs]] entry.
     for output in &campaign.outputs {
+        // Match both exact step name and foreach sub-step names ("name [i/n]").
+        let foreach_prefix = format!("{} [", output.from_step);
+        let step_matches = |name: &str| {
+            name == output.from_step || name.starts_with(&foreach_prefix)
+        };
+
         let bodies: Vec<Value> = all.iter()
-            .filter_map(|iter| {
+            .flat_map(|iter| {
                 // Accumulate vars (row_vars + each step's extracted) in order.
-                // We include extracted from the target step itself as well.
                 let mut accumulated: HashMap<String, String> = iter.row_vars.clone();
+                let mut sub_bodies: Vec<Value> = Vec::new();
                 for s in &iter.steps {
                     accumulated.extend(s.extracted.clone());
-                    if s.name == output.from_step {
-                        if !s.success { return None; }
-                        let body = s.body_json.clone()?;
-                        let selected = if let Some(ref sel) = output.select {
-                            if !sel.is_empty() {
-                                extract_value_at(&body, sel).cloned()?
-                            } else { body }
-                        } else { body };
+                    if !step_matches(&s.name) || !s.success { continue; }
+                    let body = match s.body_json.clone() {
+                        Some(b) => b,
+                        None => continue,
+                    };
+                    let selected = if let Some(ref sel) = output.select {
+                        if !sel.is_empty() {
+                            match extract_value_at(&body, sel) {
+                                Some(v) => v,
+                                None => continue,
+                            }
+                        } else { body }
+                    } else { body };
 
-                        if output.include_vars.is_empty() {
-                            return Some(selected);
-                        }
-                        // Merge requested vars into the JSON element.
+                    if output.include_vars.is_empty() {
+                        sub_bodies.push(selected);
+                    } else {
                         let mut map = match selected {
                             Value::Object(m) => m,
                             other => {
@@ -369,10 +381,10 @@ pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<Campaig
                                 map.insert(var.clone(), Value::String(val.clone()));
                             }
                         }
-                        return Some(Value::Object(map));
+                        sub_bodies.push(Value::Object(map));
                     }
                 }
-                None
+                sub_bodies
             })
             .collect();
 
@@ -487,6 +499,128 @@ fn is_graphql_body(body: &str) -> bool {
         .is_some()
 }
 
+// ── single step executor (no env resolution, no streaming) ───────────────────
+
+async fn run_single_step(
+    client: &reqwest::Client,
+    step: &Step,
+    effective: &HashMap<String, String>,
+    effective_coe: bool,
+) -> StepResult {
+    if step.kind == "pause" {
+        let t0 = Instant::now();
+        tokio::time::sleep(std::time::Duration::from_millis(step.wait_ms)).await;
+        return StepResult {
+            name: step.name.clone(),
+            method: "WAIT".into(),
+            url: String::new(),
+            status: None,
+            duration_ms: t0.elapsed().as_millis() as u64,
+            success: true,
+            non_blocking: effective_coe,
+            error: None,
+            extracted: HashMap::new(),
+            assertion_results: vec![],
+            body_json: None,
+            graphql: false,
+        };
+    }
+
+    if step.kind == "transform" {
+        let t0 = Instant::now();
+        return match run_transform_step(step, effective) {
+            Ok(produced) => StepResult {
+                name: step.name.clone(),
+                method: "TRSF".into(),
+                url: String::new(),
+                status: None,
+                duration_ms: t0.elapsed().as_millis() as u64,
+                success: true,
+                non_blocking: effective_coe,
+                error: None,
+                extracted: produced,
+                assertion_results: vec![],
+                body_json: None,
+                graphql: false,
+            },
+            Err(e) => StepResult {
+                name: step.name.clone(),
+                method: "TRSF".into(),
+                url: String::new(),
+                status: None,
+                duration_ms: t0.elapsed().as_millis() as u64,
+                success: false,
+                non_blocking: effective_coe,
+                error: Some(e.to_string()),
+                extracted: HashMap::new(),
+                assertion_results: vec![],
+                body_json: None,
+                graphql: false,
+            },
+        };
+    }
+
+    // HTTP step
+    let url     = resolve(&step.url, effective);
+    let body    = step.body.as_deref().map(|b| resolve(b, effective));
+    let graphql = body.as_deref().map(is_graphql_body).unwrap_or(false);
+    let t0      = Instant::now();
+
+    match execute_step(client, step, &url, body.as_deref(), effective).await {
+        Ok(http) => {
+            let duration_ms = t0.elapsed().as_millis() as u64;
+            let assertion_results = if step.assert.is_empty() {
+                vec![]
+            } else {
+                evaluate_assertions(
+                    &step.assert, http.status,
+                    http.body_value.as_ref(), &http.resp_headers,
+                    duration_ms, effective,
+                )
+            };
+            let http_ok   = http.status < 400;
+            let assert_ok = assertion_results.iter().all(|(_, ok)| *ok);
+            let success   = http_ok && assert_ok;
+            let fail_count = assertion_results.iter().filter(|(_, ok)| !ok).count();
+            let error = if !http_ok {
+                Some(format!("HTTP {}", http.status))
+            } else if !assert_ok {
+                Some(format!("{} assertion(s) failed", fail_count))
+            } else {
+                None
+            };
+            StepResult {
+                name: step.name.clone(),
+                method: step.method.clone(),
+                url,
+                status: Some(http.status),
+                duration_ms,
+                success,
+                non_blocking: effective_coe,
+                error,
+                extracted: if success { http.extracted } else { HashMap::new() },
+                assertion_results,
+                body_json: http.body_value,
+                graphql,
+            }
+        }
+        Err(e) => StepResult {
+            name: step.name.clone(),
+            method: step.method.clone(),
+            url,
+            status: None,
+            duration_ms: t0.elapsed().as_millis() as u64,
+            success: false,
+            non_blocking: effective_coe,
+            error: Some(e.to_string()),
+            extracted: HashMap::new(),
+            assertion_results: vec![],
+            body_json: None,
+            graphql,
+        },
+    }
+}
+
 // ── streaming step runner ─────────────────────────────────────────────────────
 
 async fn run_steps_streaming(
@@ -514,123 +648,62 @@ async fn run_steps_streaming(
         }
         effective.extend(extracted.clone());
 
-        let _ = tx.send(CampaignEvent::StepStarted {
-            name: step.name.clone(),
-        });
+        // ── foreach ──────────────────────────────────────────────────────────
+        if let Some(ref foreach_expr) = step.foreach {
+            let array_str = resolve(foreach_expr, &effective);
+            let items: Vec<Value> = serde_json::from_str::<Value>(&array_str)
+                .ok()
+                .and_then(|v| v.as_array().cloned())
+                .unwrap_or_default();
 
-        let result = if step.kind == "pause" {
-            let t0 = Instant::now();
-            tokio::time::sleep(std::time::Duration::from_millis(step.wait_ms)).await;
-            StepResult {
-                name: step.name.clone(),
-                method: "WAIT".into(),
-                url: String::new(),
-                status: None,
-                duration_ms: t0.elapsed().as_millis() as u64,
-                success: true,
-                non_blocking: effective_coe,
-                error: None,
-                extracted: HashMap::new(),
-                assertion_results: vec![],
-                body_json: None,
-                graphql: false,
+            let total = items.len();
+            if total == 0 {
+                let _ = tx.send(CampaignEvent::Warning(
+                    format!("step '{}': foreach resolved to an empty array", step.name)
+                ));
+                continue;
             }
-        } else if step.kind == "transform" {
-            let t0 = Instant::now();
-            match run_transform_step(step, &effective) {
-                Ok(produced) => {
-                    extracted.extend(produced.clone());
-                    StepResult {
-                        name: step.name.clone(),
-                        method: "TRSF".into(),
-                        url: String::new(),
-                        status: None,
-                        duration_ms: t0.elapsed().as_millis() as u64,
-                        success: true,
-                        non_blocking: effective_coe,
-                        error: None,
-                        extracted: produced,
-                        assertion_results: vec![],
-                        body_json: None,
-                        graphql: false,
-                    }
-                }
-                Err(e) => StepResult {
-                    name: step.name.clone(),
-                    method: "TRSF".into(),
-                    url: String::new(),
-                    status: None,
-                    duration_ms: t0.elapsed().as_millis() as u64,
-                    success: false,
-                    non_blocking: effective_coe,
-                    error: Some(e.to_string()),
-                    extracted: HashMap::new(),
-                    assertion_results: vec![],
-                    body_json: None,
-                    graphql: false,
-                },
-            }
-        } else {
-            let url  = resolve(&step.url, &effective);
-            let body = step.body.as_deref().map(|b| resolve(b, &effective));
-            let graphql = body.as_deref().map(is_graphql_body).unwrap_or(false);
-            let t0   = Instant::now();
 
-            match execute_step(client, step, &url, body.as_deref(), &effective).await {
-                Ok(http) => {
-                    let duration_ms = t0.elapsed().as_millis() as u64;
-                    let assertion_results = if step.assert.is_empty() {
-                        vec![]
-                    } else {
-                        evaluate_assertions(
-                            &step.assert, http.status,
-                            http.body_value.as_ref(), &http.resp_headers,
-                            duration_ms, &effective,
-                        )
-                    };
-                    let http_ok   = http.status < 400;
-                    let assert_ok = assertion_results.iter().all(|(_, ok)| *ok);
-                    let success   = http_ok && assert_ok;
-                    if success { extracted.extend(http.extracted.clone()); }
-                    let fail_count = assertion_results.iter().filter(|(_, ok)| !ok).count();
-                    let error = if !http_ok {
-                        Some(format!("HTTP {}", http.status))
-                    } else if !assert_ok {
-                        Some(format!("{} assertion(s) failed", fail_count))
-                    } else {
-                        None
-                    };
-                    StepResult {
-                        name: step.name.clone(),
-                        method: step.method.clone(),
-                        url,
-                        status: Some(http.status),
-                        duration_ms,
-                        success,
-                        non_blocking: effective_coe,
-                        error,
-                        extracted: if success { http.extracted } else { HashMap::new() },
-                        assertion_results,
-                        body_json: http.body_value,
-                        graphql,
-                    }
+            let mut foreach_failed = false;
+            for (i, item) in items.iter().enumerate() {
+                let item_str = match item {
+                    Value::String(s) => s.clone(),
+                    other => other.to_string(),
+                };
+                let mut iter_env = effective.clone();
+                iter_env.insert("item".to_string(), item_str);
+                iter_env.insert("item_index".to_string(), i.to_string());
+
+                let mut iter_step = step.clone();
+                iter_step.name   = format!("{} [{}/{}]", step.name, i + 1, total);
+                iter_step.foreach = None; // prevent recursion
+
+                let _ = tx.send(CampaignEvent::StepStarted { name: iter_step.name.clone() });
+                let result = run_single_step(client, &iter_step, &iter_env, effective_coe).await;
+
+                if !result.success && !effective_coe {
+                    foreach_failed = true;
+                    let _ = tx.send(CampaignEvent::StepDone(result.clone()));
+                    results.push(result);
+                    break;
                 }
-                Err(e) => StepResult {
-                    name: step.name.clone(),
-                    method: step.method.clone(),
-                    url,
-                    status: None,
-                    duration_ms: t0.elapsed().as_millis() as u64,
-                    success: false,
-                    non_blocking: effective_coe,
-                    error: Some(e.to_string()),
-                    extracted: HashMap::new(),
-                    assertion_results: vec![],
-                    body_json: None,
-                    graphql,
-                },
+                let _ = tx.send(CampaignEvent::StepDone(result.clone()));
+                results.push(result);
             }
-        };
+
+            // Foreach steps do not propagate extracted vars to the outer scope.
+            if foreach_failed { break; }
+            continue;
+        }
+
+        // ── normal step ───────────────────────────────────────────────────────
+        let _ = tx.send(CampaignEvent::StepStarted { name: step.name.clone() });
+        let result = run_single_step(client, step, &effective, effective_coe).await;
+
+        // Propagate extracted vars for non-foreach steps.
+        if result.success {
+            extracted.extend(result.extracted.clone());
+        }
 
         let failed = !result.success;
         let _ = tx.send(CampaignEvent::StepDone(result.clone()));
@@ -762,7 +835,7 @@ fn evaluate_assertions(
         } else if target == "body" {
             body_value.cloned()
         } else if let Some(path) = target.strip_prefix("body.") {
-            body_value.and_then(|b| extract_value_at(b, path)).cloned()
+            body_value.and_then(|b| extract_value_at(b, path))
         } else if let Some(name) = target.strip_prefix("header.") {
             let lower = name.to_lowercase();
             resp_headers.iter()
@@ -978,21 +1051,30 @@ fn resolve_value(v: &Value, env: &HashMap<String, String>) -> Value {
 
 fn extract_at(value: &Value, path: &str) -> Option<String> {
     extract_value_at(value, path).map(|v| match v {
-        Value::String(s) => s.clone(),
+        Value::String(s) => s,
         other => other.to_string(),
     })
 }
 
-fn extract_value_at<'a>(value: &'a Value, path: &str) -> Option<&'a Value> {
-    let mut current = value;
-    for segment in path.split('.') {
-        current = if let Ok(idx) = segment.parse::<usize>() {
-            current.get(idx)?
-        } else {
-            current.get(segment)?
-        };
+fn extract_value_at(value: &Value, path: &str) -> Option<Value> {
+    let segments: Vec<&str> = path.split('.').collect();
+    extract_segments(value, &segments)
+}
+
+fn extract_segments(value: &Value, segments: &[&str]) -> Option<Value> {
+    if segments.is_empty() { return Some(value.clone()); }
+    let (head, tail) = (segments[0], &segments[1..]);
+    if head == "*" {
+        let arr = value.as_array()?;
+        let results: Vec<Value> = arr.iter()
+            .filter_map(|el| extract_segments(el, tail))
+            .collect();
+        Some(Value::Array(results))
+    } else if let Ok(idx) = head.parse::<usize>() {
+        extract_segments(value.get(idx)?, tail)
+    } else {
+        extract_segments(value.get(head)?, tail)
     }
-    Some(current)
 }
 
 fn values_eq(actual: &Option<Value>, expected: &Value) -> bool {

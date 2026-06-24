@@ -1,0 +1,45 @@
+# foreach_demo.toml — demonstrates the foreach step feature
+#
+# Pipeline :
+#   1. GET /users          — fetch all users, extract their IDs as a JSON array
+#   2. foreach user_id     — for each ID, fetch the user's todos
+#   3. output              — write all todo results to /tmp/foreach_todos.json
+#
+# Run :
+#   terapi run examples/foreach_demo.toml
+
+continue_on_error = true
+
+[campaign]
+name        = "foreach demo — JSONPlaceholder users & todos"
+description = "Fetch user list, then iterate over each user to get their todos."
+
+# ── Step 1 — fetch all users, extract IDs ─────────────────────────────────────
+# extract = { user_ids = "*.id" } uses the * wildcard to collect
+# all "id" fields from the top-level array into a JSON array: [1,2,3,…,10]
+
+[[steps]]
+name    = "List users"
+method  = "GET"
+url     = "https://jsonplaceholder.typicode.com/users"
+assert  = [{ on = "status", eq = 200 }]
+
+[steps.extract]
+user_ids = "*.id"
+
+# ── Step 2 — foreach: one request per user ────────────────────────────────────
+# {{item}}       = current user ID (1, 2, … 10)
+# {{item_index}} = 0-based position in the array
+
+[[steps]]
+name    = "Get todos"
+foreach = "{{user_ids}}"
+method  = "GET"
+url     = "https://jsonplaceholder.typicode.com/todos?userId={{item}}"
+assert  = [{ on = "status", eq = 200 }]
+
+# ── Output ────────────────────────────────────────────────────────────────────
+
+[[outputs]]
+from_step = "Get todos"
+path      = "/tmp/foreach_todos.json"

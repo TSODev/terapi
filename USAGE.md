@@ -1375,6 +1375,9 @@ Use dot-path notation in `[steps.extract]` to pull values out of a JSON response
 | `token` | `response["token"]` |
 | `user.id` | `response["user"]["id"]` |
 | `data.items.0.name` | `response["data"]["items"][0]["name"]` |
+| `data.*.id` | all `id` fields from the `data` array → stored as a JSON array string |
+
+The `*` wildcard maps over every element of an array and collects the sub-path result into a new JSON array. Use it to feed a `foreach` step.
 
 Extracted values are injected into all subsequent steps.
 
@@ -1384,6 +1387,53 @@ Extracted values are injected into all subsequent steps.
 > [steps.extract]
 > CITY = "features.0.properties.city"   # ← copied from the ↳ bar
 > ```
+
+### foreach — iterate over an extracted array
+
+Add `foreach` to any HTTP step to run it once per element of a JSON array variable. The array is typically produced by a `*` wildcard extraction in a previous step.
+
+```toml
+[[steps]]
+name    = "List users"
+method  = "GET"
+url     = "https://jsonplaceholder.typicode.com/users"
+assert  = [{ on = "status", eq = 200 }]
+
+[steps.extract]
+user_ids = "*.id"           # collect all id fields → "[1,2,3,...,10]"
+
+[[steps]]
+name    = "Get todos"
+foreach = "{{user_ids}}"    # iterates 10 times
+method  = "GET"
+url     = "https://jsonplaceholder.typicode.com/todos?userId={{item}}"
+assert  = [{ on = "status", eq = 200 }]
+```
+
+**Variables injected per iteration:**
+
+| Variable | Value |
+|----------|-------|
+| `{{item}}` | current element (string or number) |
+| `{{item_index}}` | 0-based position in the array |
+
+**Behaviour:**
+
+- Each iteration streams live in the CLI and TUI: `✓ Get todos [3/10]`
+- `continue_on_error` and `assert` apply per iteration
+- A `↻` cyan badge marks foreach steps in the Campaign panel idle view
+- Extracted vars from foreach iterations are **not** propagated to the outer scope (they are per-iteration)
+- The output connector collects all N response bodies into the output JSON array
+
+**Output connector with foreach:**
+
+```toml
+[[outputs]]
+from_step = "Get todos"     # matches all "Get todos [i/n]" sub-steps
+path      = "/tmp/todos.json"
+```
+
+See `examples/foreach_demo.toml` for a complete working example.
 
 ### Assertions
 
@@ -1834,6 +1884,7 @@ Ready-to-run campaigns in `examples/` — no API key required:
 | `seed_step_demo.toml` | API Géo (France) | Seed step + JSON connector + output connector: fetch a city list, iterate for details, write to `/tmp/communes_bordeaux.json` |
 | `itineraire_demo.toml` | IGN Géoplateforme | **`[[params]]` + full pipeline**: geocode two cities, compose coordinates, compute road itinerary — no API key required |
 | `eu_capitals.toml` | Countries GraphQL + Open-Meteo | **4-step pipeline**: GraphQL seed (53 EU countries) → language transform → geocode capital → live weather; writes `examples/eu_capitals_weather.json` |
+| `foreach_demo.toml` | JSONPlaceholder | **`foreach`**: GET /users → extract IDs with `*.id` wildcard → iterate over each user to fetch their todos |
 
 ```bash
 terapi run examples/crud_demo.toml

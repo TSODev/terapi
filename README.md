@@ -423,6 +423,29 @@ Extracted values use dot-path notation over the JSON response:
 | `token` | `response["token"]` |
 | `user.id` | `response["user"]["id"]` |
 | `data.items.0.name` | `response["data"]["items"][0]["name"]` |
+| `data.*.id` | all `id` fields from the `data` array → stored as a JSON array |
+
+### foreach — iterate over an extracted array
+
+`foreach` runs a step once per element of an extracted JSON array. Use `{{item}}` for the current element and `{{item_index}}` for its 0-based position:
+
+```toml
+[[steps]]
+name    = "List users"
+url     = "https://api.example.com/users"
+[steps.extract]
+user_ids = "*.id"          # wildcard: collects all id fields → [1,2,…,10]
+
+[[steps]]
+name    = "Get profile"
+foreach = "{{user_ids}}"   # iterates over each element
+url     = "https://api.example.com/users/{{item}}/profile"
+```
+
+- Each iteration streams live: `✓ Get profile [3/10]`
+- The step shows a `↻` badge in the Campaign panel idle view
+- `continue_on_error` and `assert` apply per iteration
+- Output connector collects all N bodies into the JSON array
 
 ### Campaign examples
 
@@ -435,6 +458,7 @@ Ready-to-run examples in `examples/` — no API key required:
 | `seed_step_demo.toml` | Seed step + JSON connector + output connector |
 | `itineraire_demo.toml` | `[[params]]` + geocoding + routing pipeline (IGN) |
 | `eu_capitals.toml` | **4-step pipeline**: GraphQL seed (53 EU countries) → language transform → geocode capital → live weather (Open-Meteo); paired with `eu_capitals_map.html` |
+| `foreach_demo.toml` | **`foreach`**: fetch user list, extract IDs with `*.id` wildcard, iterate over each user to fetch their todos |
 
 ```bash
 terapi run examples/crud_demo.toml

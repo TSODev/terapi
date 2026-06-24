@@ -1,30 +1,36 @@
-# EU Countries — capitals & coordinates
+# EU Countries — capitals, coordinates & languages
 #
-# Seed step : récupère tous les pays d'Europe via l'API GraphQL Countries.
-# Connecteur JSON : itère sur chaque pays (code, name, capital, emoji).
-# Step 2 : géocode la capitale via Open-Meteo, extrait latitude et longitude.
+# Seed step : récupère tous les pays d'Europe via l'API GraphQL Countries
+#             (code, name, capital, emoji, languages).
+# Connecteur JSON : itère sur chaque pays.
+# Step 2 — transform : extrait le nom de la première langue officielle.
+# Step 3 — HTTP : géocode la capitale via Open-Meteo, extrait lat/lon.
 #
 # Aucune clé API requise.
 #
 # Pour tester :
 #   terapi run examples/eu_capitals.toml
 #
-# Variables disponibles dans le step "Géocode capitale" :
-#   {{code}}     — code ISO du pays (ex. FR)
-#   {{name}}     — nom du pays      (ex. France)
-#   {{capital}}  — capitale         (ex. Paris)
-#   {{emoji}}    — drapeau          (ex. 🇫🇷)
+# Variables disponibles depuis le connecteur (seed) :
+#   {{code}}      — code ISO du pays  (ex. FR)
+#   {{name}}      — nom du pays       (ex. France)
+#   {{capital}}   — capitale          (ex. Paris)
+#   {{emoji}}     — drapeau           (ex. 🇫🇷)
+#   {{languages}} — tableau JSON sérialisé des langues officelles
 #
-# Après extraction :
-#   {{lat}}      — latitude de la capitale
-#   {{lon}}      — longitude de la capitale
-#   {{country}}  — pays retourné par le géocodeur (vérification croisée)
+# Après transform :
+#   {{primary_language}} — première langue officielle (ex. French)
+#
+# Après extraction HTTP :
+#   {{lat}}     — latitude de la capitale
+#   {{lon}}     — longitude de la capitale
+#   {{country}} — pays retourné par le géocodeur (vérification croisée)
 
 continue_on_error = true   # certains micro-états ont des capitales ambiguës
 
 [campaign]
-name        = "EU Countries — capitals & coordinates"
-description = "Liste les pays européens via GraphQL puis géocode chaque capitale (Open-Meteo). Sans clé API."
+name        = "EU Countries — capitals, coordinates & languages"
+description = "Liste les pays européens via GraphQL, extrait la langue officielle, géocode chaque capitale (Open-Meteo). Sans clé API."
 
 # ── Connecteur : source = réponse du seed step ────────────────────────────────
 
@@ -40,12 +46,23 @@ name   = "EU countries"
 kind   = "seed"
 method = "POST"
 url    = "https://countries.trevorblades.com/graphql"
-body   = '{"query":"{ continent(code: \"EU\") { countries { code name capital emoji } } }"}'
+body   = '{"query":"{ continent(code: \"EU\") { countries { code name capital emoji languages { name } } } }"}'
 
 [steps.headers]
 Content-Type = "application/json"
 
-# ── Step 2 — une itération par pays ───────────────────────────────────────────
+# ── Step 2 — transform : extrait la première langue du tableau JSON ────────────
+# {{languages}} est sérialisé sous la forme : [{"name":"French"},{"name":"German"},…]
+# Le regex capture le premier "name":"…" rencontré.
+
+[[steps]]
+name = "Langue officielle"
+kind = "transform"
+transforms = [
+  { type = "regex", input = "{{languages}}", pattern = "\"name\":\"([^\"]+)\"", group = 1, output = "primary_language" },
+]
+
+# ── Step 3 — HTTP : une itération par pays ────────────────────────────────────
 
 [[steps]]
 name   = "Géocode capitale"
@@ -67,5 +84,3 @@ country = "results.0.country"
 [[outputs]]
 from_step = "Géocode capitale"
 path      = "/tmp/eu_capitals.json"
-# Chaque élément du fichier contiendra la réponse brute du géocodeur pour
-# la capitale. Chaînez ce fichier dans une autre campagne si besoin.

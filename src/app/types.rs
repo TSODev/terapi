@@ -628,6 +628,57 @@ pub fn flatten_stored(cols: &[StoredCollection], expanded: &HashSet<String>) -> 
     result
 }
 
+/// Like `flatten_stored` but always includes all children regardless of expansion state.
+/// Used when searching so that collapsed folders are also searched.
+pub fn flatten_stored_full(cols: &[StoredCollection], expanded: &HashSet<String>) -> Vec<FlatNode> {
+    let mut result = Vec::new();
+    for (ci, col) in cols.iter().enumerate() {
+        let col_key = format!("c{}", ci);
+        let col_expanded = expanded.contains(&col_key);
+        result.push(FlatNode {
+            depth: 0,
+            name: col.collection.name.clone(),
+            is_folder: true,
+            expanded: col_expanded,
+            method: None,
+            address: NodeAddress::Collection(ci),
+        });
+        for (fi, folder) in col.folders.iter().enumerate() {
+            let folder_key = format!("c{}f{}", ci, fi);
+            let folder_expanded = expanded.contains(&folder_key);
+            result.push(FlatNode {
+                depth: 1,
+                name: folder.name.clone(),
+                is_folder: true,
+                expanded: folder_expanded,
+                method: None,
+                address: NodeAddress::Folder(ci, fi),
+            });
+            for (ri, req) in folder.requests.iter().enumerate() {
+                result.push(FlatNode {
+                    depth: 2,
+                    name: req.name.clone(),
+                    is_folder: false,
+                    expanded: false,
+                    method: Some(if req.graphql { "GQL".to_string() } else { req.method.clone() }),
+                    address: NodeAddress::FolderRequest(ci, fi, ri),
+                });
+            }
+        }
+        for (ri, req) in col.requests.iter().enumerate() {
+            result.push(FlatNode {
+                depth: 1,
+                name: req.name.clone(),
+                is_folder: false,
+                expanded: false,
+                method: Some(if req.graphql { "GQL".to_string() } else { req.method.clone() }),
+                address: NodeAddress::RootRequest(ci, ri),
+            });
+        }
+    }
+    result
+}
+
 pub fn sorted_vars(env: &StoredEnv) -> Vec<(String, String)> {
     let mut pairs: Vec<(String, String)> = env.vars.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
     pairs.sort_by(|a, b| a.0.cmp(&b.0));

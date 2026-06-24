@@ -1596,9 +1596,14 @@ fn http_reason(status: u16) -> &'static str {
 // ── Collections panel ────────────────────────────────────────────────────────
 
 fn render_collections_panel(frame: &mut Frame, app: &App, area: Rect) {
-    let flat = flatten_stored(&app.stored_collections, &app.expanded_nodes);
     let query = app.collection_search.as_deref().unwrap_or("");
     let searching = app.collection_search.is_some();
+    // When searching, flatten the full tree (ignore expansion) so collapsed folders are included.
+    let flat = if searching {
+        crate::app::flatten_stored_full(&app.stored_collections, &app.expanded_nodes)
+    } else {
+        flatten_stored(&app.stored_collections, &app.expanded_nodes)
+    };
 
     // Reserve 1 line at the bottom for the search bar when active.
     let (list_area, search_area) = if searching {

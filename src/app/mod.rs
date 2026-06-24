@@ -290,14 +290,14 @@ impl App {
                     }
                 }
                 KeyCode::Down => {
-                    let flat = flatten_stored(&self.stored_collections, &self.expanded_nodes);
+                    let flat = flatten_stored_full(&self.stored_collections, &self.expanded_nodes);
                     let visible = crate::ui::filter_collection_nodes(&flat, &query);
                     if self.collection_cursor + 1 < visible.len() {
                         self.collection_cursor += 1;
                     }
                 }
                 KeyCode::Enter => {
-                    let flat = flatten_stored(&self.stored_collections, &self.expanded_nodes);
+                    let flat = flatten_stored_full(&self.stored_collections, &self.expanded_nodes);
                     let visible = crate::ui::filter_collection_nodes(&flat, &query);
                     if let Some(&(orig_idx, _)) = visible.get(self.collection_cursor) {
                         self.collection_cursor = orig_idx;

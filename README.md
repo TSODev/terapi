@@ -424,6 +424,25 @@ Extracted values use dot-path notation over the JSON response:
 | `user.id` | `response["user"]["id"]` |
 | `data.items.0.name` | `response["data"]["items"][0]["name"]` |
 
+### Campaign examples
+
+Ready-to-run examples in `examples/` — no API key required:
+
+| File | What it demonstrates |
+|------|----------------------|
+| `crud_demo.toml` | All HTTP methods with assertions |
+| `transform_demo.toml` | Transform steps: regex, template, upper, split |
+| `seed_step_demo.toml` | Seed step + JSON connector + output connector |
+| `itineraire_demo.toml` | `[[params]]` + geocoding + routing pipeline (IGN) |
+| `eu_capitals.toml` | **4-step pipeline**: GraphQL seed (53 EU countries) → language transform → geocode capital → live weather (Open-Meteo) |
+
+```bash
+terapi run examples/crud_demo.toml
+terapi run examples/seed_step_demo.toml
+terapi run examples/eu_capitals.toml
+terapi run examples/itineraire_demo.toml -p DEPART=Bordeaux -p ARRIVEE=Nantes
+```
+
 ### Campaign report
 
 ```

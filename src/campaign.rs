@@ -46,6 +46,8 @@ pub struct OutputConfig {
     pub path: String,
     #[serde(default)]
     pub select: Option<String>,
+    #[serde(default)]
+    pub include_vars: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -334,16 +336,42 @@ pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<Campaig
     // Write output connectors: one JSON file per [[outputs]] entry.
     for output in &campaign.outputs {
         let bodies: Vec<Value> = all.iter()
-            .flat_map(|iter| &iter.steps)
-            .filter(|s| s.name == output.from_step && s.success)
-            .filter_map(|s| {
-                let body = s.body_json.clone()?;
-                if let Some(ref sel) = output.select {
-                    if !sel.is_empty() {
-                        return extract_value_at(&body, sel).cloned();
+            .filter_map(|iter| {
+                // Accumulate vars (row_vars + each step's extracted) in order.
+                // We include extracted from the target step itself as well.
+                let mut accumulated: HashMap<String, String> = iter.row_vars.clone();
+                for s in &iter.steps {
+                    accumulated.extend(s.extracted.clone());
+                    if s.name == output.from_step {
+                        if !s.success { return None; }
+                        let body = s.body_json.clone()?;
+                        let selected = if let Some(ref sel) = output.select {
+                            if !sel.is_empty() {
+                                extract_value_at(&body, sel).cloned()?
+                            } else { body }
+                        } else { body };
+
+                        if output.include_vars.is_empty() {
+                            return Some(selected);
+                        }
+                        // Merge requested vars into the JSON element.
+                        let mut map = match selected {
+                            Value::Object(m) => m,
+                            other => {
+                                let mut m = serde_json::Map::new();
+                                m.insert("response".to_string(), other);
+                                m
+                            }
+                        };
+                        for var in &output.include_vars {
+                            if let Some(val) = accumulated.get(var) {
+                                map.insert(var.clone(), Value::String(val.clone()));
+                            }
+                        }
+                        return Some(Value::Object(map));
                     }
                 }
-                Some(body)
+                None
             })
             .collect();
 

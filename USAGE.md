@@ -1833,6 +1833,7 @@ Ready-to-run campaigns in `examples/` — no API key required:
 | `json_connector_demo.toml` | JSONPlaceholder | JSON file connector: iterate over `examples/users.json`, fetch posts for each user |
 | `seed_step_demo.toml` | API Géo (France) | Seed step + JSON connector + output connector: fetch a city list, iterate for details, write to `/tmp/communes_bordeaux.json` |
 | `itineraire_demo.toml` | IGN Géoplateforme | **`[[params]]` + full pipeline**: geocode two cities, compose coordinates, compute road itinerary — no API key required |
+| `eu_capitals.toml` | Countries GraphQL + Open-Meteo | **4-step pipeline**: GraphQL seed (53 EU countries) → language transform → geocode capital → live weather; writes `/tmp/eu_capitals_weather.json` |
 
 ```bash
 terapi run examples/crud_demo.toml
@@ -1840,6 +1841,7 @@ terapi run examples/debug_toolbox.toml
 terapi run examples/transform_demo.toml
 terapi run examples/json_connector_demo.toml
 terapi run examples/seed_step_demo.toml
+terapi run examples/eu_capitals.toml
 
 # itineraire_demo uses [[params]] — run with defaults or override:
 terapi run examples/itineraire_demo.toml

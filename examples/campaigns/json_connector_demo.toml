@@ -23,7 +23,7 @@ BASE_URL = "https://jsonplaceholder.typicode.com"
 
 [[connectors]]
 type   = "json"
-path   = "examples/users.json"
+path   = "examples/campaigns/users.json"
 select = "users"   # dot-path vers le tableau ; omets select si la racine est déjà un tableau
 
 [[steps]]

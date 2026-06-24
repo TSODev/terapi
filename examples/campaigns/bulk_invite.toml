@@ -13,7 +13,7 @@ PASSWORD = "secret"
 
 [[connectors]]
 type = "csv"
-path = "examples/contacts.csv"
+path = "examples/campaigns/contacts.csv"
 
 # ── Steps ─────────────────────────────────────────────────────────────────────
 

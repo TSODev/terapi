@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.7.6] — 2026-06-24
+
+### Added
+- **Recherche / filtre dans le panel Collections** — appuyer sur `/` dans l'onglet Collections ouvre une barre de recherche en bas du panel. La saisie filtre l'arbre en temps réel : seuls les nœuds correspondants (et leurs parents en grisé pour le contexte) sont affichés, avec le fragment correspondant mis en évidence en jaune. `↑`/`↓` naviguent dans la liste filtrée ; `Enter` charge directement la requête dans l'onglet Request ; `Esc` ferme la barre et restaure l'arbre complet. La recherche parcourt tout l'arbre, y compris les dossiers repliés.
+
+---
+
 ## [0.7.5] — 2026-06-24
 
 ### Added
@@ -118,9 +125,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Campaign idle view: GraphQL steps display a magenta `GQL` badge instead of `POST`, matching the rest of the TUI.
 
 ### Added (examples)
-- **`examples/eu_capitals.toml`** — full 4-step pipeline: GraphQL seed (53 EU countries from countries API) → language transform → geocode capital (IGN Géoplateforme) → live weather (Open-Meteo). Output includes `include_vars` with country metadata. Paired with `examples/eu_capitals_map.html`.
-- **`examples/eu_capitals_map.html`** — dark-themed Leaflet.js interactive map. Reads `eu_capitals_weather.json` and renders each capital as a coloured bubble (temperature scale blue → red) with flag emoji, weather icon, and a full detail popup. Served locally via `python3 -m http.server 8080 --directory examples`.
-- **`examples/foreach_demo.toml`** — demonstrates `foreach`: GET /users → `*.id` wildcard extraction → foreach GET /todos per user.
+- **`examples/campaigns/eu_capitals.toml`** — full 4-step pipeline: GraphQL seed (53 EU countries from countries API) → language transform → geocode capital (IGN Géoplateforme) → live weather (Open-Meteo). Output includes `include_vars` with country metadata. Paired with `examples/campaigns/eu_capitals_map.html`.
+- **`examples/campaigns/eu_capitals_map.html`** — dark-themed Leaflet.js interactive map. Reads `eu_capitals_weather.json` and renders each capital as a coloured bubble (temperature scale blue → red) with flag emoji, weather icon, and a full detail popup. Served locally via `python3 -m http.server 8080 --directory examples`.
+- **`examples/campaigns/foreach_demo.toml`** — demonstrates `foreach`: GET /users → `*.id` wildcard extraction → foreach GET /todos per user.
 
 ---
 
@@ -186,7 +193,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - **TUI params modal** — pressing `r` on a campaign with `[[params]]` opens a form modal instead of starting immediately. Values are pre-filled from the defaults. `↑`/`↓` navigates, `Enter` edits the selected value, `r` launches the campaign with the current values, `Esc` cancels without running.
 
-- **Itinerary campaign example** (`examples/itineraire_demo.toml`) — demonstrates the full params + pipeline flow: geocode two French cities via the IGN Géoplateforme API, compose coordinates with a transform step, then compute the road itinerary (distance + duration). No API key required. `DEPART`, `ARRIVEE`, `PROFILE`, and `OPTIMIZATION` are declared as `[[params]]` so each run can target different cities.
+- **Itinerary campaign example** (`examples/campaigns/itineraire_demo.toml`) — demonstrates the full params + pipeline flow: geocode two French cities via the IGN Géoplateforme API, compose coordinates with a transform step, then compute the road itinerary (distance + duration). No API key required. `DEPART`, `ARRIVEE`, `PROFILE`, and `OPTIMIZATION` are declared as `[[params]]` so each run can target different cities.
 
 - **Open in external editor (`E`)** — pressing `E` on a selected item in the Collections or Campaigns tab suspends the TUI, launches `$EDITOR` (fallback: `$VISUAL`, then `vi`) with the corresponding TOML file, and waits for the editor to close. On return, both collections and campaigns are reloaded from disk automatically. Works with any terminal editor (vim, neovim, nano, helix…) or GUI editors that block the terminal (e.g. `EDITOR=code --wait`).
 
@@ -202,10 +209,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **URL params auto-parse from URL bar** — pasting a full URL with a query string (e.g. `https://api.example.com/search?q=foo&limit=10`) into the URL bar and pressing `Esc` or `Enter` now automatically splits it: base URL stays in the URL bar, query parameters populate the URL Params tab. Same parsing applies when loading a request from History.
 - **URL bar reconstructs full URL** — in read mode (outside URL edit mode) the URL bar displays `base?key=val&key2=val2` so the full effective URL is always visible; edit mode shows only the base URL for clean editing.
 - **History deduplication** — sending a request identical to an existing history entry (same method + URL + body, or same URL + query for GraphQL) moves the existing entry to the top instead of creating a duplicate.
-- **JSON connector** (`type = "json"`) — new campaign connector type that iterates over a JSON array. `path` points to a local JSON file; `select` (optional dot-path) navigates to the target array inside the file (omit or set to `""` for root). Object fields are flattened with dot-notation; nested arrays serialised as JSON strings. See `examples/json_connector_demo.toml`.
-- **Seed step** (`kind = "seed"`) — a campaign step that runs once before the iteration loop and whose JSON response body feeds the `[[connectors]]` block via `from_step = "step name"`. Enables fully HTTP-driven data-driven campaigns without a local file. The seed step is skipped in the iteration loop. See `examples/seed_step_demo.toml`.
+- **JSON connector** (`type = "json"`) — new campaign connector type that iterates over a JSON array. `path` points to a local JSON file; `select` (optional dot-path) navigates to the target array inside the file (omit or set to `""` for root). Object fields are flattened with dot-notation; nested arrays serialised as JSON strings. See `examples/campaigns/json_connector_demo.toml`.
+- **Seed step** (`kind = "seed"`) — a campaign step that runs once before the iteration loop and whose JSON response body feeds the `[[connectors]]` block via `from_step = "step name"`. Enables fully HTTP-driven data-driven campaigns without a local file. The seed step is skipped in the iteration loop. See `examples/campaigns/seed_step_demo.toml`.
 - **Output connector** (`[[outputs]]`) — after all iterations complete, writes a JSON array of step response bodies to disk. Fields: `from_step` (step name to collect), `path` (destination file), `select` (optional dot-path into each response body). Failed iterations are skipped. Parent directories created if needed. Multiple `[[outputs]]` blocks supported per campaign. CLI confirms each written file at the end of the report.
-- **New campaign examples** — `examples/json_connector_demo.toml` (JSON file connector, JSONPlaceholder), `examples/seed_step_demo.toml` (seed step + output connector, French geo API), `examples/users.json` (sample data).
+- **New campaign examples** — `examples/campaigns/json_connector_demo.toml` (JSON file connector, JSONPlaceholder), `examples/campaigns/seed_step_demo.toml` (seed step + output connector, French geo API), `examples/campaigns/users.json` (sample data).
 
 - **Pause step** (`kind = "pause"`) — inserts a deliberate wait between steps without making an HTTP request. `wait_ms` sets the delay in milliseconds. Appears as `WAIT` in CLI output and TUI. Useful for rate-limiting: avoid being throttled by APIs that cap requests per second.
 
@@ -417,9 +424,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `public-rest.toml` — JSONPlaceholder, ReqRes, httpbin, PokeAPI, CoinGecko (5 folders)
   - `graphql.toml` — Countries API and Rick & Morty API (GraphQL via POST, ready for v0.5)
 - Example campaigns:
-  - `examples/crud_demo.toml` — full CRUD on JSONPlaceholder (POST → extract id → GET → PUT → PATCH → DELETE)
-  - `examples/auth_flow.toml` — ReqRes auth flow (login → extract token → GET user → PUT update)
-  - `examples/debug_toolbox.toml` — httpbin.io edge cases (status codes, headers, bearer auth)
+  - `examples/campaigns/crud_demo.toml` — full CRUD on JSONPlaceholder (POST → extract id → GET → PUT → PATCH → DELETE)
+  - `examples/campaigns/auth_flow.toml` — ReqRes auth flow (login → extract token → GET user → PUT update)
+  - `examples/campaigns/debug_toolbox.toml` — httpbin.io edge cases (status codes, headers, bearer auth)
 - **New request (`n`)** — resets all fields in the Request tab (URL, method, headers, URL params, body, response) ready for a blank request
 - **Save to collection (`S`)** — saves the current request state to a collection from the Request tab:
   - Modal with three fields: Name (free text), Collection (↑/↓ to cycle, `n/total` indicator), Folder (↑/↓ to cycle including root)
@@ -462,7 +469,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `load_collections()` — reads all `.toml` files from `<dir>/collections/` at startup
   - `save_collection()` — serialises a collection to a named TOML file; called on every mutation
   - Collection schema: `[collection]`, `[[folders]]`, `[[folders.requests]]`, `[[requests]]`
-- `examples/collection.toml` — annotated template documenting the collection TOML format
+- `examples/collections/collection.toml` — annotated template documenting the collection TOML format
 - `dirs` crate dependency for cross-platform config directory resolution
 - Empty Collections panel now shows a hint: "No collections — press n to create one"
 - New **Env** top-level tab (Request | Collections | **Env** | History):
@@ -545,6 +552,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 **Examples**
 - `demo.json` — realistic nested API response for TUI demo
-- `examples/users.toml` — campaign with login → JWT extraction → CRUD steps
-- `examples/bulk_invite.toml` — data-driven campaign with CSV connector
-- `examples/contacts.csv` — sample contact list for bulk_invite
+- `examples/campaigns/users.toml` — campaign with login → JWT extraction → CRUD steps
+- `examples/campaigns/bulk_invite.toml` — data-driven campaign with CSV connector
+- `examples/campaigns/contacts.csv` — sample contact list for bulk_invite

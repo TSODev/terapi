@@ -148,6 +148,7 @@ terapi --help
 | `a` | Add request to selected collection / folder |
 | `e` | Edit selected request — loads into Request tab with all fields editable (URL, headers, body, auth, description); `S` opens Update Request modal (pre-filled name/location; change location to save as new) |
 | `E` | Open collection TOML in `$EDITOR` — TUI suspends, reloads on exit |
+| `/` | Search / filter the collection tree — type to narrow the list, `↑`/`↓` navigate, `Enter` loads, `Esc` closes |
 | `d` | Delete selected item |
 | `q` `q` | Quit (press twice to confirm) |
 
@@ -215,14 +216,14 @@ Place campaign files in the campaigns directory:
 
 ```bash
 # Global
-cp examples/crud_demo.toml ~/.config/terapi/campaigns/
+cp examples/campaigns/crud_demo.toml ~/.config/terapi/campaigns/
 
 # Per-project
 mkdir -p .terapi/campaigns
-cp examples/transform_demo.toml .terapi/campaigns/
+cp examples/campaigns/transform_demo.toml .terapi/campaigns/
 
 # Or use the import command (auto-detects collection vs campaign)
-terapi import examples/crud_demo.toml
+terapi import examples/campaigns/crud_demo.toml
 ```
 
 ---
@@ -302,7 +303,7 @@ url = "https://api.example.com/users"
 Authorization = "Bearer {{TOKEN}}"
 ```
 
-See `examples/collection.toml` for a fully annotated template.
+See `examples/collections/collection.toml` for a fully annotated template.
 
 ### Example collections
 
@@ -522,7 +523,7 @@ In the TUI idle view, steps with `when` show `⊘ if VAR == "value"` in grey bel
 
 ### Campaign examples
 
-Ready-to-run examples in `examples/` — no API key required:
+Ready-to-run examples in `examples/campaigns/` — no API key required:
 
 | File | What it demonstrates |
 |------|----------------------|
@@ -535,18 +536,18 @@ Ready-to-run examples in `examples/` — no API key required:
 | `when_demo.toml` | **`when`**: `eq` / `ne` / `exists` operators — admin vs standard user branches with automatic cascade |
 
 ```bash
-terapi run examples/crud_demo.toml
-terapi run examples/seed_step_demo.toml
-terapi run examples/eu_capitals.toml
-terapi run examples/itineraire_demo.toml -p DEPART=Bordeaux -p ARRIVEE=Nantes
+terapi run examples/campaigns/crud_demo.toml
+terapi run examples/campaigns/seed_step_demo.toml
+terapi run examples/campaigns/eu_capitals.toml
+terapi run examples/campaigns/itineraire_demo.toml -p DEPART=Bordeaux -p ARRIVEE=Nantes
 ```
 
 #### Interactive weather map
 
-`eu_capitals.toml` generates `examples/eu_capitals_weather.json`. Open `examples/eu_capitals_map.html` with a local server to visualize all EU capitals on a dark map — coloured bubble per capital (flag + temperature + weather icon), full detail popup on click:
+`eu_capitals.toml` generates `examples/campaigns/eu_capitals_weather.json`. Open `examples/campaigns/eu_capitals_map.html` with a local server to visualize all EU capitals on a dark map — coloured bubble per capital (flag + temperature + weather icon), full detail popup on click:
 
 ```bash
-terapi run examples/eu_capitals.toml
+terapi run examples/campaigns/eu_capitals.toml
 python3 -m http.server 8080 --directory examples
 open http://localhost:8080/eu_capitals_map.html
 ```

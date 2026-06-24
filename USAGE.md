@@ -689,6 +689,17 @@ Press `n` to discard all edits and start a new blank request instead.
 
 **Open in external editor (`E`)** — pressing `E` on any node in the tree (collection, folder, or request) opens the collection's TOML file in `$EDITOR` (fallback: `$VISUAL`, then `vi`). The TUI suspends, the editor takes the full terminal, and on exit terapi reloads all collections from disk. Any change made in the editor (rename, add a request, restructure folders) is immediately reflected in the TUI.
 
+**Search / filter (`/`)** — press `/` to open a search bar at the bottom of the Collections panel:
+
+- Type to filter the tree in real time — the entire tree is searched, including requests inside collapsed folders.
+- Only matching nodes are shown. Parent folders are kept as greyed-out context so the hierarchy stays readable.
+- The matching substring is highlighted in yellow in each result.
+- `↑` / `↓` navigate the filtered list.
+- `Enter` on a request node loads it into the Request tab (same as normal) and closes the search bar.
+- `Enter` on a folder node toggles its expansion.
+- `Esc` closes the search bar and restores the full tree.
+- The panel title updates to show the number of results: `Collections · 3 results`.
+
 Method badges are colour-coded:
 
 | Colour | Method |
@@ -826,10 +837,10 @@ The **right panel** adapts to the run state:
 **Setting up campaigns:** place `.toml` files in `<terapi_dir>/campaigns/` (same priority resolution as collections). The quickest way is `terapi import`:
 
 ```bash
-terapi import examples/crud_demo.toml
-terapi import examples/transform_demo.toml
+terapi import examples/campaigns/crud_demo.toml
+terapi import examples/campaigns/transform_demo.toml
 # or manually:
-cp examples/crud_demo.toml ~/.config/terapi/campaigns/
+cp examples/campaigns/crud_demo.toml ~/.config/terapi/campaigns/
 ```
 
 ### Context bar
@@ -955,7 +966,7 @@ Terapi looks for collections in the first directory that matches, in order:
 
 ```bash
 mkdir -p .terapi/collections
-cp examples/collection.toml .terapi/collections/my-api.toml
+cp examples/collections/collection.toml .terapi/collections/my-api.toml
 # Edit, then optionally commit:
 git add .terapi/
 ```
@@ -1024,7 +1035,7 @@ Authorization = "Bearer {{TOKEN}}"
 Content-Type = "application/json"
 ```
 
-See `examples/collection.toml` for a fully annotated template.
+See `examples/collections/collection.toml` for a fully annotated template.
 
 **GraphQL request fields** — add these to any `[[requests]]` or `[[folders.requests]]` block:
 
@@ -1124,7 +1135,7 @@ Useful for exploring the JSON viewer, testing fold behaviour, or demoing the TUI
 terapi import examples/collections/france-geo.toml
 
 # Import a campaign
-terapi import examples/crud_demo.toml
+terapi import examples/campaigns/crud_demo.toml
 
 # Import everything at once
 for f in examples/collections/*.toml examples/*.toml; do terapi import "$f"; done
@@ -1212,7 +1223,7 @@ docker run -d --name mock-oauth2 -p 8080:8080 ghcr.io/navikt/mock-oauth2-server:
 | Auth URL | `http://localhost:8080/default/authorize` |
 | Redirect Port | `9876` |
 
-See `examples/oauth2_test_procedure.md` for the full 9-test validation procedure.
+See `examples/campaigns/oauth2_test_procedure.md` for the full 9-test validation procedure.
 
 ---
 
@@ -1488,7 +1499,7 @@ from_step = "Get todos"     # matches all "Get todos [i/n]" sub-steps
 path      = "/tmp/todos.json"
 ```
 
-See `examples/foreach_demo.toml` for a complete working example.
+See `examples/campaigns/foreach_demo.toml` for a complete working example.
 
 ### Conditional execution (`when`)
 
@@ -1774,7 +1785,7 @@ bob@example.com,Bob
 - Leading/trailing whitespace is trimmed from both keys and values
 - All values are strings — use a `transform` step to cast if needed
 
-See `examples/bulk_invite.toml` and `examples/contacts.csv`.
+See `examples/campaigns/bulk_invite.toml` and `examples/campaigns/contacts.csv`.
 
 ---
 
@@ -1826,7 +1837,7 @@ url    = "{{BASE_URL}}/posts?userId={{id}}"
 
 Example: `{ "address": { "city": "Paris", "zip": "75001" } }` produces `{{address.city}} = Paris` and `{{address.zip}} = 75001`.
 
-See `examples/json_connector_demo.toml` and `examples/users.json`.
+See `examples/campaigns/json_connector_demo.toml` and `examples/campaigns/users.json`.
 
 ---
 
@@ -1871,7 +1882,7 @@ population  = "population"
 - `select = ""` selects the root of the response (if the response is directly a JSON array)
 - `select = "data.items"` navigates into a nested array the same way as the file connector
 
-See `examples/seed_step_demo.toml` for a complete working example.
+See `examples/campaigns/seed_step_demo.toml` for a complete working example.
 
 ---
 
@@ -1976,7 +1987,7 @@ Exit code is `0` if all steps pass, `1` if any step fails.
 
 ### Campaign examples
 
-Ready-to-run campaigns in `examples/` — no API key required:
+Ready-to-run campaigns in `examples/campaigns/` — no API key required:
 
 | File | API | What it demonstrates |
 |------|-----|----------------------|
@@ -1985,30 +1996,30 @@ Ready-to-run campaigns in `examples/` — no API key required:
 | `transform_demo.toml` | JSONPlaceholder | Transform steps: regex email parsing, uppercase, template composition, chained transforms |
 | `auth_flow.toml` | ReqRes | Login → token extraction → authenticated request (requires a free ReqRes API key) |
 | `bulk_invite.toml` | *(mock)* | CSV connector: one campaign iteration per CSV row |
-| `json_connector_demo.toml` | JSONPlaceholder | JSON file connector: iterate over `examples/users.json`, fetch posts for each user |
+| `json_connector_demo.toml` | JSONPlaceholder | JSON file connector: iterate over `examples/campaigns/users.json`, fetch posts for each user |
 | `seed_step_demo.toml` | API Géo (France) | Seed step + JSON connector + output connector: fetch a city list, iterate for details, write to `/tmp/communes_bordeaux.json` |
 | `itineraire_demo.toml` | IGN Géoplateforme | **`[[params]]` + full pipeline**: geocode two cities, compose coordinates, compute road itinerary — no API key required |
-| `eu_capitals.toml` | Countries GraphQL + Open-Meteo | **4-step pipeline**: GraphQL seed (53 EU countries) → language transform → geocode capital → live weather; writes `examples/eu_capitals_weather.json` |
+| `eu_capitals.toml` | Countries GraphQL + Open-Meteo | **4-step pipeline**: GraphQL seed (53 EU countries) → language transform → geocode capital → live weather; writes `examples/campaigns/eu_capitals_weather.json` |
 | `foreach_demo.toml` | JSONPlaceholder | **`foreach`**: GET /users → extract IDs with `*.id` wildcard → iterate over each user to fetch their todos |
 | `when_demo.toml` | JSONPlaceholder | **`when`**: `eq` / `ne` / `exists` — branches admin vs standard user; cascade automatique (step skippé → var non extraite → step suivant skippé) |
 
 ```bash
-terapi run examples/crud_demo.toml
-terapi run examples/debug_toolbox.toml
-terapi run examples/transform_demo.toml
-terapi run examples/json_connector_demo.toml
-terapi run examples/seed_step_demo.toml
-terapi run examples/eu_capitals.toml
+terapi run examples/campaigns/crud_demo.toml
+terapi run examples/campaigns/debug_toolbox.toml
+terapi run examples/campaigns/transform_demo.toml
+terapi run examples/campaigns/json_connector_demo.toml
+terapi run examples/campaigns/seed_step_demo.toml
+terapi run examples/campaigns/eu_capitals.toml
 
 # itineraire_demo uses [[params]] — run with defaults or override:
-terapi run examples/itineraire_demo.toml
-terapi run examples/itineraire_demo.toml -p DEPART=Bordeaux -p ARRIVEE=Nantes
-terapi run examples/itineraire_demo.toml -p DEPART=Marseille -p ARRIVEE=Strasbourg -p PROFILE=car
+terapi run examples/campaigns/itineraire_demo.toml
+terapi run examples/campaigns/itineraire_demo.toml -p DEPART=Bordeaux -p ARRIVEE=Nantes
+terapi run examples/campaigns/itineraire_demo.toml -p DEPART=Marseille -p ARRIVEE=Strasbourg -p PROFILE=car
 ```
 
 #### Interactive weather map
 
-`eu_capitals.toml` outputs `examples/eu_capitals_weather.json`. The companion file `examples/eu_capitals_map.html` renders all EU capitals on a dark interactive map (Leaflet.js, no API key):
+`eu_capitals.toml` outputs `examples/campaigns/eu_capitals_weather.json`. The companion file `examples/campaigns/eu_capitals_map.html` renders all EU capitals on a dark interactive map (Leaflet.js, no API key):
 
 - Coloured bubble per capital: flag emoji + weather icon + temperature
 - Colour scale: blue (< 0 °C) → teal (10–20 °C) → yellow → red (> 28 °C)
@@ -2017,7 +2028,7 @@ terapi run examples/itineraire_demo.toml -p DEPART=Marseille -p ARRIVEE=Strasbou
 
 ```bash
 # 1. generate the data
-terapi run examples/eu_capitals.toml
+terapi run examples/campaigns/eu_capitals.toml
 
 # 2. serve and open
 python3 -m http.server 8080 --directory examples

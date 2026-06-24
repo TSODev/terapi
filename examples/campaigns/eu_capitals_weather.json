@@ -1,0 +1,1532 @@
+[
+  {
+    "capital": "Andorra la Vella",
+    "code": "AD",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 28.1,
+      "time": "2026-06-24T10:45",
+      "weather_code": 0,
+      "wind_speed_10m": 3.7
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 1045.0,
+    "emoji": "🇦🇩",
+    "generationtime_ms": 0.21469593048095703,
+    "lat": "42.50779",
+    "latitude": 42.5,
+    "lon": "1.52109",
+    "longitude": 1.5199995,
+    "name": "Andorra",
+    "primary_language": "Catalan",
+    "timezone": "Europe/Andorra",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Tirana",
+    "code": "AL",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 31.4,
+      "time": "2026-06-24T10:45",
+      "weather_code": 0,
+      "wind_speed_10m": 6.2
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 110.0,
+    "emoji": "🇦🇱",
+    "generationtime_ms": 0.041604042053222656,
+    "lat": "41.32744",
+    "latitude": 41.3125,
+    "lon": "19.81866",
+    "longitude": 19.8125,
+    "name": "Albania",
+    "primary_language": "Albanian",
+    "timezone": "Europe/Tirane",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Vienna",
+    "code": "AT",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 26.8,
+      "time": "2026-06-24T10:45",
+      "weather_code": 0,
+      "wind_speed_10m": 6.5
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 196.0,
+    "emoji": "🇦🇹",
+    "generationtime_ms": 0.08440017700195312,
+    "lat": "48.20849",
+    "latitude": 48.2,
+    "lon": "16.37208",
+    "longitude": 16.38,
+    "name": "Austria",
+    "primary_language": "German",
+    "timezone": "Europe/Vienna",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Mariehamn",
+    "code": "AX",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 19.2,
+      "time": "2026-06-24T11:45",
+      "weather_code": 1,
+      "wind_speed_10m": 7.2
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 12.0,
+    "emoji": "🇦🇽",
+    "generationtime_ms": 0.06771087646484375,
+    "lat": "60.09726",
+    "latitude": 60.098152,
+    "lon": "19.93481",
+    "longitude": 19.933472,
+    "name": "Åland",
+    "primary_language": "Swedish",
+    "timezone": "Europe/Mariehamn",
+    "timezone_abbreviation": "GMT+3",
+    "utc_offset_seconds": 10800
+  },
+  {
+    "capital": "Sarajevo",
+    "code": "BA",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 24.5,
+      "time": "2026-06-24T10:45",
+      "weather_code": 3,
+      "wind_speed_10m": 5.7
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 509.0,
+    "emoji": "🇧🇦",
+    "generationtime_ms": 0.0718832015991211,
+    "lat": "43.84864",
+    "latitude": 43.875,
+    "lon": "18.35644",
+    "longitude": 18.375,
+    "name": "Bosnia and Herzegovina",
+    "primary_language": "Bosnian",
+    "timezone": "Europe/Sarajevo",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Brussels",
+    "code": "BE",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 32.5,
+      "time": "2026-06-24T10:45",
+      "weather_code": 0,
+      "wind_speed_10m": 6.8
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 27.0,
+    "emoji": "🇧🇪",
+    "generationtime_ms": 0.12731552124023438,
+    "lat": "50.85045",
+    "latitude": 50.854,
+    "lon": "4.34878",
+    "longitude": 4.35,
+    "name": "Belgium",
+    "primary_language": "Dutch",
+    "timezone": "Europe/Brussels",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Sofia",
+    "code": "BG",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 22.5,
+      "time": "2026-06-24T11:45",
+      "weather_code": 3,
+      "wind_speed_10m": 3.8
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 555.0,
+    "emoji": "🇧🇬",
+    "generationtime_ms": 0.054001808166503906,
+    "lat": "42.69751",
+    "latitude": 42.6875,
+    "lon": "23.32415",
+    "longitude": 23.3125,
+    "name": "Bulgaria",
+    "primary_language": "Bulgarian",
+    "timezone": "Europe/Sofia",
+    "timezone_abbreviation": "GMT+3",
+    "utc_offset_seconds": 10800
+  },
+  {
+    "capital": "Minsk",
+    "code": "BY",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 21.8,
+      "time": "2026-06-24T11:45",
+      "weather_code": 3,
+      "wind_speed_10m": 7.6
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 226.0,
+    "emoji": "🇧🇾",
+    "generationtime_ms": 0.0782012939453125,
+    "lat": "53.90019",
+    "latitude": 53.900345,
+    "lon": "27.56653",
+    "longitude": 27.561417,
+    "name": "Belarus",
+    "primary_language": "Belarusian",
+    "timezone": "Europe/Minsk",
+    "timezone_abbreviation": "GMT+3",
+    "utc_offset_seconds": 10800
+  },
+  {
+    "capital": "Bern",
+    "code": "CH",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 26.9,
+      "time": "2026-06-24T10:45",
+      "weather_code": 0,
+      "wind_speed_10m": 3.2
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 554.0,
+    "emoji": "🇨🇭",
+    "generationtime_ms": 0.05877017974853515,
+    "lat": "46.94809",
+    "latitude": 46.94,
+    "lon": "7.44744",
+    "longitude": 7.44,
+    "name": "Switzerland",
+    "primary_language": "German",
+    "timezone": "Europe/Zurich",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Nicosia",
+    "code": "CY",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 36.0,
+      "time": "2026-06-24T11:45",
+      "weather_code": 0,
+      "wind_speed_10m": 12.2
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 154.0,
+    "emoji": "🇨🇾",
+    "generationtime_ms": 0.059723854064941406,
+    "lat": "35.17284",
+    "latitude": 35.1875,
+    "lon": "33.35397",
+    "longitude": 33.375,
+    "name": "Cyprus",
+    "primary_language": "Greek",
+    "timezone": "Asia/Nicosia",
+    "timezone_abbreviation": "GMT+3",
+    "utc_offset_seconds": 10800
+  },
+  {
+    "capital": "Prague",
+    "code": "CZ",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 26.3,
+      "time": "2026-06-24T10:45",
+      "weather_code": 0,
+      "wind_speed_10m": 3.1
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 205.0,
+    "emoji": "🇨🇿",
+    "generationtime_ms": 0.1043081283569336,
+    "lat": "50.08804",
+    "latitude": 50.08,
+    "lon": "14.42076",
+    "longitude": 14.419998,
+    "name": "Czech Republic",
+    "primary_language": "Czech",
+    "timezone": "Europe/Prague",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Berlin",
+    "code": "DE",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 26.3,
+      "time": "2026-06-24T10:45",
+      "weather_code": 0,
+      "wind_speed_10m": 3.9
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 46.0,
+    "emoji": "🇩🇪",
+    "generationtime_ms": 0.08177757263183594,
+    "lat": "52.52437",
+    "latitude": 52.52,
+    "lon": "13.41053",
+    "longitude": 13.419998,
+    "name": "Germany",
+    "primary_language": "German",
+    "timezone": "Europe/Berlin",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Copenhagen",
+    "code": "DK",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 23.9,
+      "time": "2026-06-24T10:45",
+      "weather_code": 2,
+      "wind_speed_10m": 12.6
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 11.0,
+    "emoji": "🇩🇰",
+    "generationtime_ms": 0.05161762237548828,
+    "lat": "55.67594",
+    "latitude": 55.6785,
+    "lon": "12.56553",
+    "longitude": 12.570435,
+    "name": "Denmark",
+    "primary_language": "Danish",
+    "timezone": "Europe/Copenhagen",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Tallinn",
+    "code": "EE",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 14.9,
+      "time": "2026-06-24T11:45",
+      "weather_code": 61,
+      "wind_speed_10m": 15.1
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 10.0,
+    "emoji": "🇪🇪",
+    "generationtime_ms": 0.06711483001708984,
+    "lat": "59.43696",
+    "latitude": 59.439518,
+    "lon": "24.75353",
+    "longitude": 24.75708,
+    "name": "Estonia",
+    "primary_language": "Estonian",
+    "timezone": "Europe/Tallinn",
+    "timezone_abbreviation": "GMT+3",
+    "utc_offset_seconds": 10800
+  },
+  {
+    "capital": "Madrid",
+    "code": "ES",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 29.0,
+      "time": "2026-06-24T10:45",
+      "weather_code": 3,
+      "wind_speed_10m": 8.0
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 651.0,
+    "emoji": "🇪🇸",
+    "generationtime_ms": 0.04684925079345703,
+    "lat": "40.4165",
+    "latitude": 40.4375,
+    "lon": "-3.70256",
+    "longitude": -3.6875,
+    "name": "Spain",
+    "primary_language": "Spanish",
+    "timezone": "Europe/Madrid",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Helsinki",
+    "code": "FI",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 16.2,
+      "time": "2026-06-24T11:45",
+      "weather_code": 51,
+      "wind_speed_10m": 6.1
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 12.0,
+    "emoji": "🇫🇮",
+    "generationtime_ms": 0.12445449829101562,
+    "lat": "60.16952",
+    "latitude": 60.17136,
+    "lon": "24.93545",
+    "longitude": 24.927353,
+    "name": "Finland",
+    "primary_language": "Finnish",
+    "timezone": "Europe/Helsinki",
+    "timezone_abbreviation": "GMT+3",
+    "utc_offset_seconds": 10800
+  },
+  {
+    "capital": "Tórshavn",
+    "code": "FO",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 11.5,
+      "time": "2026-06-24T09:45",
+      "weather_code": 3,
+      "wind_speed_10m": 20.2
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 13.0,
+    "emoji": "🇫🇴",
+    "generationtime_ms": 0.1245737075805664,
+    "lat": "62.00973",
+    "latitude": 62.021114,
+    "lon": "-6.77164",
+    "longitude": -6.810623,
+    "name": "Faroe Islands",
+    "primary_language": "Faroese",
+    "timezone": "Atlantic/Faroe",
+    "timezone_abbreviation": "GMT+1",
+    "utc_offset_seconds": 3600
+  },
+  {
+    "capital": "Paris",
+    "code": "FR",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 31.6,
+      "time": "2026-06-24T10:45",
+      "weather_code": 0,
+      "wind_speed_10m": 5.3
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 43.0,
+    "emoji": "🇫🇷",
+    "generationtime_ms": 0.05817413330078125,
+    "lat": "48.85341",
+    "latitude": 48.86,
+    "lon": "2.3488",
+    "longitude": 2.3399997,
+    "name": "France",
+    "primary_language": "French",
+    "timezone": "Europe/Paris",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "London",
+    "code": "GB",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 28.5,
+      "time": "2026-06-24T09:45",
+      "weather_code": 0,
+      "wind_speed_10m": 8.6
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 23.0,
+    "emoji": "🇬🇧",
+    "generationtime_ms": 0.21135807037353516,
+    "lat": "51.50853",
+    "latitude": 51.5,
+    "lon": "-0.12574",
+    "longitude": -0.25,
+    "name": "United Kingdom",
+    "primary_language": "English",
+    "timezone": "Europe/London",
+    "timezone_abbreviation": "GMT+1",
+    "utc_offset_seconds": 3600
+  },
+  {
+    "capital": "Gibraltar",
+    "code": "GI",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 26.5,
+      "time": "2026-06-24T10:45",
+      "weather_code": 3,
+      "wind_speed_10m": 11.0
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 6.0,
+    "emoji": "🇬🇮",
+    "generationtime_ms": 0.04553794860839844,
+    "lat": "36.14474",
+    "latitude": 36.1875,
+    "lon": "-5.35257",
+    "longitude": -5.375,
+    "name": "Gibraltar",
+    "primary_language": "English",
+    "timezone": "Europe/Gibraltar",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Athens",
+    "code": "GR",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 31.8,
+      "time": "2026-06-24T11:45",
+      "weather_code": 0,
+      "wind_speed_10m": 4.7
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 92.0,
+    "emoji": "🇬🇷",
+    "generationtime_ms": 0.047087669372558594,
+    "lat": "37.98376",
+    "latitude": 38.0,
+    "lon": "23.72784",
+    "longitude": 23.75,
+    "name": "Greece",
+    "primary_language": "Greek",
+    "timezone": "Europe/Athens",
+    "timezone_abbreviation": "GMT+3",
+    "utc_offset_seconds": 10800
+  },
+  {
+    "capital": "Zagreb",
+    "code": "HR",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 28.4,
+      "time": "2026-06-24T10:45",
+      "weather_code": 1,
+      "wind_speed_10m": 8.4
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 137.0,
+    "emoji": "🇭🇷",
+    "generationtime_ms": 0.0814199447631836,
+    "lat": "45.81444",
+    "latitude": 45.82,
+    "lon": "15.97798",
+    "longitude": 15.98,
+    "name": "Croatia",
+    "primary_language": "Croatian",
+    "timezone": "Europe/Zagreb",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Budapest",
+    "code": "HU",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 29.3,
+      "time": "2026-06-24T10:45",
+      "weather_code": 1,
+      "wind_speed_10m": 4.0
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 124.0,
+    "emoji": "🇭🇺",
+    "generationtime_ms": 0.10645389556884766,
+    "lat": "47.49835",
+    "latitude": 47.501236,
+    "lon": "19.04045",
+    "longitude": 19.03534,
+    "name": "Hungary",
+    "primary_language": "Hungarian",
+    "timezone": "Europe/Budapest",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Dublin",
+    "code": "IE",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 16.6,
+      "time": "2026-06-24T09:45",
+      "weather_code": 3,
+      "wind_speed_10m": 8.6
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 14.0,
+    "emoji": "🇮🇪",
+    "generationtime_ms": 0.29468536376953125,
+    "lat": "53.33306",
+    "latitude": 53.25,
+    "lon": "-6.24889",
+    "longitude": -6.25,
+    "name": "Ireland",
+    "primary_language": "Irish",
+    "timezone": "Europe/Dublin",
+    "timezone_abbreviation": "GMT+1",
+    "utc_offset_seconds": 3600
+  },
+  {
+    "capital": "Douglas",
+    "code": "IM",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 21.6,
+      "time": "2026-06-24T04:45",
+      "weather_code": 0,
+      "wind_speed_10m": 7.9
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 80.0,
+    "emoji": "🇮🇲",
+    "generationtime_ms": 1.675248146057129,
+    "lat": "31.50881",
+    "latitude": 31.49716,
+    "lon": "-82.84987",
+    "longitude": -82.837814,
+    "name": "Isle of Man",
+    "primary_language": "English",
+    "timezone": "America/New_York",
+    "timezone_abbreviation": "GMT-4",
+    "utc_offset_seconds": -14400
+  },
+  {
+    "capital": "Reykjavik",
+    "code": "IS",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 10.8,
+      "time": "2026-06-24T08:45",
+      "weather_code": 3,
+      "wind_speed_10m": 2.9
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 37.0,
+    "emoji": "🇮🇸",
+    "generationtime_ms": 0.13637542724609375,
+    "lat": "64.13548",
+    "latitude": 64.12922,
+    "lon": "-21.89541",
+    "longitude": -21.883698,
+    "name": "Iceland",
+    "primary_language": "Icelandic",
+    "timezone": "Atlantic/Reykjavik",
+    "timezone_abbreviation": "GMT",
+    "utc_offset_seconds": 0
+  },
+  {
+    "capital": "Rome",
+    "code": "IT",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 31.0,
+      "time": "2026-06-24T10:45",
+      "weather_code": 1,
+      "wind_speed_10m": 3.7
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 54.0,
+    "emoji": "🇮🇹",
+    "generationtime_ms": 0.06377696990966797,
+    "lat": "41.89193",
+    "latitude": 41.875,
+    "lon": "12.51133",
+    "longitude": 12.5,
+    "name": "Italy",
+    "primary_language": "Italian",
+    "timezone": "Europe/Rome",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Saint Helier",
+    "code": "JE",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 24.0,
+      "time": "2026-06-24T09:45",
+      "weather_code": 0,
+      "wind_speed_10m": 3.9
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 12.0,
+    "emoji": "🇯🇪",
+    "generationtime_ms": 0.2696514129638672,
+    "lat": "49.18804",
+    "latitude": 49.19,
+    "lon": "-2.10491",
+    "longitude": -2.1000004,
+    "name": "Jersey",
+    "primary_language": "English",
+    "timezone": "Europe/Jersey",
+    "timezone_abbreviation": "GMT+1",
+    "utc_offset_seconds": 3600
+  },
+  {
+    "capital": "Vaduz",
+    "code": "LI",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 27.3,
+      "time": "2026-06-24T10:45",
+      "weather_code": 0,
+      "wind_speed_10m": 1.8
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 464.0,
+    "emoji": "🇱🇮",
+    "generationtime_ms": 0.06854534149169922,
+    "lat": "47.14151",
+    "latitude": 47.16,
+    "lon": "9.52154",
+    "longitude": 9.52,
+    "name": "Liechtenstein",
+    "primary_language": "German",
+    "timezone": "Europe/Vaduz",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Vilnius",
+    "code": "LT",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 21.2,
+      "time": "2026-06-24T11:45",
+      "weather_code": 3,
+      "wind_speed_10m": 5.4
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 100.0,
+    "emoji": "🇱🇹",
+    "generationtime_ms": 0.09429454803466795,
+    "lat": "54.68916",
+    "latitude": 54.68259,
+    "lon": "25.2798",
+    "longitude": 25.273773,
+    "name": "Lithuania",
+    "primary_language": "Lithuanian",
+    "timezone": "Europe/Vilnius",
+    "timezone_abbreviation": "GMT+3",
+    "utc_offset_seconds": 10800
+  },
+  {
+    "capital": "Luxembourg",
+    "code": "LU",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 27.2,
+      "time": "2026-06-24T10:45",
+      "weather_code": 0,
+      "wind_speed_10m": 0.7
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 409.0,
+    "emoji": "🇱🇺",
+    "generationtime_ms": 0.07712841033935547,
+    "lat": "49.75",
+    "latitude": 49.756,
+    "lon": "6.16667",
+    "longitude": 6.177,
+    "name": "Luxembourg",
+    "primary_language": "French",
+    "timezone": "Europe/Luxembourg",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Riga",
+    "code": "LV",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 18.9,
+      "time": "2026-06-24T11:45",
+      "weather_code": 3,
+      "wind_speed_10m": 11.9
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 6.0,
+    "emoji": "🇱🇻",
+    "generationtime_ms": 0.09512901306152344,
+    "lat": "56.946",
+    "latitude": 56.944096,
+    "lon": "24.10589",
+    "longitude": 24.109085,
+    "name": "Latvia",
+    "primary_language": "Latvian",
+    "timezone": "Europe/Riga",
+    "timezone_abbreviation": "GMT+3",
+    "utc_offset_seconds": 10800
+  },
+  {
+    "capital": "Monaco",
+    "code": "MC",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 29.7,
+      "time": "2026-06-24T10:45",
+      "weather_code": 2,
+      "wind_speed_10m": 5.4
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 44.0,
+    "emoji": "🇲🇨",
+    "generationtime_ms": 0.08785724639892578,
+    "lat": "43.73718",
+    "latitude": 43.74,
+    "lon": "7.42145",
+    "longitude": 7.4199996,
+    "name": "Monaco",
+    "primary_language": "French",
+    "timezone": "Europe/Monaco",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Chișinău",
+    "code": "MD",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 27.6,
+      "time": "2026-06-24T11:45",
+      "weather_code": 3,
+      "wind_speed_10m": 7.6
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 52.0,
+    "emoji": "🇲🇩",
+    "generationtime_ms": 0.0400543212890625,
+    "lat": "47.00902",
+    "latitude": 47.0,
+    "lon": "28.85938",
+    "longitude": 28.875,
+    "name": "Moldova",
+    "primary_language": "Romanian",
+    "timezone": "Europe/Chisinau",
+    "timezone_abbreviation": "GMT+3",
+    "utc_offset_seconds": 10800
+  },
+  {
+    "capital": "Podgorica",
+    "code": "ME",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 33.3,
+      "time": "2026-06-24T10:45",
+      "weather_code": 2,
+      "wind_speed_10m": 5.1
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 47.0,
+    "emoji": "🇲🇪",
+    "generationtime_ms": 0.0400543212890625,
+    "lat": "42.44124",
+    "latitude": 42.4375,
+    "lon": "19.26309",
+    "longitude": 19.25,
+    "name": "Montenegro",
+    "primary_language": "Serbian",
+    "timezone": "Europe/Podgorica",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Skopje",
+    "code": "MK",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 29.2,
+      "time": "2026-06-24T10:45",
+      "weather_code": 2,
+      "wind_speed_10m": 1.8
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 247.0,
+    "emoji": "🇲🇰",
+    "generationtime_ms": 0.04279613494873047,
+    "lat": "41.99646",
+    "latitude": 42.0,
+    "lon": "21.43141",
+    "longitude": 21.4375,
+    "name": "North Macedonia",
+    "primary_language": "Macedonian",
+    "timezone": "Europe/Skopje",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Valletta",
+    "code": "MT",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 30.8,
+      "time": "2026-06-24T10:45",
+      "weather_code": 0,
+      "wind_speed_10m": 11.1
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 44.0,
+    "emoji": "🇲🇹",
+    "generationtime_ms": 0.04458427429199219,
+    "lat": "35.89968",
+    "latitude": 35.875,
+    "lon": "14.5148",
+    "longitude": 14.5,
+    "name": "Malta",
+    "primary_language": "Maltese",
+    "timezone": "Europe/Malta",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Amsterdam",
+    "code": "NL",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 29.4,
+      "time": "2026-06-24T10:45",
+      "weather_code": 0,
+      "wind_speed_10m": 8.6
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 14.0,
+    "emoji": "🇳🇱",
+    "generationtime_ms": 0.10073184967041016,
+    "lat": "52.37403",
+    "latitude": 52.366,
+    "lon": "4.88969",
+    "longitude": 4.901,
+    "name": "Netherlands",
+    "primary_language": "Dutch",
+    "timezone": "Europe/Amsterdam",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Oslo",
+    "code": "NO",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 20.9,
+      "time": "2026-06-24T10:45",
+      "weather_code": 3,
+      "wind_speed_10m": 6.1
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 27.0,
+    "emoji": "🇳🇴",
+    "generationtime_ms": 0.08440017700195312,
+    "lat": "59.91273",
+    "latitude": 59.915257,
+    "lon": "10.74609",
+    "longitude": 10.74292,
+    "name": "Norway",
+    "primary_language": "Norwegian",
+    "timezone": "Europe/Oslo",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Warsaw",
+    "code": "PL",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 24.1,
+      "time": "2026-06-24T10:45",
+      "weather_code": 3,
+      "wind_speed_10m": 8.3
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 113.0,
+    "emoji": "🇵🇱",
+    "generationtime_ms": 0.11432170867919922,
+    "lat": "52.22977",
+    "latitude": 52.23009,
+    "lon": "21.01178",
+    "longitude": 21.017075,
+    "name": "Poland",
+    "primary_language": "Polish",
+    "timezone": "Europe/Warsaw",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Lisbon",
+    "code": "PT",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 21.7,
+      "time": "2026-06-24T09:45",
+      "weather_code": 2,
+      "wind_speed_10m": 6.6
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 54.0,
+    "emoji": "🇵🇹",
+    "generationtime_ms": 0.04267692565917969,
+    "lat": "38.72509",
+    "latitude": 38.75,
+    "lon": "-9.1498",
+    "longitude": -9.125,
+    "name": "Portugal",
+    "primary_language": "Portuguese",
+    "timezone": "Europe/Lisbon",
+    "timezone_abbreviation": "GMT+1",
+    "utc_offset_seconds": 3600
+  },
+  {
+    "capital": "Bucharest",
+    "code": "RO",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 25.3,
+      "time": "2026-06-24T11:45",
+      "weather_code": 3,
+      "wind_speed_10m": 4.7
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 85.0,
+    "emoji": "🇷🇴",
+    "generationtime_ms": 0.04458427429199219,
+    "lat": "44.43225",
+    "latitude": 44.4375,
+    "lon": "26.10626",
+    "longitude": 26.125,
+    "name": "Romania",
+    "primary_language": "Romanian",
+    "timezone": "Europe/Bucharest",
+    "timezone_abbreviation": "GMT+3",
+    "utc_offset_seconds": 10800
+  },
+  {
+    "capital": "Belgrade",
+    "code": "RS",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 28.6,
+      "time": "2026-06-24T10:45",
+      "weather_code": 0,
+      "wind_speed_10m": 7.2
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 120.0,
+    "emoji": "🇷🇸",
+    "generationtime_ms": 0.09846687316894533,
+    "lat": "44.80401",
+    "latitude": 44.810673,
+    "lon": "20.46513",
+    "longitude": 20.458527,
+    "name": "Serbia",
+    "primary_language": "Serbian",
+    "timezone": "Europe/Belgrade",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Moscow",
+    "code": "RU",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 20.3,
+      "time": "2026-06-24T11:45",
+      "weather_code": 2,
+      "wind_speed_10m": 9.7
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 151.0,
+    "emoji": "🇷🇺",
+    "generationtime_ms": 0.046372413635253906,
+    "lat": "55.75204",
+    "latitude": 55.75,
+    "lon": "37.61781",
+    "longitude": 37.625,
+    "name": "Russia",
+    "primary_language": "Russian",
+    "timezone": "Europe/Moscow",
+    "timezone_abbreviation": "GMT+3",
+    "utc_offset_seconds": 10800
+  },
+  {
+    "capital": "Stockholm",
+    "code": "SE",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 21.3,
+      "time": "2026-06-24T10:45",
+      "weather_code": 2,
+      "wind_speed_10m": 9.4
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 24.0,
+    "emoji": "🇸🇪",
+    "generationtime_ms": 0.0680685043334961,
+    "lat": "59.32938",
+    "latitude": 59.3289,
+    "lon": "18.06871",
+    "longitude": 18.072357,
+    "name": "Sweden",
+    "primary_language": "Swedish",
+    "timezone": "Europe/Stockholm",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Ljubljana",
+    "code": "SI",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 26.4,
+      "time": "2026-06-24T10:45",
+      "weather_code": 2,
+      "wind_speed_10m": 1.5
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 300.0,
+    "emoji": "🇸🇮",
+    "generationtime_ms": 0.04565715789794922,
+    "lat": "46.05108",
+    "latitude": 46.06,
+    "lon": "14.50513",
+    "longitude": 14.5,
+    "name": "Slovenia",
+    "primary_language": "Slovenian",
+    "timezone": "Europe/Ljubljana",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Longyearbyen",
+    "code": "SJ",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 8.2,
+      "time": "2026-06-24T10:45",
+      "weather_code": 3,
+      "wind_speed_10m": 4.2
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 5.0,
+    "emoji": "🇸🇯",
+    "generationtime_ms": 0.14960765838623047,
+    "lat": "78.22334",
+    "latitude": 78.20738,
+    "lon": "15.64689",
+    "longitude": 15.697675,
+    "name": "Svalbard and Jan Mayen",
+    "primary_language": "Norwegian",
+    "timezone": "Arctic/Longyearbyen",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Bratislava",
+    "code": "SK",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 27.1,
+      "time": "2026-06-24T10:45",
+      "weather_code": 0,
+      "wind_speed_10m": 14.0
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 163.0,
+    "emoji": "🇸🇰",
+    "generationtime_ms": 0.12159347534179688,
+    "lat": "48.14816",
+    "latitude": 48.14,
+    "lon": "17.10674",
+    "longitude": 17.099998,
+    "name": "Slovakia",
+    "primary_language": "Slovak",
+    "timezone": "Europe/Bratislava",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Kyiv",
+    "code": "UA",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 26.0,
+      "time": "2026-06-24T11:45",
+      "weather_code": 1,
+      "wind_speed_10m": 7.1
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 188.0,
+    "emoji": "🇺🇦",
+    "generationtime_ms": 0.05412101745605469,
+    "lat": "50.45466",
+    "latitude": 50.4375,
+    "lon": "30.5238",
+    "longitude": 30.5,
+    "name": "Ukraine",
+    "primary_language": "Ukrainian",
+    "timezone": "Europe/Kyiv",
+    "timezone_abbreviation": "GMT+3",
+    "utc_offset_seconds": 10800
+  },
+  {
+    "capital": "Vatican City",
+    "code": "VA",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 31.0,
+      "time": "2026-06-24T10:45",
+      "weather_code": 1,
+      "wind_speed_10m": 2.9
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 50.0,
+    "emoji": "🇻🇦",
+    "generationtime_ms": 0.07593631744384766,
+    "lat": "41.90268",
+    "latitude": 41.875,
+    "lon": "12.45414",
+    "longitude": 12.4375,
+    "name": "Vatican City",
+    "primary_language": "Italian",
+    "timezone": "Europe/Vatican",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  },
+  {
+    "capital": "Pristina",
+    "code": "XK",
+    "current": {
+      "interval": 900,
+      "temperature_2m": 25.9,
+      "time": "2026-06-24T10:45",
+      "weather_code": 1,
+      "wind_speed_10m": 12.3
+    },
+    "current_units": {
+      "interval": "seconds",
+      "temperature_2m": "°C",
+      "time": "iso8601",
+      "weather_code": "wmo code",
+      "wind_speed_10m": "km/h"
+    },
+    "elevation": 600.0,
+    "emoji": "🇽🇰",
+    "generationtime_ms": 0.07009506225585938,
+    "lat": "42.67272",
+    "latitude": 42.6875,
+    "lon": "21.16688",
+    "longitude": 21.1875,
+    "name": "Kosovo",
+    "primary_language": "Albanian",
+    "timezone": "Europe/Belgrade",
+    "timezone_abbreviation": "GMT+2",
+    "utc_offset_seconds": 7200
+  }
+]

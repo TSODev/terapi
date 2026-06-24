@@ -31,6 +31,7 @@ pub struct App {
     pub stored_collections: Vec<StoredCollection>,
     pub expanded_nodes: HashSet<String>,
     pub collection_cursor: usize,
+    pub collection_search: Option<String>,
     // Environments
     pub environments: Vec<StoredEnv>,
     pub active_env_idx: Option<usize>,
@@ -149,6 +150,7 @@ impl App {
             stored_collections,
             expanded_nodes,
             collection_cursor: 0,
+            collection_search: None,
             environments,
             active_env_idx,
             env_cursor: 0,
@@ -261,6 +263,58 @@ impl App {
             return self.handle_modal_key(key);
         }
 
+        // Collections search bar intercepts all keys when open
+        if self.active_tab == Tab::Collections && self.collection_search.is_some() {
+            let query = self.collection_search.clone().unwrap_or_default();
+            match key.code {
+                KeyCode::Esc => {
+                    self.collection_search = None;
+                    self.collection_cursor = 0;
+                    self.status_message = "Tab: switch panel  ↑/↓: navigate  Enter: expand/load  n: new  f: folder  a: add  e: edit  E: open in editor  d: delete  /: search  q: quit".into();
+                }
+                KeyCode::Backspace => {
+                    if let Some(ref mut q) = self.collection_search {
+                        q.pop();
+                    }
+                    self.collection_cursor = 0;
+                }
+                KeyCode::Char(c) => {
+                    if let Some(ref mut q) = self.collection_search {
+                        q.push(c);
+                    }
+                    self.collection_cursor = 0;
+                }
+                KeyCode::Up => {
+                    if self.collection_cursor > 0 {
+                        self.collection_cursor -= 1;
+                    }
+                }
+                KeyCode::Down => {
+                    let flat = flatten_stored(&self.stored_collections, &self.expanded_nodes);
+                    let visible = crate::ui::filter_collection_nodes(&flat, &query);
+                    if self.collection_cursor + 1 < visible.len() {
+                        self.collection_cursor += 1;
+                    }
+                }
+                KeyCode::Enter => {
+                    let flat = flatten_stored(&self.stored_collections, &self.expanded_nodes);
+                    let visible = crate::ui::filter_collection_nodes(&flat, &query);
+                    if let Some(&(orig_idx, _)) = visible.get(self.collection_cursor) {
+                        self.collection_cursor = orig_idx;
+                        self.toggle_collection_cursor();
+                        if self.active_tab == Tab::Request {
+                            self.collection_search = None;
+                            self.collection_cursor = 0;
+                        } else {
+                            self.collection_cursor = 0;
+                        }
+                    }
+                }
+                _ => {}
+            }
+            return Ok(());
+        }
+
         // JSON search bar intercepts all keys when open
         if self.json_search.is_some()
             && self.active_tab == Tab::Request
@@ -324,7 +378,7 @@ impl App {
                 };
                 match self.active_tab {
                     Tab::Request     => self.update_request_status_hint(),
-                    Tab::Collections => self.status_message = "Tab: switch panel  ↑/↓: navigate  Enter: expand/load  n: new  f: folder  a: add  e: edit  E: open in editor  d: delete  q: quit".into(),
+                    Tab::Collections => self.status_message = "Tab: switch panel  ↑/↓: navigate  Enter: expand/load  n: new  f: folder  a: add  e: edit  E: open in editor  d: delete  /: search  q: quit".into(),
                     Tab::Env         => self.status_message = "Tab: switch panel  ←/→: switch focus  ↑/↓: navigate  Enter: activate  n: new env  a: add var  d: delete  q: quit".into(),
                     Tab::History     => self.status_message = "Tab: switch panel  ↑/↓: navigate  Enter: load  d: delete  q: quit".into(),
                     Tab::Campaigns   => self.status_message = "Tab: switch panel  ↑/↓: navigate  r: run  E: open in editor  Esc: clear  q: quit".into(),
@@ -883,6 +937,10 @@ impl App {
             }
 
             // ── Collections panel ──────────────────────────────────────────
+            KeyCode::Char('/') if self.active_tab == Tab::Collections => {
+                self.collection_search = Some(String::new());
+                self.status_message = "Search: type to filter  ↑/↓: navigate  Enter: load  Esc: cancel".into();
+            }
             KeyCode::Up if self.active_tab == Tab::Collections => {
                 if self.collection_cursor > 0 {
                     self.collection_cursor -= 1;

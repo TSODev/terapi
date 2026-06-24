@@ -1597,34 +1597,73 @@ fn http_reason(status: u16) -> &'static str {
 
 fn render_collections_panel(frame: &mut Frame, app: &App, area: Rect) {
     let flat = flatten_stored(&app.stored_collections, &app.expanded_nodes);
+    let query = app.collection_search.as_deref().unwrap_or("");
+    let searching = app.collection_search.is_some();
+
+    // Reserve 1 line at the bottom for the search bar when active.
+    let (list_area, search_area) = if searching {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(3), Constraint::Length(1)])
+            .split(area);
+        (chunks[0], Some(chunks[1]))
+    } else {
+        (area, None)
+    };
+
+    // Compute the visible node list.
+    let visible: Vec<(usize, bool)> = if !query.is_empty() {
+        filter_collection_nodes(&flat, query)
+    } else {
+        flat.iter().enumerate().map(|(i, _)| (i, true)).collect()
+    };
 
     let items: Vec<ListItem> = if flat.is_empty() {
         vec![ListItem::new(Line::from(Span::styled(
             "  No collections — press n to create one",
             Style::default().fg(Color::Gray),
         )))]
+    } else if visible.is_empty() {
+        vec![ListItem::new(Line::from(Span::styled(
+            "  No results",
+            Style::default().fg(Color::Gray),
+        )))]
     } else {
-        flat.iter().enumerate().map(|(i, node)| {
+        visible.iter().enumerate().map(|(vi, &(fi, is_match))| {
+            let node = &flat[fi];
+            let selected = vi == app.collection_cursor;
             let indent = "  ".repeat(node.depth);
             let icon = if node.is_folder {
                 if node.expanded { "▼ " } else { "▶ " }
             } else {
                 "  "
             };
+            let dim = Color::Indexed(244);
             let line = if node.is_folder {
-                Line::from(vec![
-                    Span::raw(format!("{indent}{icon}")),
-                    Span::styled(node.name.clone(), Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-                ])
+                let base = if is_match { Color::Cyan } else { dim };
+                let mut spans = vec![Span::raw(format!("{indent}{icon}"))];
+                if !query.is_empty() && is_match {
+                    spans.extend(highlight_match_spans(&node.name, query, Color::Cyan));
+                } else {
+                    spans.push(Span::styled(node.name.clone(), Style::default().fg(base).add_modifier(Modifier::BOLD)));
+                }
+                Line::from(spans)
             } else {
                 let method = node.method.as_deref().unwrap_or("GET");
-                Line::from(vec![
+                let mc = if is_match { method_color(method) } else { dim };
+                let nc = if is_match { Color::White } else { dim };
+                let mut spans = vec![
                     Span::raw(format!("{indent}{icon}")),
-                    Span::styled(format!("{method:<7}"), Style::default().fg(method_color(method))),
-                    Span::styled(node.name.clone(), Style::default().fg(Color::White)),
-                ])
+                    Span::styled(format!("{method:<7}"), Style::default().fg(mc)),
+                ];
+                if !query.is_empty() && is_match {
+                    spans.extend(highlight_match_spans(&node.name, query, Color::White));
+                } else {
+                    spans.push(Span::styled(node.name.clone(), Style::default().fg(nc)));
+                }
+                Line::from(spans)
             };
-            let style = if i == app.collection_cursor {
+            let style = if selected {
                 Style::default().bg(Color::Indexed(237)).add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
@@ -1633,13 +1672,79 @@ fn render_collections_panel(frame: &mut Frame, app: &App, area: Rect) {
         }).collect()
     };
 
+    let title = if !query.is_empty() {
+        let n = visible.len();
+        format!(" Collections · {} result{} ", n, if n == 1 { "" } else { "s" })
+    } else {
+        " Collections ".to_string()
+    };
+
     let list = List::new(items).block(
         Block::default()
             .borders(Borders::ALL)
-            .title(" Collections ")
+            .title(title)
             .border_style(Style::default().fg(Color::Cyan)),
     );
-    frame.render_widget(list, area);
+    frame.render_widget(list, list_area);
+
+    // Search bar
+    if let Some(sa) = search_area {
+        let search_line = if query.is_empty() {
+            Line::from(vec![
+                Span::styled(" / ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled("type to search…", Style::default().fg(Color::Indexed(245))),
+                Span::styled("   Esc: cancel", Style::default().fg(Color::Indexed(240))),
+            ])
+        } else {
+            Line::from(vec![
+                Span::styled(" / ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled(query.to_string(), Style::default().fg(Color::White)),
+                Span::styled("█", Style::default().fg(Color::Yellow)),
+                Span::styled("   Esc: clear", Style::default().fg(Color::Indexed(245))),
+            ])
+        };
+        frame.render_widget(Paragraph::new(search_line), sa);
+    }
+}
+
+pub fn filter_collection_nodes(flat: &[crate::app::FlatNode], query: &str) -> Vec<(usize, bool)> {
+    use std::collections::HashSet;
+    let q = query.to_lowercase();
+    let direct: HashSet<usize> = flat.iter().enumerate()
+        .filter(|(_, n)| n.name.to_lowercase().contains(&q))
+        .map(|(i, _)| i)
+        .collect();
+    let mut include: HashSet<usize> = direct.clone();
+    for &mi in &direct {
+        let depth = flat[mi].depth;
+        for j in (0..mi).rev() {
+            if flat[j].depth < depth {
+                include.insert(j);
+                if flat[j].depth == 0 { break; }
+            }
+        }
+    }
+    flat.iter().enumerate()
+        .filter(|(i, _)| include.contains(i))
+        .map(|(i, _)| (i, direct.contains(&i)))
+        .collect()
+}
+
+fn highlight_match_spans(name: &str, query: &str, base: Color) -> Vec<Span<'static>> {
+    let name_lower = name.to_lowercase();
+    let q_lower = query.to_lowercase();
+    if let Some(start) = name_lower.find(&q_lower) {
+        let end = start + q_lower.len();
+        if name.is_char_boundary(start) && name.is_char_boundary(end) {
+            return vec![
+                Span::styled(name[..start].to_string(), Style::default().fg(base)),
+                Span::styled(name[start..end].to_string(),
+                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                Span::styled(name[end..].to_string(), Style::default().fg(base)),
+            ];
+        }
+    }
+    vec![Span::styled(name.to_string(), Style::default().fg(base))]
 }
 
 // ── Env panel ────────────────────────────────────────────────────────────────

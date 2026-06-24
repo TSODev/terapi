@@ -303,6 +303,7 @@ impl App {
                 self.environments.remove(ei);
                 if self.active_env_idx == Some(ei) {
                     self.active_env_idx = None;
+                    let _ = crate::storage::save_active_env(None);
                 } else if let Some(active) = self.active_env_idx {
                     if active > ei {
                         self.active_env_idx = Some(active - 1);

@@ -125,6 +125,8 @@ impl App {
             expanded_nodes.insert("c0".to_string());
         }
         let environments = crate::storage::load_envs().unwrap_or_default();
+        let active_env_idx = crate::storage::load_active_env()
+            .and_then(|name| environments.iter().position(|e| e.env.name == name));
         let history = crate::storage::load_history().unwrap_or_default();
         let campaigns = crate::storage::load_campaigns()
             .into_iter()
@@ -143,7 +145,7 @@ impl App {
             expanded_nodes,
             collection_cursor: 0,
             environments,
-            active_env_idx: None,
+            active_env_idx,
             env_cursor: 0,
             env_var_cursor: 0,
             env_focus: EnvFocus::Envs,
@@ -989,10 +991,9 @@ impl App {
             KeyCode::Enter if self.active_tab == Tab::Env && self.env_focus == EnvFocus::Envs => {
                 if self.env_cursor < self.environments.len() {
                     self.active_env_idx = Some(self.env_cursor);
-                    self.status_message = format!(
-                        "Active env: {}",
-                        self.environments[self.env_cursor].env.name
-                    );
+                    let name = self.environments[self.env_cursor].env.name.clone();
+                    self.status_message = format!("Active env: {}", name);
+                    let _ = crate::storage::save_active_env(Some(&name));
                 }
             }
             KeyCode::Char('n') if self.active_tab == Tab::Env => {

@@ -256,6 +256,30 @@ pub fn resolve_vars(text: &str, vars: &std::collections::HashMap<String, String>
     out
 }
 
+// ── Session state ────────────────────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Default)]
+struct AppStateFile {
+    #[serde(default)]
+    active_env: Option<String>,
+}
+
+pub fn load_active_env() -> Option<String> {
+    let path = resolve_terapi_dir().join("state.toml");
+    let content = std::fs::read_to_string(path).ok()?;
+    let state: AppStateFile = toml::from_str(&content).ok()?;
+    state.active_env
+}
+
+pub fn save_active_env(name: Option<&str>) -> Result<()> {
+    let dir = resolve_terapi_dir();
+    std::fs::create_dir_all(&dir)?;
+    let state = AppStateFile { active_env: name.map(|s| s.to_string()) };
+    let content = toml::to_string_pretty(&state)?;
+    std::fs::write(dir.join("state.toml"), content)?;
+    Ok(())
+}
+
 // ── History ──────────────────────────────────────────────────────────────────
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

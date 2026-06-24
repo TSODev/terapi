@@ -103,8 +103,10 @@ terapi --help
 | `Esc` | Finish URL edit / exit body editor |
 | `{{` | Open variable picker (any editable field) — insert `{{VAR}}` from active env |
 | `↑` / `↓` | Auth sub-tab — navigate fields |
-| `Space` / `Enter` | Auth sub-tab (Type row) — cycle auth type (No Auth → Bearer → Basic → API Key) |
-| `Enter` | Auth sub-tab (field row) — open edit modal for token / username / password / key |
+| `Space` / `Enter` | Auth sub-tab (Type row) — cycle auth type (No Auth → Bearer → Basic → API Key → OAuth2 CC → OAuth2 AC) |
+| `Enter` | Auth sub-tab (field row) — open edit modal for token / username / password / key / OAuth2 fields |
+| `f` | Auth sub-tab — fetch OAuth2 token manually (without sending the request) |
+| `Esc` | Auth sub-tab — cancel OAuth2 browser wait or clear OAuth2 error |
 | `↑` / `↓` | Options sub-tab — navigate between options |
 | `Space` / `Enter` | Options sub-tab — toggle (Skip TLS / Follow redirects / Cookie jar) or cycle timeout |
 | `r` | Cycle response view: JSON → Raw → HTTP exchange |
@@ -505,6 +507,38 @@ Press `g` again to return to REST mode (URL and headers are preserved).
 **Example GraphQL collections** in `examples/collections/`:
 - `rick-morty-graphql.toml` — Rick & Morty API — 6 folders, 17 requests: variables, pagination, multi-ID, aliases, filters, introspection
 - `countries-graphql.toml` — Countries API — 5 folders, 19 requests: filters, glob, inline fragments, introspection
+
+---
+
+## OAuth2
+
+Terapi supports two OAuth2 flows in the **Auth** sub-tab. Press `Space`/`Enter` on the Type row to cycle to **OAuth2 CC** (Client Credentials) or **OAuth2 AC** (Authorization Code).
+
+**OAuth2 Client Credentials** — machine-to-machine, no browser:
+
+| Field | Example |
+|-------|---------|
+| Token URL | `https://auth.example.com/oauth/token` |
+| Client ID | `my-client` |
+| Client Secret | `secret` |
+| Scope | `api:read` (optional) |
+
+Press `s` to send — terapi fetches the token automatically first, then fires the request. The token is cached for its `expires_in` lifetime. Press `f` to refresh the cache without sending.
+
+**OAuth2 Authorization Code** — browser-based login:
+
+| Field | Example |
+|-------|---------|
+| Token URL | `https://auth.example.com/oauth/token` |
+| Client ID | `my-client` |
+| Client Secret | `secret` |
+| Scope | `openid profile` |
+| Auth URL | `https://auth.example.com/oauth/authorize` |
+| Redirect Port | `9876` (local TCP port for the callback) |
+
+Press `f` — terapi opens your browser on the authorization URL, starts a local TCP listener on the redirect port, captures the authorization code when the browser redirects back, exchanges it for a token, and caches it. Then press `s` to send.
+
+Auth config (all fields except the token itself) is saved in the collection TOML under `[auth]` with backward-compatible `#[serde(default)]`. The token is never written to disk — session only.
 
 ---
 

@@ -16,6 +16,7 @@
   - [Collection TOML format](#collection-toml-format)
 - [Demo mode](#demo-mode)
 - [Import](#import)
+- [OAuth2 authentication](#oauth2-authentication)
 - [Campaign runner](#campaign-runner)
   - [Campaign TOML format](#campaign-toml-format)
   - [Campaign pipeline overview](#campaign-pipeline-overview)
@@ -158,7 +159,7 @@ The response block title shows the **status code** (color-coded green/yellow/red
 | Headers | Request headers — common header picker + custom entry |
 | URL Params | Query string parameters |
 | Body | Raw JSON body editor |
-| Auth | Authentication — No Auth / Bearer / Basic / API Key |
+| Auth | Authentication — No Auth / Bearer / Basic / API Key / OAuth2 CC / OAuth2 AC |
 | Options | TLS verification, timeout, redirects, cookie jar |
 
 #### Auth sub-tab
@@ -168,7 +169,7 @@ Navigate to the Auth sub-tab with `←` / `→`. The sub-tab shows an interactiv
 **Type selector** (always row 0):
 
 ```
- Type    No Auth    Bearer    Basic    API Key
+ Type    No Auth    Bearer    Basic    API Key    OAuth2 CC    OAuth2 AC
 ```
 
 The active type is highlighted in yellow. Press `Space` or `Enter` on this row to cycle through types.
@@ -206,7 +207,53 @@ Username and password are each editable in a modal. Password is always masked. A
 
 `Enter` on Key Name / Key Value to edit. `Space` or `Enter` on the Location row toggles between **Header** (added as a request header) and **Query Param** (appended to the URL as `?<name>=<value>`).
 
-In all modes, `{{VAR}}` placeholders in auth field values are resolved from the active environment at send time. Auth config is saved with the request when using `S` (Save to collection).
+**OAuth2 Client Credentials**
+
+```
+ Type    No Auth    Bearer    Basic    API Key   ●OAuth2 CC●   OAuth2 AC
+
+ Token URL     http://auth.example.com/token
+ Client ID     my-client
+ Client Secret ••••••••
+ Scope         api:read
+```
+
+Machine-to-machine flow — no browser needed. When `s` is pressed:
+1. Terapi checks whether a valid token is in the session cache for this `(type, token_url, client_id)` triple.
+2. If no valid token exists, a `POST application/x-www-form-urlencoded` is sent with `grant_type=client_credentials`. A banner `⟳ fetching token…` appears in the Auth panel.
+3. Once the token is returned, it is cached (respecting `expires_in`) and the original request is sent automatically.
+
+Press `f` from the Auth tab to fetch the token without sending the request.
+
+**OAuth2 Authorization Code**
+
+```
+ Type    No Auth    Bearer    Basic    API Key    OAuth2 CC   ●OAuth2 AC●
+
+ Token URL     http://auth.example.com/token
+ Client ID     my-client
+ Client Secret ••••••••
+ Scope         openid profile
+ Auth URL      http://auth.example.com/authorize
+ Redirect Port 9876
+```
+
+Browser-based flow. Pressing `f` (or `s` when no cached token exists):
+1. Terapi builds the authorization URL and opens it in the system browser (`open` on macOS, `xdg-open` on Linux).
+2. A local TCP listener is started on the **Redirect Port** (default 9876). The banner changes to `⟳ waiting for browser callback on port 9876…`.
+3. The user completes login in the browser; the server redirects to `http://127.0.0.1:9876/?code=…`. Terapi captures the code (5-minute timeout).
+4. The code is exchanged for a token via `POST` to **Token URL**. The token is cached and the request fires.
+
+Press `Esc` at any point to cancel the browser wait.
+
+**Token caching**
+
+- Cache key: `auth_type:token_url:client_id` — editing any of these fields invalidates the cache.
+- Tokens are kept in memory for the duration of the session. They are never written to disk.
+- The Auth panel shows `● token cached` (green) or `○ no token  (f to fetch)` (grey).
+- The **Token Secret** field value is always masked with `••••••••` in the UI.
+
+In all modes, `{{VAR}}` placeholders in auth field values are resolved from the active environment at send time. Auth config (all fields except the token) is saved with the request when using `S` (Save to collection).
 
 #### Saving a request (`S`)
 
@@ -768,6 +815,8 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `Space` / `Enter` | Request panel (Auth sub-tab, Type row) | Cycle auth type |
 | `Enter` | Request panel (Auth sub-tab, field row) | Open edit modal for field value |
 | `Space` | Request panel (Auth sub-tab, Location row) | Toggle API Key location: Header ↔ Query Param |
+| `f` | Request panel (Auth sub-tab, OAuth2 types) | Fetch OAuth2 token without sending the request |
+| `Esc` | Request panel (Auth sub-tab, OAuth2 waiting) | Cancel browser wait or clear OAuth2 error |
 | `i` | Request panel (Body sub-tab) | Enter body editor mode |
 | `t` | Request panel (Body sub-tab, outside editor) | Toggle body mode: Text ↔ JSON |
 | `a` | Body editor (JSON mode) | Add field |
@@ -1039,6 +1088,76 @@ Imported campaign  "JSONPlaceholder — CRUD Demo" → /Users/you/.config/terapi
 Files with neither `[collection]` nor `[campaign]` produce a clear error. The directory resolution follows the same priority as the TUI: `$TERAPI_DIR` → `./.terapi/` → `~/.config/terapi/`.
 
 For collections that require authentication (`sncf.toml`, `france-meteo.toml`), open the **Env** tab, create an environment, add the required variable (`SNCF_TOKEN` or `METEO_TOKEN`), and activate it with `Enter`.
+
+---
+
+## OAuth2 authentication
+
+Terapi supports OAuth2 directly in the **Auth** sub-tab of the Request panel. Two flows are available: **Client Credentials** (machine-to-machine) and **Authorization Code** (browser login).
+
+### Setup
+
+Navigate to the **Auth** sub-tab (`←`/`→`), select the **Type** row, and press `Space`/`Enter` to cycle to **OAuth2 CC** or **OAuth2 AC**. Then fill in the required fields with `Enter` on each row.
+
+### Client Credentials
+
+Ideal for API-to-API authentication — no user interaction needed.
+
+```toml
+# Equivalent TOML saved in the collection:
+[auth]
+auth_type         = "oauth2_client_credentials"
+oauth2_token_url  = "https://auth.example.com/oauth/token"
+oauth2_client_id  = "my-client"
+oauth2_client_secret = "my-secret"
+oauth2_scope      = "api:read"    # optional
+```
+
+Press `s` to send a request — terapi fetches the token automatically first. Press `f` to fetch without sending.
+
+### Authorization Code
+
+For APIs that require user login in a browser. Requires an `Auth URL` and a local redirect port.
+
+```toml
+[auth]
+auth_type              = "oauth2_authorization_code"
+oauth2_token_url       = "https://auth.example.com/oauth/token"
+oauth2_client_id       = "my-client"
+oauth2_client_secret   = "my-secret"
+oauth2_scope           = "openid profile"
+oauth2_auth_url        = "https://auth.example.com/oauth/authorize"
+oauth2_redirect_port   = 9876
+```
+
+Press `f`:
+1. The system browser opens the authorization URL
+2. The TUI shows `⟳ waiting for browser callback on port 9876…`
+3. After login, the browser is redirected to `http://127.0.0.1:9876/?code=…`
+4. Terapi captures the code and exchanges it for a token (5-minute timeout)
+5. The token is cached; press `s` to send
+
+Press `Esc` to cancel the wait at any time.
+
+### Token caching
+
+Tokens are stored in memory during the session only — never on disk. The cache key is `auth_type:token_url:client_id`, so changing any of these three fields starts a fresh token fetch. The Auth panel shows `● token cached` (green) or `○ no token  (f to fetch)` (grey).
+
+### Testing with a local mock
+
+```bash
+docker run -d --name mock-oauth2 -p 8080:8080 ghcr.io/navikt/mock-oauth2-server:latest
+```
+
+| Field | Value |
+|-------|-------|
+| Token URL | `http://localhost:8080/default/token` |
+| Client ID | `terapi-test` |
+| Client Secret | `secret123` |
+| Auth URL | `http://localhost:8080/default/authorize` |
+| Redirect Port | `9876` |
+
+See `examples/oauth2_test_procedure.md` for the full 9-test validation procedure.
 
 ---
 

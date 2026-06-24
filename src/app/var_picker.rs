@@ -82,9 +82,10 @@ impl App {
         let insert = format!("{{{{{}}}}}", var_name);
         match target {
             VarPickerTarget::Url => {
-                let new_len = self.request_url.len().saturating_sub(remove_count);
-                self.request_url.truncate(new_len);
-                self.request_url.push_str(&insert);
+                for _ in 0..remove_count {
+                    self.url_textarea.delete_char();
+                }
+                self.url_textarea.insert_str(&insert);
             }
             VarPickerTarget::ModalValue => {
                 if let Some(modal) = &mut self.modal {
@@ -119,7 +120,7 @@ impl App {
 
     fn push_char_to_target(&mut self, target: &VarPickerTarget, c: char) {
         match target {
-            VarPickerTarget::Url => { self.request_url.push(c); }
+            VarPickerTarget::Url => { self.url_textarea.insert_str(&c.to_string()); }
             VarPickerTarget::ModalValue => {
                 if let Some(modal) = &mut self.modal {
                     match modal {
@@ -142,7 +143,7 @@ impl App {
 
     fn backspace_in_target(&mut self, target: &VarPickerTarget) {
         match target {
-            VarPickerTarget::Url => { self.request_url.pop(); }
+            VarPickerTarget::Url => { self.url_textarea.delete_char(); }
             VarPickerTarget::ModalValue => {
                 if let Some(modal) = &mut self.modal {
                     match modal {

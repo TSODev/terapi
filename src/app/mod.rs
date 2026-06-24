@@ -43,7 +43,7 @@ pub struct App {
     pub var_picker: Option<VarPickerState>,
     pub gql_completion: Option<GqlCompletionState>,
     // Request builder
-    pub request_url: String,
+    pub url_textarea: TextArea<'static>,
     pub request_method_idx: usize,
     pub request_url_params: Vec<(String, String)>,
     pub url_params_cursor: usize,
@@ -159,7 +159,7 @@ impl App {
             modal: None,
             var_picker: None,
             gql_completion: None,
-            request_url: String::new(),
+            url_textarea: TextArea::default(),
             request_method_idx: 0,
             request_url_params: Vec::new(),
             url_params_cursor: 0,
@@ -352,17 +352,39 @@ impl App {
             return Ok(());
         }
 
-        match key.code {
-            // URL edit mode Esc must come before the global quit handler
-            KeyCode::Esc
-                if self.active_tab == Tab::Request
-                    && self.request_focus == RequestFocus::Url =>
-            {
-                self.parse_url_into_params();
-                self.request_focus = RequestFocus::Response;
-                self.status_message = "Tab: panels  e: edit URL  s: send  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into();
+        // ── URL edit mode intercepts all keys ─────────────────────────────
+        if self.active_tab == Tab::Request && self.request_focus == RequestFocus::Url {
+            match key.code {
+                KeyCode::Esc => {
+                    self.parse_url_into_params();
+                    self.request_focus = RequestFocus::Response;
+                    self.status_message = "Tab: panels  e: edit URL  s: send  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into();
+                }
+                KeyCode::Enter => {
+                    self.parse_url_into_params();
+                    self.send_request();
+                }
+                KeyCode::Up if !self.graphql_mode => {
+                    self.request_method_idx = if self.request_method_idx == 0 {
+                        METHODS.len() - 1
+                    } else {
+                        self.request_method_idx - 1
+                    };
+                }
+                KeyCode::Down if !self.graphql_mode => {
+                    self.request_method_idx = (self.request_method_idx + 1) % METHODS.len();
+                }
+                _ => {
+                    self.url_textarea.input(tui_textarea::Input::from(key));
+                    if self.url_text().ends_with("{{") {
+                        self.open_var_picker(VarPickerTarget::Url);
+                    }
+                }
             }
+            return Ok(());
+        }
 
+        match key.code {
             KeyCode::Char('q') => {
                 if was_confirming_quit {
                     self.running = false;
@@ -396,64 +418,6 @@ impl App {
                     Tab::History     => self.status_message = "Tab: switch panel  ↑/↓: navigate  Enter: load  d: delete  q: quit".into(),
                     Tab::Campaigns   => self.status_message = "Tab: switch panel  ↑/↓: navigate  r: run  E: open in editor  Esc: clear  q: quit".into(),
                 };
-            }
-
-            // ── Request panel — URL edit mode ──────────────────────────────
-            KeyCode::Enter
-                if self.active_tab == Tab::Request
-                    && self.request_focus == RequestFocus::Url =>
-            {
-                self.parse_url_into_params();
-                self.send_request();
-            }
-            KeyCode::Up
-                if self.active_tab == Tab::Request
-                    && self.request_focus == RequestFocus::Url
-                    && !self.graphql_mode =>
-            {
-                self.request_method_idx = if self.request_method_idx == 0 {
-                    METHODS.len() - 1
-                } else {
-                    self.request_method_idx - 1
-                };
-            }
-            KeyCode::Down
-                if self.active_tab == Tab::Request
-                    && self.request_focus == RequestFocus::Url
-                    && !self.graphql_mode =>
-            {
-                self.request_method_idx = (self.request_method_idx + 1) % METHODS.len();
-            }
-            KeyCode::Left
-                if self.active_tab == Tab::Request
-                    && self.request_focus == RequestFocus::Url =>
-            {
-                self.request_focus = RequestFocus::Response;
-                self.active_request_tab = self.active_request_tab.prev();
-                self.update_request_status_hint();
-            }
-            KeyCode::Right
-                if self.active_tab == Tab::Request
-                    && self.request_focus == RequestFocus::Url =>
-            {
-                self.request_focus = RequestFocus::Response;
-                self.active_request_tab = self.active_request_tab.next();
-                self.update_request_status_hint();
-            }
-            KeyCode::Backspace
-                if self.active_tab == Tab::Request
-                    && self.request_focus == RequestFocus::Url =>
-            {
-                self.request_url.pop();
-            }
-            KeyCode::Char(c)
-                if self.active_tab == Tab::Request
-                    && self.request_focus == RequestFocus::Url =>
-            {
-                self.request_url.push(c);
-                if self.request_url.ends_with("{{") {
-                    self.open_var_picker(VarPickerTarget::Url);
-                }
             }
 
             // ── Request panel — GraphQL mode toggle ────────────────────────

@@ -37,9 +37,10 @@ description = "fastest | shortest"
 default     = "fastest"
 
 [env]
-RESOURCE    = "bdtopo-valhalla"
-GEOCODE_URL = "https://data.geopf.fr/geocodage/search"
-NAV_URL     = "https://data.geopf.fr/navigation/itineraire"
+RESOURCE     = "bdtopo-valhalla"
+GEOCODE_URL  = "https://data.geopf.fr/geocodage/search"
+NAV_URL      = "https://data.geopf.fr/navigation/itineraire"
+REVERSE_URL  = "https://data.geopf.fr/geocodage/reverse"
 
 # ── Étape 1 : géocodage de la ville de départ ─────────────────────────────
 
@@ -99,5 +100,33 @@ assert = [
 ]
 
 [steps.extract]
-distance_m = "distance"
-duration_s = "duration"
+distance_m  = "distance"
+duration_s  = "duration"
+# Premier point [lon,lat] de chaque step de la route (34 étapes environ)
+STEP_COORDS = "portions.0.steps.*.geometry.coordinates.0"
+
+# ── Étape 5 : géocodage inverse de chaque point de passage ────────────────
+# Nécessite le feature {{item_0}}/{{item_1}} (terapi ≥ 0.7.7) :
+# chaque élément de STEP_COORDS est un tableau [lon, lat] ; item_0 = lon, item_1 = lat.
+
+[[steps]]
+name               = "Géocodage inverse"
+foreach            = "{{STEP_COORDS}}"
+continue_on_error  = true
+method             = "GET"
+url                = "{{REVERSE_URL}}?lon={{item_0}}&lat={{item_1}}"
+
+assert = [
+  { on = "status", eq = 200 },
+  { on = "body.features.0.properties.label", exists = true },
+]
+
+# ── Sortie ────────────────────────────────────────────────────────────────
+# Chaque enregistrement = propriétés de géocodage (label, city…)
+#                         + métadonnées de route (nom_depart, nom_arrivee, distance_m, duration_s)
+
+[[outputs]]
+from_step    = "Géocodage inverse"
+path         = "itineraire_etapes.json"
+select       = "features.0.properties"
+include_vars = ["nom_depart", "nom_arrivee", "distance_m", "duration_s"]

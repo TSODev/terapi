@@ -26,7 +26,7 @@ fn base64_encode(input: &str) -> String {
 }
 
 impl App {
-    /// If `request_url` contains a `?`, split it into base URL + URL Params list.
+    /// If the URL textarea contains a `?`, split it into base URL + URL Params list.
     pub(super) fn auth_config_to_stored(&self) -> StoredAuth {
         StoredAuth {
             auth_type: self.auth_config.auth_type.as_str().to_string(),
@@ -45,10 +45,22 @@ impl App {
         }
     }
 
+    /// Returns the current URL text from the textarea (single line).
+    pub fn url_text(&self) -> String {
+        self.url_textarea.lines().first().cloned().unwrap_or_default()
+    }
+
+    /// Replace textarea content with the given URL and move cursor to end of line.
+    pub fn set_url(&mut self, url: &str) {
+        self.url_textarea = TextArea::from(vec![url.to_string()]);
+        self.url_textarea.move_cursor(tui_textarea::CursorMove::End);
+    }
+
     pub(super) fn parse_url_into_params(&mut self) {
-        if self.request_url.contains('?') {
-            let (base, params) = split_url_params(&self.request_url);
-            self.request_url = base;
+        let url = self.url_text();
+        if url.contains('?') {
+            let (base, params) = split_url_params(&url);
+            self.set_url(&base);
             self.request_url_params = params;
             self.url_params_cursor = 0;
         }
@@ -56,7 +68,7 @@ impl App {
 
     pub fn has_unresolved_vars(&self) -> bool {
         let has = |s: &str| s.contains("{{");
-        has(&self.request_url)
+        has(&self.url_text())
             || self.request_headers.iter().any(|(_, v)| has(v))
             || self.request_url_params.iter().any(|(_, v)| has(v))
             || if self.graphql_mode {
@@ -154,7 +166,7 @@ impl App {
         if self.request_loading {
             return;
         }
-        let url = self.request_url.trim().to_string();
+        let url = self.url_text().trim().to_string();
         if url.is_empty() {
             self.status_message = "No URL — press e to enter one".into();
             return;
@@ -308,7 +320,7 @@ impl App {
     }
 
     pub fn new_request(&mut self) {
-        self.request_url = String::new();
+        self.set_url("");
         self.request_method_idx = 0;
         self.request_url_params = Vec::new();
         self.url_params_cursor = 0;
@@ -368,16 +380,17 @@ impl App {
         folder_idx: Option<usize>,
     ) -> Result<()> {
         use std::collections::HashMap as HMap;
+        let base_url = self.url_text();
         let url = if self.request_url_params.is_empty() {
-            self.request_url.clone()
+            base_url.clone()
         } else {
-            let sep = if self.request_url.contains('?') { '&' } else { '?' };
+            let sep = if base_url.contains('?') { '&' } else { '?' };
             let query = self.request_url_params.iter()
                 .filter(|(k, _)| !k.is_empty())
                 .map(|(k, v)| format!("{}={}", k, v))
                 .collect::<Vec<_>>()
                 .join("&");
-            format!("{}{}{}", self.request_url, sep, query)
+            format!("{}{}{}", base_url, sep, query)
         };
         let desc_text = self.description_textarea.lines().join("\n");
         let gql_query_text = self.graphql_query_textarea.lines().join("\n");
@@ -552,7 +565,7 @@ impl App {
 
     pub(super) fn load_from_history(&mut self, idx: usize) {
         if let Some(entry) = self.history.get(idx).cloned() {
-            self.request_url = entry.url.clone();
+            self.set_url(&entry.url.clone());
             self.request_url_params = Vec::new();
             self.url_params_cursor = 0;
             self.parse_url_into_params();

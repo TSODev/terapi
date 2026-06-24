@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.7.7] — 2026-06-24
+
+### Added
+- **`{{item_0}}`, `{{item_1}}`, … dans les steps `foreach`** — quand un élément d'un tableau `foreach` est lui-même un tableau JSON (ex. `[lon, lat]`), terapi injecte automatiquement des variables `item_0`, `item_1`, etc. dans l'environnement d'itération. De même, si l'élément est un objet JSON, les champs sont accessibles via `item_nomduchampe`. Cela permet d'itérer sur des tableaux de tableaux (ex. coordonnées GPS) sans étape de transformation intermédiaire.
+- **Campagne `itineraire_demo.toml` étendue** — la campagne de démonstration IGN Géoplateforme inclut désormais une étape de géocodage inverse : elle extrait les 35 points de départ des étapes de route (`portions.0.steps.*.geometry.coordinates.0`), appelle l'API reverse-geocoding pour chacun (`{{item_0}}` = lon, `{{item_1}}` = lat), et produit un fichier JSON `itineraire_etapes.json` avec : ville de départ, ville d'arrivée, distance, durée et liste des adresses de passage.
+
+---
+
 ## [0.7.6] — 2026-06-24
 
 ### Added

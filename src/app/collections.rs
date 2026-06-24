@@ -79,7 +79,7 @@ impl App {
                 .position(|&m| m == req.method.as_str())
                 .unwrap_or(0);
             let (base_url, params) = split_url_params(&req.url);
-            self.request_url = base_url;
+            self.set_url(&base_url);
             self.request_url_params = params;
             self.url_params_cursor = 0;
             self.request_headers = req.headers.iter()
@@ -216,16 +216,17 @@ impl App {
     pub(super) fn overwrite_request(&mut self, name: String, ci: usize, fi: Option<usize>, ri: usize) -> Result<()> {
         use std::collections::HashMap as HMap;
         // Compute all values from self before taking a mutable borrow on stored_collections
+        let base_url = self.url_text();
         let url = if self.request_url_params.is_empty() {
-            self.request_url.clone()
+            base_url.clone()
         } else {
-            let sep = if self.request_url.contains('?') { '&' } else { '?' };
+            let sep = if base_url.contains('?') { '&' } else { '?' };
             let query = self.request_url_params.iter()
                 .filter(|(k, _)| !k.is_empty())
                 .map(|(k, v)| format!("{}={}", k, v))
                 .collect::<Vec<_>>()
                 .join("&");
-            format!("{}{}{}", self.request_url, sep, query)
+            format!("{}{}{}", base_url, sep, query)
         };
         let desc_text = self.description_textarea.lines().join("\n");
         let description = if desc_text.trim().is_empty() { None } else { Some(desc_text) };

@@ -736,6 +736,30 @@ async fn run_steps_streaming(
                 iter_env.insert("item".to_string(), item_str);
                 iter_env.insert("item_index".to_string(), i.to_string());
 
+                // Auto-inject indexed/named sub-fields: {{item_0}}, {{item_1}} for arrays;
+                // {{item_fieldname}} for objects.
+                match item {
+                    Value::Array(arr) => {
+                        for (idx, val) in arr.iter().enumerate() {
+                            let v_str = match val {
+                                Value::String(s) => s.clone(),
+                                other => other.to_string(),
+                            };
+                            iter_env.insert(format!("item_{}", idx), v_str);
+                        }
+                    }
+                    Value::Object(obj) => {
+                        for (k, v) in obj.iter() {
+                            let v_str = match v {
+                                Value::String(s) => s.clone(),
+                                other => other.to_string(),
+                            };
+                            iter_env.insert(format!("item_{}", k), v_str);
+                        }
+                    }
+                    _ => {}
+                }
+
                 let mut iter_step = step.clone();
                 iter_step.name   = format!("{} [{}/{}]", step.name, i + 1, total);
                 iter_step.foreach = None; // prevent recursion

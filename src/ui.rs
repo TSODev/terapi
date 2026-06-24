@@ -93,59 +93,65 @@ fn render_request_panel(frame: &mut Frame, app: &App, area: Rect) {
     let editing = app.request_focus == RequestFocus::Url;
     let method_label = if app.graphql_mode { "GQL" } else { app.active_method() };
     let method_col = method_color(method_label);
-    let url_cursor = if editing { "_" } else { "" };
-    // In read mode, show the full URL with query params reconstructed from the params list.
-    // In edit mode, show only what the user is typing (params are parsed on Esc/Enter).
-    let url_display = if editing || app.request_url_params.is_empty() {
-        app.request_url.clone()
-    } else {
-        let query = app.request_url_params.iter()
-            .map(|(k, v)| format!("{}={}", k, v))
-            .collect::<Vec<_>>()
-            .join("&");
-        format!("{}?{}", app.request_url, query)
-    };
-    let url_text = Line::from(vec![
-        Span::raw(" "),
-        if editing && !app.graphql_mode {
-            Span::styled("◀ ", Style::default().fg(Color::Indexed(242)))
-        } else {
-            Span::raw("  ")
-        },
-        Span::styled(method_label, Style::default().fg(method_col).add_modifier(Modifier::BOLD)),
-        if editing && !app.graphql_mode {
-            Span::styled(" ▶  ", Style::default().fg(Color::Indexed(242)))
-        } else {
-            Span::raw("  ")
-        },
-        Span::styled(
-            format!("{}{}", url_display, url_cursor),
-            if editing {
-                Style::default().fg(Color::Yellow)
-            } else if url_display.is_empty() {
-                Style::default().fg(Color::Indexed(244))
-            } else {
-                Style::default().fg(Color::White)
-            },
-        ),
-    ]);
 
-    let url_border_color = if app.request_loading {
-        Color::Cyan
-    } else if editing {
-        Color::Yellow
-    } else {
-        Color::Yellow
-    };
+    let url_border_color = if app.request_loading { Color::Cyan } else { Color::Yellow };
 
-    let url_bar = Paragraph::new(url_text)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(url_title)
-                .border_style(Style::default().fg(url_border_color)),
-        );
-    frame.render_widget(url_bar, chunks[0]);
+    let url_bar_block = Block::default()
+        .borders(Borders::ALL)
+        .title(url_title)
+        .border_style(Style::default().fg(url_border_color));
+
+    if editing {
+        // Split the inner area: method badge (left) + textarea (right)
+        let inner = url_bar_block.inner(chunks[0]);
+        frame.render_widget(url_bar_block, chunks[0]);
+
+        let method_width = method_label.chars().count() as u16 + 7; // " ◀ METHOD ▶  "
+        let split = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Length(method_width), Constraint::Min(1)])
+            .split(inner);
+
+        let badge = Paragraph::new(Line::from(vec![
+            Span::raw(" "),
+            Span::styled("◀ ", Style::default().fg(Color::Indexed(242))),
+            Span::styled(method_label, Style::default().fg(method_col).add_modifier(Modifier::BOLD)),
+            Span::styled(" ▶ ", Style::default().fg(Color::Indexed(242))),
+        ]));
+        frame.render_widget(badge, split[0]);
+
+        let mut url_ta = app.url_textarea.clone();
+        url_ta.set_style(Style::default().fg(Color::Yellow));
+        url_ta.set_cursor_style(Style::default().fg(Color::Black).bg(Color::Yellow));
+        url_ta.set_cursor_line_style(Style::default());
+        frame.render_widget(&url_ta, split[1]);
+    } else {
+        // Read mode: Paragraph with reconstructed URL (base + params)
+        let url_display = if app.request_url_params.is_empty() {
+            app.url_text()
+        } else {
+            let base = app.url_text();
+            let query = app.request_url_params.iter()
+                .map(|(k, v)| format!("{}={}", k, v))
+                .collect::<Vec<_>>()
+                .join("&");
+            format!("{}?{}", base, query)
+        };
+        let url_line = Line::from(vec![
+            Span::raw("   "),
+            Span::styled(method_label, Style::default().fg(method_col).add_modifier(Modifier::BOLD)),
+            Span::raw("   "),
+            Span::styled(
+                url_display.clone(),
+                if url_display.is_empty() {
+                    Style::default().fg(Color::Indexed(244))
+                } else {
+                    Style::default().fg(Color::White)
+                },
+            ),
+        ]);
+        frame.render_widget(Paragraph::new(url_line).block(url_bar_block), chunks[0]);
+    }
 
     render_request_subtabs(frame, app, chunks[1]);
     render_request_content(frame, app, chunks[2]);
@@ -324,10 +330,10 @@ fn render_graphql_schema(frame: &mut Frame, app: &App, area: Rect) {
 
     match &app.schema_state {
         SchemaState::Idle => {
-            let hint = if app.request_url.is_empty() {
+            let hint = if app.url_text().is_empty() {
                 "Set an endpoint URL first (e), then press f".to_string()
             } else {
-                format!("{}  — press f to fetch schema", app.request_url)
+                format!("{}  — press f to fetch schema", app.url_text())
             };
             let text = vec![
                 Line::from(""),

@@ -36,7 +36,7 @@ impl App {
         let Some(sr) = steps.get(self.campaign_done_cursor) else { return; };
 
         // URL + params
-        self.request_url = sr.url.clone();
+        self.set_url(&sr.url.clone());
         self.request_url_params = Vec::new();
         self.url_params_cursor = 0;
         self.parse_url_into_params();

@@ -6,7 +6,7 @@ use super::http::execute_http;
 impl App {
     // Phase 1 — fetch all type names/kinds (depth 2, passes any CDN limit)
     pub(super) fn fetch_schema(&mut self) {
-        let url = self.request_url.trim().to_string();
+        let url = self.url_text().trim().to_string();
         if url.is_empty() {
             self.schema_state = SchemaState::Error(
                 "No URL — press e to set an endpoint first".into(),
@@ -36,7 +36,7 @@ impl App {
 
     // Phase 2 — fetch field details for one type (depth 3: __type → fields → type)
     pub(super) fn fetch_type_detail(&mut self, type_name: String) {
-        let url = self.request_url.trim().to_string();
+        let url = self.url_text().trim().to_string();
         if url.is_empty() { return; }
 
         if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {

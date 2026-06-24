@@ -1833,7 +1833,7 @@ Ready-to-run campaigns in `examples/` — no API key required:
 | `json_connector_demo.toml` | JSONPlaceholder | JSON file connector: iterate over `examples/users.json`, fetch posts for each user |
 | `seed_step_demo.toml` | API Géo (France) | Seed step + JSON connector + output connector: fetch a city list, iterate for details, write to `/tmp/communes_bordeaux.json` |
 | `itineraire_demo.toml` | IGN Géoplateforme | **`[[params]]` + full pipeline**: geocode two cities, compose coordinates, compute road itinerary — no API key required |
-| `eu_capitals.toml` | Countries GraphQL + Open-Meteo | **4-step pipeline**: GraphQL seed (53 EU countries) → language transform → geocode capital → live weather; writes `/tmp/eu_capitals_weather.json` |
+| `eu_capitals.toml` | Countries GraphQL + Open-Meteo | **4-step pipeline**: GraphQL seed (53 EU countries) → language transform → geocode capital → live weather; writes `examples/eu_capitals_weather.json` |
 
 ```bash
 terapi run examples/crud_demo.toml
@@ -1847,6 +1847,24 @@ terapi run examples/eu_capitals.toml
 terapi run examples/itineraire_demo.toml
 terapi run examples/itineraire_demo.toml -p DEPART=Bordeaux -p ARRIVEE=Nantes
 terapi run examples/itineraire_demo.toml -p DEPART=Marseille -p ARRIVEE=Strasbourg -p PROFILE=car
+```
+
+#### Interactive weather map
+
+`eu_capitals.toml` outputs `examples/eu_capitals_weather.json`. The companion file `examples/eu_capitals_map.html` renders all EU capitals on a dark interactive map (Leaflet.js, no API key):
+
+- Coloured bubble per capital: flag emoji + weather icon + temperature
+- Colour scale: blue (< 0 °C) → teal (10–20 °C) → yellow → red (> 28 °C)
+- Click any bubble for a detail popup: country, language, wind speed, timezone
+- Auto-loads the JSON when served via HTTP; file-picker button as fallback
+
+```bash
+# 1. generate the data
+terapi run examples/eu_capitals.toml
+
+# 2. serve and open
+python3 -m http.server 8080 --directory examples
+open http://localhost:8080/eu_capitals_map.html
 ```
 
 ### Silent mode (CI/cron)

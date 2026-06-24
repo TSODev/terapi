@@ -434,13 +434,23 @@ Ready-to-run examples in `examples/` — no API key required:
 | `transform_demo.toml` | Transform steps: regex, template, upper, split |
 | `seed_step_demo.toml` | Seed step + JSON connector + output connector |
 | `itineraire_demo.toml` | `[[params]]` + geocoding + routing pipeline (IGN) |
-| `eu_capitals.toml` | **4-step pipeline**: GraphQL seed (53 EU countries) → language transform → geocode capital → live weather (Open-Meteo) |
+| `eu_capitals.toml` | **4-step pipeline**: GraphQL seed (53 EU countries) → language transform → geocode capital → live weather (Open-Meteo); paired with `eu_capitals_map.html` |
 
 ```bash
 terapi run examples/crud_demo.toml
 terapi run examples/seed_step_demo.toml
 terapi run examples/eu_capitals.toml
 terapi run examples/itineraire_demo.toml -p DEPART=Bordeaux -p ARRIVEE=Nantes
+```
+
+#### Interactive weather map
+
+`eu_capitals.toml` generates `examples/eu_capitals_weather.json`. Open `examples/eu_capitals_map.html` with a local server to visualize all EU capitals on a dark map — coloured bubble per capital (flag + temperature + weather icon), full detail popup on click:
+
+```bash
+terapi run examples/eu_capitals.toml
+python3 -m http.server 8080 --directory examples
+open http://localhost:8080/eu_capitals_map.html
 ```
 
 ### Campaign report

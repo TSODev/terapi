@@ -9,6 +9,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.6.7] — 2026-06-24 — Fix panic UTF-8 dans le rendu campaigns
+
+### Fixed
+- **Panic sur noms de steps non-ASCII** — `render_step_result_line()` tronquait le nom du step par index d'octet (`&s[..21]`), ce qui provoquait un panic si un caractère multi-octet (ex. `é`) chevauchait la frontière. Corrigé avec `chars().count()` / `chars().take()`. Même correction appliquée aux valeurs de variables extraites et aux labels de colonnes CSV dans `render_campaigns_panel()`.
+
+---
+
 ## [0.6.6] — 2026-06-23 — Campaign parameters & external editor
 
 ### Added

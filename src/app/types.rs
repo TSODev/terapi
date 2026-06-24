@@ -297,6 +297,12 @@ pub enum EnvFocus {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum CampaignFocus {
+    List,
+    Result,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum SaveField {
     Name,
     Collection,

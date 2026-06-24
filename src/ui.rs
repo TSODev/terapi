@@ -2380,6 +2380,7 @@ fn method_color(method: &str) -> Color {
 
 fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
     use crate::campaign::CampaignRunState;
+    use crate::app::CampaignFocus;
 
     if app.campaigns.is_empty() {
         render_placeholder(
@@ -2397,6 +2398,9 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
     // ── Left: campaign list ───────────────────────────────────────────────────
     let dim = Color::Indexed(250);
     let hint = Color::Indexed(245);
+
+    let list_focused = app.campaign_focus == CampaignFocus::List;
+    let left_border_color = if list_focused { Color::Cyan } else { Color::Indexed(240) };
 
     let list_items: Vec<ListItem> = app.campaigns.iter().enumerate().map(|(i, entry)| {
         let selected = i == app.campaign_cursor;
@@ -2421,9 +2425,11 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
             Block::default()
                 .borders(Borders::ALL)
                 .title(format!(" Campaigns ({}) ", app.campaigns.len()))
-                .border_style(Style::default().fg(Color::Cyan)),
+                .border_style(Style::default().fg(left_border_color)),
         );
-    frame.render_widget(list, chunks[0]);
+    let mut list_state = ratatui::widgets::ListState::default();
+    list_state.select(Some(app.campaign_cursor));
+    frame.render_stateful_widget(list, chunks[0], &mut list_state);
 
     // ── Right: run state ──────────────────────────────────────────────────────
     match &app.campaign_run_state {
@@ -2476,10 +2482,12 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
                     Span::styled("  r", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
                     Span::styled(" to run this campaign", Style::default().fg(dim)),
                 ]));
+                let right_border_color = if !list_focused { Color::Cyan } else { hint };
                 let p = Paragraph::new(lines)
                     .block(Block::default().borders(Borders::ALL)
                         .title(format!(" {} ", entry.name))
-                        .border_style(Style::default().fg(hint)));
+                        .border_style(Style::default().fg(right_border_color)))
+                    .scroll((app.campaign_result_scroll, 0));
                 frame.render_widget(p, chunks[1]);
             }
         }
@@ -2509,10 +2517,13 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
                     Span::styled("…", Style::default().fg(hint)),
                 ]));
             }
+            let visible = chunks[1].height.saturating_sub(2) as usize;
+            let auto_scroll = (lines.len().saturating_sub(visible)) as u16;
             let p = Paragraph::new(lines)
                 .block(Block::default().borders(Borders::ALL)
                     .title(format!(" Running: {} ", name))
-                    .border_style(Style::default().fg(Color::Yellow)));
+                    .border_style(Style::default().fg(Color::Yellow)))
+                .scroll((auto_scroll, 0));
             frame.render_widget(p, chunks[1]);
         }
 
@@ -2572,10 +2583,12 @@ fn render_campaigns_panel(frame: &mut Frame, app: &App, area: Rect) {
                 Span::styled(" to clear  r to re-run", Style::default().fg(dim)),
             ]));
 
+            let right_border_color = if !list_focused { Color::Cyan } else { verdict_color };
             let p = Paragraph::new(lines)
                 .block(Block::default().borders(Borders::ALL)
                     .title(format!(" Done: {} ", name))
-                    .border_style(Style::default().fg(verdict_color)))
+                    .border_style(Style::default().fg(right_border_color)))
+                .scroll((app.campaign_result_scroll, 0))
                 .wrap(Wrap { trim: false });
             frame.render_widget(p, chunks[1]);
         }

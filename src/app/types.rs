@@ -317,17 +317,6 @@ pub enum AuthType {
 }
 
 impl AuthType {
-    pub fn label(&self) -> &'static str {
-        match self {
-            AuthType::None                   => "No Auth",
-            AuthType::Bearer                 => "Bearer",
-            AuthType::Basic                  => "Basic",
-            AuthType::ApiKey                 => "API Key",
-            AuthType::OAuth2ClientCredentials => "OAuth2 Client Credentials",
-            AuthType::OAuth2AuthorizationCode => "OAuth2 Authorization Code",
-        }
-    }
-
     pub fn next(&self) -> AuthType {
         match self {
             AuthType::None                    => AuthType::Bearer,
@@ -377,12 +366,7 @@ impl ApiKeyLocation {
         }
     }
 
-    pub fn label(&self) -> &'static str {
-        match self {
-            ApiKeyLocation::Header    => "Header",
-            ApiKeyLocation::QueryParam => "Query Param",
-        }
-    }
+
 
     pub fn as_str(&self) -> &'static str {
         match self {

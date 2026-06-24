@@ -169,7 +169,7 @@ impl IterationResult {
 #[derive(Debug, Clone)]
 pub enum CampaignEvent {
     IterationStarted { idx: usize, total: usize, row_summary: String },
-    StepStarted { name: String, method: String },
+    StepStarted { name: String },
     StepDone(StepResult),
     Finished(Vec<IterationResult>),
     Warning(String),
@@ -478,14 +478,8 @@ async fn run_steps_streaming(
         }
         effective.extend(extracted.clone());
 
-        let method_display = match step.kind.as_str() {
-            "transform" => "TRSF".into(),
-            "pause"     => "WAIT".into(),
-            _           => step.method.clone(),
-        };
         let _ = tx.send(CampaignEvent::StepStarted {
             name: step.name.clone(),
-            method: method_display,
         });
 
         let result = if step.kind == "pause" {

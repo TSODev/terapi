@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 use crate::app::{
-    flatten_stored, sorted_vars, App, AuthType, ApiKeyLocation, BodyMode, EnvFocus, GqlField,
+    flatten_stored, sorted_vars, App, BodyMode, EnvFocus, GqlField,
     GraphqlTab, InputField, ModalState, OAuth2WaitState, RequestFocus, RequestTab, ResponseView,
     SaveField, SchemaDetail, SchemaState, Tab, VarField, COMMON_CONTENT_TYPES, COMMON_HEADERS,
     METHODS,

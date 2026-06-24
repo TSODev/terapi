@@ -12,6 +12,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - **Charger un step de campagne dans le Request tab (`L`)** — dans le panel Done de l'onglet Campaigns (focus Result), `↑`/`↓` déplace un curseur `▶` (cyan) entre les steps HTTP. Appuyer sur `L` charge le step sélectionné dans l'onglet Request avec tous les champs résolus (URL, méthode, headers, body — les `{{VAR}}` sont déjà substitués) puis bascule sur cet onglet. Permet de rejouer le step (`s`), de l'inspecter en vue HTTP (`r` deux fois), de modifier les headers, ou de le sauvegarder dans une collection (`S`). Les steps WAIT et TRSF sont ignorés par le curseur. `StepResult` stocke désormais un snapshot `request_headers` + `request_body` capturé au moment de l'exécution.
 
+### Fixed
+- **Suppression de collection non persistée** — `delete_collection()` reconstruisait le chemin du fichier depuis le nom de la collection via `sanitize_filename()` (ex. `"Public GraphQL APIs"` → `public-graphql-apis.toml`), ce qui échouait silencieusement quand le fichier avait été importé sous un nom différent (ex. `02-graphql.toml`). La suppression utilisait désormais `StoredCollection.path`, le chemin réel du fichier rempli à la lecture.
+
 ---
 
 ## [0.7.2] — 2026-06-24 — Redirect chain & cookie jar visibility

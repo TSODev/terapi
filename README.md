@@ -532,6 +532,7 @@ Ready-to-run examples in `examples/` — no API key required:
 | `itineraire_demo.toml` | `[[params]]` + geocoding + routing pipeline (IGN) |
 | `eu_capitals.toml` | **4-step pipeline**: GraphQL seed (53 EU countries) → language transform → geocode capital → live weather (Open-Meteo); paired with `eu_capitals_map.html` |
 | `foreach_demo.toml` | **`foreach`**: fetch user list, extract IDs with `*.id` wildcard, iterate over each user to fetch their todos |
+| `when_demo.toml` | **`when`**: `eq` / `ne` / `exists` operators — admin vs standard user branches with automatic cascade |
 
 ```bash
 terapi run examples/crud_demo.toml

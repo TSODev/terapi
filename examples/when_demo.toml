@@ -1,0 +1,64 @@
+[campaign]
+name        = "Conditional steps demo — when"
+description = "Demonstrates eq / ne / exists operators using JSONPlaceholder (no API key required)"
+
+# Run with USER_ID=1 (admin) or USER_ID=2..10 (standard):
+#   terapi run examples/when_demo.toml
+#   terapi run examples/when_demo.toml -p USER_ID=5
+[[params]]
+name        = "USER_ID"
+description = "1 = admin account  /  2-10 = standard account"
+default     = "1"
+
+[env]
+BASE_URL = "https://jsonplaceholder.typicode.com"
+ADMIN_ID = "1"
+
+# ── Step 1: always runs ───────────────────────────────────────────────────────
+[[steps]]
+name   = "Fetch user profile"
+method = "GET"
+url    = "{{BASE_URL}}/users/{{USER_ID}}"
+assert = [{ on = "status", eq = 200 }]
+
+[steps.extract]
+USERNAME = "username"
+EMAIL    = "email"
+
+# ── Step 2: eq — admin only ───────────────────────────────────────────────────
+# Comparison value supports {{VAR}} — compared against the ADMIN_ID env variable.
+[[steps]]
+name   = "List all users (admin only)"
+when   = { var = "USER_ID", eq = "{{ADMIN_ID}}" }
+method = "GET"
+url    = "{{BASE_URL}}/users"
+assert = [{ on = "status", eq = 200 }]
+
+# ── Step 3: ne — non-admin only ───────────────────────────────────────────────
+[[steps]]
+name   = "Fetch own posts (standard users)"
+when   = { var = "USER_ID", ne = "{{ADMIN_ID}}" }
+method = "GET"
+url    = "{{BASE_URL}}/posts?userId={{USER_ID}}"
+assert = [{ on = "status", eq = 200 }]
+
+[steps.extract]
+FIRST_POST_ID    = "0.id"
+FIRST_POST_TITLE = "0.title"
+
+# ── Step 4: exists — only if Step 3 ran and extracted a post ──────────────────
+# Cascade: when USER_ID=1 Step 3 is skipped → FIRST_POST_ID never extracted
+# → this step is also automatically skipped (exists = false).
+[[steps]]
+name   = "Fetch comments on first post"
+when   = { var = "FIRST_POST_ID", exists = true }
+method = "GET"
+url    = "{{BASE_URL}}/comments?postId={{FIRST_POST_ID}}"
+assert = [{ on = "status", eq = 200 }]
+
+# ── Step 5: always runs ───────────────────────────────────────────────────────
+[[steps]]
+name   = "Fetch pending todos"
+method = "GET"
+url    = "{{BASE_URL}}/todos?userId={{USER_ID}}&completed=false"
+assert = [{ on = "status", eq = 200 }]

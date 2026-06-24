@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EU Capitals — Live Weather</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d1117;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: #e6edf3;
+    }
+
+    #map { width: 100vw; height: 100vh; }
+
+    /* ── toolbar ── */
+    #toolbar {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background: rgba(13, 17, 23, 0.88);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      white-space: nowrap;
+    }
+
+    #toolbar h1 {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    #toolbar .sep { color: rgba(255,255,255,0.2); }
+
+    #status {
+      font-size: 12px;
+      color: #8b949e;
+    }
+
+    .btn-load {
+      cursor: pointer;
+      background: #1f6feb;
+      color: #fff;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .btn-load:hover { background: #388bfd; }
+    input[type=file] { display: none; }
+
+    /* ── legend ── */
+    #legend {
+      position: absolute;
+      bottom: 28px;
+      right: 14px;
+      z-index: 1000;
+      background: rgba(13, 17, 23, 0.88);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 11px;
+      line-height: 1.8;
+    }
+    #legend .title { font-weight: 600; margin-bottom: 4px; color: #8b949e; }
+    .dot {
+      display: inline-block;
+      width: 11px; height: 11px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    /* ── marker bubbles ── */
+    .capital-marker {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+      cursor: pointer;
+    }
+    .capital-bubble {
+      border-radius: 50%;
+      width: 44px; height: 44px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid rgba(255,255,255,0.6);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+      line-height: 1;
+    }
+    .capital-bubble .flag  { font-size: 16px; }
+    .capital-bubble .temp  { font-size: 10px; font-weight: 700; color: #fff; }
+    .capital-bubble .wicon { font-size: 12px; }
+
+    /* ── Leaflet popup overrides ── */
+    .leaflet-popup-content-wrapper {
+      background: #161b22;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      color: #e6edf3;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+    .leaflet-popup-tip { background: #161b22; }
+    .leaflet-popup-content { margin: 14px 16px; font-size: 13px; min-width: 170px; }
+
+    .popup-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .popup-flag { font-size: 26px; line-height: 1; }
+    .popup-country { font-size: 15px; font-weight: 700; }
+    .popup-capital { font-size: 11px; color: #8b949e; }
+
+    .popup-temp {
+      font-size: 26px;
+      font-weight: 800;
+      margin: 6px 0 2px;
+    }
+    .popup-cond { font-size: 13px; margin-bottom: 6px; }
+
+    .popup-details {
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 8px;
+      margin-top: 4px;
+      font-size: 11px;
+      color: #8b949e;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px 0;
+    }
+
+    /* hide default leaflet attribution so we keep our own */
+    .leaflet-control-attribution { font-size: 10px; opacity: 0.5; }
+  </style>
+</head>
+<body>
+
+<div id="toolbar">
+  <h1>🌍 EU Capitals — Live Weather</h1>
+  <span class="sep">|</span>
+  <label class="btn-load" for="fileInput">📂 Load JSON</label>
+  <input type="file" id="fileInput" accept=".json">
+  <span id="status">run eu_capitals.toml then load eu_capitals_weather.json</span>
+</div>
+
+<div id="map"></div>
+
+<div id="legend">
+  <div class="title">Temperature</div>
+  <div><span class="dot" style="background:#a0c4ff"></span> &lt; 0 °C</div>
+  <div><span class="dot" style="background:#74c0fc"></span> 0 – 10 °C</div>
+  <div><span class="dot" style="background:#63e6be"></span> 10 – 20 °C</div>
+  <div><span class="dot" style="background:#ffd43b"></span> 20 – 28 °C</div>
+  <div><span class="dot" style="background:#ff6b6b"></span> &gt; 28 °C</div>
+</div>
+
+<script>
+  // ── WMO code → emoji + label ──────────────────────────────────────────────
+  function wmo(code) {
+    if (code === 0)             return ['☀️',  'Clear sky'];
+    if (code === 1)             return ['🌤️',  'Mainly clear'];
+    if (code === 2)             return ['⛅',  'Partly cloudy'];
+    if (code === 3)             return ['☁️',  'Overcast'];
+    if (code <= 48)             return ['🌫️',  'Fog'];
+    if (code <= 55)             return ['🌦️',  'Drizzle'];
+    if (code <= 57)             return ['🌧️',  'Freezing drizzle'];
+    if (code <= 65)             return ['🌧️',  'Rain'];
+    if (code <= 67)             return ['🌨️',  'Freezing rain'];
+    if (code <= 75)             return ['❄️',  'Snow'];
+    if (code === 77)            return ['🌨️',  'Snow grains'];
+    if (code <= 82)             return ['🌦️',  'Rain showers'];
+    if (code <= 86)             return ['🌨️',  'Snow showers'];
+    if (code <= 99)             return ['⛈️',  'Thunderstorm'];
+    return ['🌡️', `WMO ${code}`];
+  }
+
+  // ── temperature → bubble background color ────────────────────────────────
+  function tempColor(t) {
+    if (t < 0)  return '#5c85d6';
+    if (t < 10) return '#4a9eca';
+    if (t < 20) return '#3bbf9e';
+    if (t < 28) return '#d4ac0d';
+    return '#c0392b';
+  }
+
+  // ── map init (dark CartoDB tiles) ─────────────────────────────────────────
+  const map = L.map('map', { center: [52, 14], zoom: 4, zoomControl: true });
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 18
+  }).addTo(map);
+
+  // ── render data ───────────────────────────────────────────────────────────
+  let markers = [];
+
+  function clearMarkers() {
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+  }
+
+  function renderData(data) {
+    clearMarkers();
+
+    let count = 0;
+    data.forEach(entry => {
+      const lat = parseFloat(entry.lat);
+      const lon = parseFloat(entry.lon);
+      if (isNaN(lat) || isNaN(lon)) return;
+
+      const temp     = entry.current?.temperature_2m ?? null;
+      const wind     = entry.current?.wind_speed_10m ?? '?';
+      const wcode    = entry.current?.weather_code   ?? 0;
+      const timezone = entry.timezone ?? '—';
+      const [wicon, wlabel] = wmo(wcode);
+      const color    = temp !== null ? tempColor(temp) : '#555';
+      const tempStr  = temp !== null ? `${temp}°C` : '?';
+
+      // DivIcon: flag bubble + temp label below
+      const icon = L.divIcon({
+        html: `
+          <div class="capital-marker">
+            <div class="capital-bubble" style="background:${color}">
+              <span class="wicon">${wicon}</span>
+              <span class="flag">${entry.emoji ?? ''}</span>
+              <span class="temp">${tempStr}</span>
+            </div>
+          </div>`,
+        className: '',
+        iconSize:   [44, 52],
+        iconAnchor: [22, 52],
+        popupAnchor:[0, -56]
+      });
+
+      const marker = L.marker([lat, lon], { icon });
+
+      marker.bindPopup(`
+        <div class="popup-header">
+          <span class="popup-flag">${entry.emoji ?? ''}</span>
+          <div>
+            <div class="popup-country">${entry.name ?? '—'}</div>
+            <div class="popup-capital">🏛 ${entry.capital ?? '—'}</div>
+          </div>
+        </div>
+        <div class="popup-temp" style="color:${color}">${wicon} ${tempStr}</div>
+        <div class="popup-cond">${wlabel}</div>
+        <div class="popup-details">
+          <div>💨 ${wind} km/h</div>
+          <div>🗣 ${entry.primary_language ?? '—'}</div>
+          <div>📍 ${lat.toFixed(2)}, ${lon.toFixed(2)}</div>
+          <div>🕐 ${timezone.split('/').pop?.() ?? timezone}</div>
+        </div>
+      `);
+
+      marker.addTo(map);
+      markers.push(marker);
+      count++;
+    });
+
+    document.getElementById('status').textContent =
+      `${count} capital${count !== 1 ? 's' : ''} loaded`;
+  }
+
+  // ── file picker ───────────────────────────────────────────────────────────
+  document.getElementById('fileInput').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    document.getElementById('status').textContent = 'Loading…';
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        renderData(JSON.parse(ev.target.result));
+      } catch (err) {
+        document.getElementById('status').textContent = '✗ ' + err.message;
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  // ── auto-fetch when served via HTTP ──────────────────────────────────────
+  fetch('eu_capitals_weather.json')
+    .then(r => { if (!r.ok) throw new Error('not found'); return r.json(); })
+    .then(renderData)
+    .catch(() => { /* silent: user will use file picker */ });
+</script>
+</body>
+</html>

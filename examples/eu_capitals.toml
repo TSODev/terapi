@@ -95,5 +95,5 @@ weather_code = "current.weather_code"
 
 [[outputs]]
 from_step    = "Météo capitale"
-path         = "/tmp/eu_capitals_weather.json"
+path         = "examples/eu_capitals_weather.json"
 include_vars = ["code", "name", "capital", "emoji", "primary_language", "lat", "lon"]

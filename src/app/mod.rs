@@ -304,13 +304,23 @@ impl App {
                     self.status_message = "Press q again to quit".into();
                 }
             }
-            KeyCode::Tab => {
-                self.active_tab = match self.active_tab {
-                    Tab::Collections => Tab::Request,
-                    Tab::Request     => Tab::Env,
-                    Tab::Env         => Tab::History,
-                    Tab::History     => Tab::Campaigns,
-                    Tab::Campaigns   => Tab::Collections,
+            KeyCode::Tab | KeyCode::BackTab => {
+                self.active_tab = if key.code == KeyCode::Tab {
+                    match self.active_tab {
+                        Tab::Collections => Tab::Request,
+                        Tab::Request     => Tab::Env,
+                        Tab::Env         => Tab::History,
+                        Tab::History     => Tab::Campaigns,
+                        Tab::Campaigns   => Tab::Collections,
+                    }
+                } else {
+                    match self.active_tab {
+                        Tab::Collections => Tab::Campaigns,
+                        Tab::Request     => Tab::Collections,
+                        Tab::Env         => Tab::Request,
+                        Tab::History     => Tab::Env,
+                        Tab::Campaigns   => Tab::History,
+                    }
                 };
                 match self.active_tab {
                     Tab::Request     => self.update_request_status_hint(),

@@ -7,6 +7,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **Shift+Tab** — navigue les onglets principaux dans le sens inverse (Collections ← Request ← Env ← History ← Campaigns).
+
+- **Charger un step de campagne dans le Request tab (`L`)** — dans le panel Done de l'onglet Campaigns (focus Result), `↑`/`↓` déplace un curseur `▶` (cyan) entre les steps HTTP. Appuyer sur `L` charge le step sélectionné dans l'onglet Request avec tous les champs résolus (URL, méthode, headers, body — les `{{VAR}}` sont déjà substitués) puis bascule sur cet onglet. Permet de rejouer le step (`s`), de l'inspecter en vue HTTP (`r` deux fois), de modifier les headers, ou de le sauvegarder dans une collection (`S`). Les steps WAIT et TRSF sont ignorés par le curseur. `StepResult` stocke désormais un snapshot `request_headers` + `request_body` capturé au moment de l'exécution.
+
 ---
 
 ## [0.7.2] — 2026-06-24 — Redirect chain & cookie jar visibility

@@ -300,12 +300,25 @@ impl App {
                     let flat = flatten_stored_full(&self.stored_collections, &self.expanded_nodes);
                     let visible = crate::ui::filter_collection_nodes(&flat, &query);
                     if let Some(&(orig_idx, _)) = visible.get(self.collection_cursor) {
-                        self.collection_cursor = orig_idx;
-                        self.toggle_collection_cursor();
-                        if self.active_tab == Tab::Request {
-                            self.collection_search = None;
+                        let node = &flat[orig_idx];
+                        if node.is_folder {
+                            // Toggle folder/collection expansion directly via its key.
+                            let key = match &node.address {
+                                NodeAddress::Collection(ci) => format!("c{}", ci),
+                                NodeAddress::Folder(ci, fi)  => format!("c{}f{}", ci, fi),
+                                _ => String::new(),
+                            };
+                            if !key.is_empty() {
+                                if !self.expanded_nodes.remove(&key) {
+                                    self.expanded_nodes.insert(key);
+                                }
+                            }
                             self.collection_cursor = 0;
                         } else {
+                            // Load request directly from its address.
+                            let address = node.address.clone();
+                            self.load_collection_request(&address);
+                            self.collection_search = None;
                             self.collection_cursor = 0;
                         }
                     }

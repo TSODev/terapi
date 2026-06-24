@@ -111,6 +111,12 @@ impl App {
                 api_key_name: req.auth.api_key_name.clone(),
                 api_key_value: req.auth.api_key_value.clone(),
                 api_key_location: ApiKeyLocation::from_str(&req.auth.api_key_location),
+                oauth2_token_url: req.auth.oauth2_token_url.clone(),
+                oauth2_client_id: req.auth.oauth2_client_id.clone(),
+                oauth2_client_secret: req.auth.oauth2_client_secret.clone(),
+                oauth2_scope: req.auth.oauth2_scope.clone(),
+                oauth2_auth_url: req.auth.oauth2_auth_url.clone(),
+                oauth2_redirect_port: req.auth.oauth2_redirect_port,
             };
             self.auth_field_cursor = 0;
             self.skip_tls_verify = req.skip_tls_verify;
@@ -226,15 +232,7 @@ impl App {
         let method = METHODS[self.request_method_idx].to_string();
         let headers: HMap<String, String> = self.request_headers.iter().cloned().collect();
         let body = self.body_string();
-        let auth = crate::storage::StoredAuth {
-            auth_type: self.auth_config.auth_type.as_str().to_string(),
-            bearer_token: self.auth_config.bearer_token.clone(),
-            basic_username: self.auth_config.basic_username.clone(),
-            basic_password: self.auth_config.basic_password.clone(),
-            api_key_name: self.auth_config.api_key_name.clone(),
-            api_key_value: self.auth_config.api_key_value.clone(),
-            api_key_location: self.auth_config.api_key_location.as_str().to_string(),
-        };
+        let auth = self.auth_config_to_stored();
 
         let req = if let Some(fi) = fi {
             &mut self.stored_collections[ci].folders[fi].requests[ri]

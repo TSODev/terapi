@@ -7,9 +7,10 @@ use ratatui::{
 };
 
 use crate::app::{
-    flatten_stored, sorted_vars, App, BodyMode, EnvFocus, GqlField, GraphqlTab, InputField,
-    ModalState, RequestFocus, RequestTab, ResponseView, SaveField, SchemaDetail, SchemaState,
-    Tab, VarField, COMMON_CONTENT_TYPES, COMMON_HEADERS, METHODS,
+    flatten_stored, sorted_vars, App, AuthType, ApiKeyLocation, BodyMode, EnvFocus, GqlField,
+    GraphqlTab, InputField, ModalState, OAuth2WaitState, RequestFocus, RequestTab, ResponseView,
+    SaveField, SchemaDetail, SchemaState, Tab, VarField, COMMON_CONTENT_TYPES, COMMON_HEADERS,
+    METHODS,
 };
 use crate::json_highlight::{self, ValueType};
 
@@ -736,10 +737,87 @@ fn render_auth_editor(frame: &mut Frame, app: &App, area: Rect) {
                 ]).style(loc_style),
             ]
         }
+        AuthType::OAuth2ClientCredentials | AuthType::OAuth2AuthorizationCode => {
+            let is_auth_code = auth.auth_type == AuthType::OAuth2AuthorizationCode;
+            let field_style = |idx: usize| if cursor == idx { Style::default().bg(Color::Indexed(237)) } else { Style::default() };
+            let val_span = |s: &str, placeholder: &'static str| -> Span<'static> {
+                if s.is_empty() {
+                    Span::styled(format!(" {}", placeholder), Style::default().fg(Color::Indexed(238)))
+                } else {
+                    Span::styled(format!(" {}", s.to_string()), Style::default().fg(Color::Cyan))
+                }
+            };
+            let secret_span = |s: &str| -> Span<'static> {
+                if s.is_empty() {
+                    Span::styled(" <enter secret>", Style::default().fg(Color::Indexed(238)))
+                } else {
+                    Span::styled(format!(" {}", "•".repeat(s.len())), Style::default().fg(Color::Yellow))
+                }
+            };
+
+            // Token status line
+            let token_status = if app.oauth2_token_cache.contains_key(&auth.oauth2_cache_key()) {
+                Span::styled(" ● token cached", Style::default().fg(Color::Green))
+            } else {
+                Span::styled(" ○ no token  (f to fetch)", Style::default().fg(Color::Indexed(244)))
+            };
+
+            // Wait state banner
+            let wait_line = match &app.oauth2_wait_state {
+                OAuth2WaitState::FetchingToken =>
+                    Some(Line::from(Span::styled(" ⟳ fetching token…", Style::default().fg(Color::Yellow)))),
+                OAuth2WaitState::WaitingForBrowser { port } =>
+                    Some(Line::from(Span::styled(
+                        format!(" ⟳ waiting for browser callback on port {}… (Esc to cancel)", port),
+                        Style::default().fg(Color::Yellow),
+                    ))),
+                OAuth2WaitState::Error(msg) =>
+                    Some(Line::from(Span::styled(format!(" ✗ {}", msg), Style::default().fg(Color::Red)))),
+                OAuth2WaitState::Idle => None,
+            };
+
+            let mut rows = vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled(" Token URL   ", Style::default().fg(Color::Indexed(244))),
+                    val_span(&auth.oauth2_token_url, "<enter token URL>"),
+                ]).style(field_style(1)),
+                Line::from(vec![
+                    Span::styled(" Client ID   ", Style::default().fg(Color::Indexed(244))),
+                    val_span(&auth.oauth2_client_id, "<enter client ID>"),
+                ]).style(field_style(2)),
+                Line::from(vec![
+                    Span::styled(" Client Secret", Style::default().fg(Color::Indexed(244))),
+                    secret_span(&auth.oauth2_client_secret),
+                ]).style(field_style(3)),
+                Line::from(vec![
+                    Span::styled(" Scope       ", Style::default().fg(Color::Indexed(244))),
+                    val_span(&auth.oauth2_scope, "<optional scope>"),
+                ]).style(field_style(4)),
+            ];
+            if is_auth_code {
+                rows.push(Line::from(vec![
+                    Span::styled(" Auth URL    ", Style::default().fg(Color::Indexed(244))),
+                    val_span(&auth.oauth2_auth_url, "<enter authorization URL>"),
+                ]).style(field_style(5)));
+                let port_str = auth.oauth2_redirect_port.to_string();
+                rows.push(Line::from(vec![
+                    Span::styled(" Redirect Port", Style::default().fg(Color::Indexed(244))),
+                    val_span(&port_str, "9876"),
+                ]).style(field_style(6)));
+            }
+            rows.push(Line::from(""));
+            rows.push(Line::from(vec![
+                Span::styled(" Status      ", Style::default().fg(Color::Indexed(244))),
+                token_status,
+            ]));
+            if let Some(wl) = wait_line { rows.push(wl); }
+            rows
+        }
     };
 
     let hint = Line::from(Span::styled(
-        " ↑/↓: navigate  Space/Enter: cycle type or edit field",
+        " ↑/↓: navigate  Space/Enter: cycle type or edit field  f: fetch token",
         Style::default().fg(Color::Indexed(238)),
     ));
 

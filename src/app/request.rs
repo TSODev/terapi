@@ -27,6 +27,24 @@ fn base64_encode(input: &str) -> String {
 
 impl App {
     /// If `request_url` contains a `?`, split it into base URL + URL Params list.
+    pub(super) fn auth_config_to_stored(&self) -> StoredAuth {
+        StoredAuth {
+            auth_type: self.auth_config.auth_type.as_str().to_string(),
+            bearer_token: self.auth_config.bearer_token.clone(),
+            basic_username: self.auth_config.basic_username.clone(),
+            basic_password: self.auth_config.basic_password.clone(),
+            api_key_name: self.auth_config.api_key_name.clone(),
+            api_key_value: self.auth_config.api_key_value.clone(),
+            api_key_location: self.auth_config.api_key_location.as_str().to_string(),
+            oauth2_token_url: self.auth_config.oauth2_token_url.clone(),
+            oauth2_client_id: self.auth_config.oauth2_client_id.clone(),
+            oauth2_client_secret: self.auth_config.oauth2_client_secret.clone(),
+            oauth2_scope: self.auth_config.oauth2_scope.clone(),
+            oauth2_auth_url: self.auth_config.oauth2_auth_url.clone(),
+            oauth2_redirect_port: self.auth_config.oauth2_redirect_port,
+        }
+    }
+
     pub(super) fn parse_url_into_params(&mut self) {
         if self.request_url.contains('?') {
             let (base, params) = split_url_params(&self.request_url);
@@ -55,6 +73,82 @@ impl App {
             || has(&self.auth_config.api_key_value)
     }
 
+    pub(super) fn trigger_oauth2_fetch(&mut self) {
+        let needs_token = matches!(
+            self.auth_config.auth_type,
+            AuthType::OAuth2ClientCredentials | AuthType::OAuth2AuthorizationCode
+        );
+        if !needs_token {
+            return;
+        }
+        let key = self.auth_config.oauth2_cache_key();
+        if self.oauth2_token_cache.get(&key).map_or(false, |t| t.is_valid()) {
+            self.status_message = "OAuth2 token already cached and valid".into();
+            return;
+        }
+        if matches!(self.oauth2_wait_state, OAuth2WaitState::FetchingToken | OAuth2WaitState::WaitingForBrowser { .. }) {
+            return;
+        }
+
+        let client    = self.http_client.clone();
+        let token_url = self.auth_config.oauth2_token_url.clone();
+        let client_id = self.auth_config.oauth2_client_id.clone();
+        let secret    = self.auth_config.oauth2_client_secret.clone();
+        let scope     = self.auth_config.oauth2_scope.clone();
+        let tx        = self.oauth2_tx.clone();
+
+        if self.auth_config.auth_type == AuthType::OAuth2ClientCredentials {
+            self.oauth2_wait_state = OAuth2WaitState::FetchingToken;
+            self.status_message = "Fetching OAuth2 token…".into();
+            tokio::spawn(async move {
+                let result = super::oauth2::fetch_client_credentials_token(
+                    client, token_url, client_id, secret, scope,
+                ).await;
+                let _ = tx.send(result);
+            });
+        } else {
+            // Authorization Code
+            let auth_url  = self.auth_config.oauth2_auth_url.clone();
+            let port      = self.auth_config.oauth2_redirect_port;
+            let redirect  = format!("http://127.0.0.1:{}", port);
+
+            if auth_url.is_empty() {
+                self.oauth2_wait_state = OAuth2WaitState::Error("Auth URL is empty".into());
+                return;
+            }
+
+            let full_auth_url = format!(
+                "{}{}client_id={}&redirect_uri={}&response_type=code&scope={}",
+                auth_url,
+                if auth_url.contains('?') { '&' } else { '?' },
+                super::oauth2::percent_encode_pub(&client_id),
+                super::oauth2::percent_encode_pub(&redirect),
+                super::oauth2::percent_encode_pub(&scope),
+            );
+
+            match super::oauth2::open_browser(&full_auth_url) {
+                Err(e) => {
+                    self.oauth2_wait_state = OAuth2WaitState::Error(e);
+                    return;
+                }
+                Ok(()) => {}
+            }
+
+            self.oauth2_wait_state = OAuth2WaitState::WaitingForBrowser { port };
+            self.status_message = format!("Waiting for browser on port {}… (Esc to cancel)", port);
+
+            tokio::spawn(async move {
+                let result = async {
+                    let code = super::oauth2::wait_for_auth_code(port).await?;
+                    super::oauth2::exchange_code_for_token(
+                        client, token_url, client_id, secret, code, port,
+                    ).await
+                }.await;
+                let _ = tx.send(result);
+            });
+        }
+    }
+
     pub(super) fn send_request(&mut self) {
         if self.request_loading {
             return;
@@ -64,6 +158,21 @@ impl App {
             self.status_message = "No URL — press e to enter one".into();
             return;
         }
+
+        // If OAuth2 auth is configured but no valid token, fetch first
+        let needs_oauth2 = matches!(
+            self.auth_config.auth_type,
+            AuthType::OAuth2ClientCredentials | AuthType::OAuth2AuthorizationCode
+        );
+        if needs_oauth2 {
+            let key = self.auth_config.oauth2_cache_key();
+            if !self.oauth2_token_cache.get(&key).map_or(false, |t| t.is_valid()) {
+                self.request_loading = true; // hold; tick() will re-call send_request() after token arrives
+                self.trigger_oauth2_fetch();
+                return;
+            }
+        }
+
         let warn_vars = self.active_env_idx.is_none() && self.has_unresolved_vars();
 
         let env_vars = self.active_env_idx
@@ -127,6 +236,17 @@ impl App {
                     let val  = crate::storage::resolve_vars(&self.auth_config.api_key_value, &env_vars);
                     if !name.is_empty() {
                         resolved_headers.push((name, val));
+                    }
+                }
+            }
+            // OAuth2: token injection handled via oauth2_token_cache in send_request()
+            AuthType::OAuth2ClientCredentials | AuthType::OAuth2AuthorizationCode => {
+                if let Some(token) = self.oauth2_token_cache.get(&self.auth_config.oauth2_cache_key()) {
+                    if token.is_valid() {
+                        resolved_headers.push((
+                            "Authorization".to_string(),
+                            format!("Bearer {}", token.access_token),
+                        ));
                     }
                 }
             }
@@ -270,15 +390,7 @@ impl App {
             follow_redirects: self.follow_redirects,
             skip_tls_verify: self.skip_tls_verify,
             cookie_jar: self.cookie_jar,
-            auth: StoredAuth {
-                auth_type: self.auth_config.auth_type.as_str().to_string(),
-                bearer_token: self.auth_config.bearer_token.clone(),
-                basic_username: self.auth_config.basic_username.clone(),
-                basic_password: self.auth_config.basic_password.clone(),
-                api_key_name: self.auth_config.api_key_name.clone(),
-                api_key_value: self.auth_config.api_key_value.clone(),
-                api_key_location: self.auth_config.api_key_location.as_str().to_string(),
-            },
+            auth: self.auth_config_to_stored(),
             graphql: self.graphql_mode,
             graphql_query: if self.graphql_mode && !gql_query_text.trim().is_empty() { Some(gql_query_text) } else { None },
             graphql_variables: if self.graphql_mode { self.graphql_vars.iter().cloned().collect() } else { HMap::new() },

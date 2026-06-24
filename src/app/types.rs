@@ -312,42 +312,52 @@ pub enum AuthType {
     Bearer,
     Basic,
     ApiKey,
+    OAuth2ClientCredentials,
+    OAuth2AuthorizationCode,
 }
 
 impl AuthType {
     pub fn label(&self) -> &'static str {
         match self {
-            AuthType::None    => "No Auth",
-            AuthType::Bearer  => "Bearer",
-            AuthType::Basic   => "Basic",
-            AuthType::ApiKey  => "API Key",
+            AuthType::None                   => "No Auth",
+            AuthType::Bearer                 => "Bearer",
+            AuthType::Basic                  => "Basic",
+            AuthType::ApiKey                 => "API Key",
+            AuthType::OAuth2ClientCredentials => "OAuth2 Client Credentials",
+            AuthType::OAuth2AuthorizationCode => "OAuth2 Authorization Code",
         }
     }
 
     pub fn next(&self) -> AuthType {
         match self {
-            AuthType::None   => AuthType::Bearer,
-            AuthType::Bearer => AuthType::Basic,
-            AuthType::Basic  => AuthType::ApiKey,
-            AuthType::ApiKey => AuthType::None,
+            AuthType::None                    => AuthType::Bearer,
+            AuthType::Bearer                  => AuthType::Basic,
+            AuthType::Basic                   => AuthType::ApiKey,
+            AuthType::ApiKey                  => AuthType::OAuth2ClientCredentials,
+            AuthType::OAuth2ClientCredentials => AuthType::OAuth2AuthorizationCode,
+            AuthType::OAuth2AuthorizationCode => AuthType::None,
         }
     }
 
     pub fn as_str(&self) -> &'static str {
         match self {
-            AuthType::None   => "none",
-            AuthType::Bearer => "bearer",
-            AuthType::Basic  => "basic",
-            AuthType::ApiKey => "apikey",
+            AuthType::None                    => "none",
+            AuthType::Bearer                  => "bearer",
+            AuthType::Basic                   => "basic",
+            AuthType::ApiKey                  => "apikey",
+            AuthType::OAuth2ClientCredentials => "oauth2_client_credentials",
+            AuthType::OAuth2AuthorizationCode => "oauth2_authorization_code",
         }
     }
 
     pub fn from_str(s: &str) -> AuthType {
         match s {
-            "bearer" => AuthType::Bearer,
-            "basic"  => AuthType::Basic,
-            "apikey" => AuthType::ApiKey,
-            _        => AuthType::None,
+            "bearer"                    => AuthType::Bearer,
+            "basic"                     => AuthType::Basic,
+            "apikey"                    => AuthType::ApiKey,
+            "oauth2_client_credentials" => AuthType::OAuth2ClientCredentials,
+            "oauth2_authorization_code" => AuthType::OAuth2AuthorizationCode,
+            _                           => AuthType::None,
         }
     }
 }
@@ -395,16 +405,30 @@ pub struct AuthConfig {
     pub api_key_name: String,
     pub api_key_value: String,
     pub api_key_location: ApiKeyLocation,
+    // OAuth2 shared fields
+    pub oauth2_token_url: String,
+    pub oauth2_client_id: String,
+    pub oauth2_client_secret: String,
+    pub oauth2_scope: String,
+    // OAuth2 Authorization Code only
+    pub oauth2_auth_url: String,
+    pub oauth2_redirect_port: u16,
 }
 
 impl AuthConfig {
     pub fn field_count(&self) -> usize {
         match self.auth_type {
-            AuthType::None   => 1,
-            AuthType::Bearer => 2,
-            AuthType::Basic  => 3,
-            AuthType::ApiKey => 4,
+            AuthType::None                    => 1,
+            AuthType::Bearer                  => 2,
+            AuthType::Basic                   => 3,
+            AuthType::ApiKey                  => 4,
+            AuthType::OAuth2ClientCredentials => 5, // type + token_url + client_id + secret + scope
+            AuthType::OAuth2AuthorizationCode => 7, // + auth_url + redirect_port
         }
+    }
+
+    pub fn oauth2_cache_key(&self) -> String {
+        format!("{}:{}", self.oauth2_token_url, self.oauth2_client_id)
     }
 }
 
@@ -415,18 +439,54 @@ pub enum AuthFieldKind {
     BasicPassword,
     ApiKeyName,
     ApiKeyValue,
+    OAuth2TokenUrl,
+    OAuth2ClientId,
+    OAuth2ClientSecret,
+    OAuth2Scope,
+    OAuth2AuthUrl,
+    OAuth2RedirectPort,
 }
 
 impl AuthFieldKind {
     pub fn label(&self) -> &'static str {
         match self {
-            AuthFieldKind::BearerToken   => "Token",
-            AuthFieldKind::BasicUsername => "Username",
-            AuthFieldKind::BasicPassword => "Password",
-            AuthFieldKind::ApiKeyName    => "Key Name",
-            AuthFieldKind::ApiKeyValue   => "Key Value",
+            AuthFieldKind::BearerToken        => "Token",
+            AuthFieldKind::BasicUsername      => "Username",
+            AuthFieldKind::BasicPassword      => "Password",
+            AuthFieldKind::ApiKeyName         => "Key Name",
+            AuthFieldKind::ApiKeyValue        => "Key Value",
+            AuthFieldKind::OAuth2TokenUrl     => "Token URL",
+            AuthFieldKind::OAuth2ClientId     => "Client ID",
+            AuthFieldKind::OAuth2ClientSecret => "Client Secret",
+            AuthFieldKind::OAuth2Scope        => "Scope",
+            AuthFieldKind::OAuth2AuthUrl      => "Auth URL",
+            AuthFieldKind::OAuth2RedirectPort => "Redirect Port",
         }
     }
+}
+
+// ── OAuth2 session state ──────────────────────────────────────────────────────
+
+pub struct CachedToken {
+    pub access_token: String,
+    pub expires_at: Option<std::time::Instant>,
+}
+
+impl CachedToken {
+    pub fn is_valid(&self) -> bool {
+        match self.expires_at {
+            None      => true,
+            Some(exp) => std::time::Instant::now() < exp,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum OAuth2WaitState {
+    Idle,
+    FetchingToken,
+    WaitingForBrowser { port: u16 },
+    Error(String),
 }
 
 // ── Collections tree ──────────────────────────────────────────────────────────

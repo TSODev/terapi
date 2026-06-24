@@ -44,7 +44,22 @@ pub struct StoredAuth {
     pub api_key_value: String,
     #[serde(default)]
     pub api_key_location: String,
+    // OAuth2
+    #[serde(default)]
+    pub oauth2_token_url: String,
+    #[serde(default)]
+    pub oauth2_client_id: String,
+    #[serde(default)]
+    pub oauth2_client_secret: String,
+    #[serde(default)]
+    pub oauth2_scope: String,
+    #[serde(default)]
+    pub oauth2_auth_url: String,
+    #[serde(default = "default_oauth2_redirect_port")]
+    pub oauth2_redirect_port: u16,
 }
+
+fn default_oauth2_redirect_port() -> u16 { 9876 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StoredRequest {

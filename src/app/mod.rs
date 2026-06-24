@@ -11,6 +11,7 @@ mod collections;
 mod envs;
 mod gql_completion;
 mod http;
+pub(super) mod oauth2;
 mod request;
 mod response;
 mod schema;
@@ -99,6 +100,9 @@ pub struct App {
     pub campaigns: Vec<CampaignEntry>,
     pub campaign_cursor: usize,
     pub campaign_run_state: crate::campaign::CampaignRunState,
+    // OAuth2
+    pub oauth2_token_cache: std::collections::HashMap<String, CachedToken>,
+    pub oauth2_wait_state: OAuth2WaitState,
     // Async channels — receive results from spawned tasks
     pub(super) response_rx: mpsc::UnboundedReceiver<HttpOutcome>,
     pub(super) response_tx: mpsc::UnboundedSender<HttpOutcome>,
@@ -106,6 +110,8 @@ pub struct App {
     pub(super) schema_tx: mpsc::UnboundedSender<SchemaOutcome>,
     pub(super) campaign_rx: mpsc::UnboundedReceiver<crate::campaign::CampaignEvent>,
     pub(super) campaign_tx: mpsc::UnboundedSender<crate::campaign::CampaignEvent>,
+    pub(super) oauth2_rx: mpsc::UnboundedReceiver<Result<CachedToken, String>>,
+    pub(super) oauth2_tx: mpsc::UnboundedSender<Result<CachedToken, String>>,
 }
 
 impl App {
@@ -127,6 +133,7 @@ impl App {
         let (response_tx, response_rx) = mpsc::unbounded_channel();
         let (schema_tx, schema_rx) = mpsc::unbounded_channel();
         let (campaign_tx, campaign_rx) = mpsc::unbounded_channel();
+        let (oauth2_tx, oauth2_rx) = mpsc::unbounded_channel();
         Self {
             running: true,
             confirm_quit: false,
@@ -204,6 +211,10 @@ impl App {
             schema_tx,
             campaign_rx,
             campaign_tx,
+            oauth2_token_cache: std::collections::HashMap::new(),
+            oauth2_wait_state: OAuth2WaitState::Idle,
+            oauth2_rx,
+            oauth2_tx,
         }
     }
 
@@ -695,9 +706,63 @@ impl App {
                         (AuthType::ApiKey, 3) => {
                             self.auth_config.api_key_location = self.auth_config.api_key_location.toggle();
                         }
+                        (AuthType::OAuth2ClientCredentials, 1) | (AuthType::OAuth2AuthorizationCode, 1) => {
+                            self.modal = Some(ModalState::EditAuthField {
+                                kind: AuthFieldKind::OAuth2TokenUrl,
+                                value: self.auth_config.oauth2_token_url.clone(),
+                            });
+                        }
+                        (AuthType::OAuth2ClientCredentials, 2) | (AuthType::OAuth2AuthorizationCode, 2) => {
+                            self.modal = Some(ModalState::EditAuthField {
+                                kind: AuthFieldKind::OAuth2ClientId,
+                                value: self.auth_config.oauth2_client_id.clone(),
+                            });
+                        }
+                        (AuthType::OAuth2ClientCredentials, 3) | (AuthType::OAuth2AuthorizationCode, 3) => {
+                            self.modal = Some(ModalState::EditAuthField {
+                                kind: AuthFieldKind::OAuth2ClientSecret,
+                                value: self.auth_config.oauth2_client_secret.clone(),
+                            });
+                        }
+                        (AuthType::OAuth2ClientCredentials, 4) | (AuthType::OAuth2AuthorizationCode, 4) => {
+                            self.modal = Some(ModalState::EditAuthField {
+                                kind: AuthFieldKind::OAuth2Scope,
+                                value: self.auth_config.oauth2_scope.clone(),
+                            });
+                        }
+                        (AuthType::OAuth2AuthorizationCode, 5) => {
+                            self.modal = Some(ModalState::EditAuthField {
+                                kind: AuthFieldKind::OAuth2AuthUrl,
+                                value: self.auth_config.oauth2_auth_url.clone(),
+                            });
+                        }
+                        (AuthType::OAuth2AuthorizationCode, 6) => {
+                            self.modal = Some(ModalState::EditAuthField {
+                                kind: AuthFieldKind::OAuth2RedirectPort,
+                                value: self.auth_config.oauth2_redirect_port.to_string(),
+                            });
+                        }
                         _ => {}
                     }
                 }
+            }
+            KeyCode::Char('f')
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::Auth
+                    && self.modal.is_none() =>
+            {
+                self.trigger_oauth2_fetch();
+            }
+            KeyCode::Esc
+                if self.active_tab == Tab::Request
+                    && self.active_request_tab == RequestTab::Auth
+                    && matches!(self.oauth2_wait_state, OAuth2WaitState::WaitingForBrowser { .. }
+                        | OAuth2WaitState::FetchingToken
+                        | OAuth2WaitState::Error(_)) =>
+            {
+                self.oauth2_wait_state = OAuth2WaitState::Idle;
+                self.request_loading = false;
+                self.status_message = "OAuth2 fetch cancelled".into();
             }
             KeyCode::Char('a')
                 if self.active_tab == Tab::Request
@@ -1319,11 +1384,21 @@ impl App {
                 KeyCode::Esc => {}
                 KeyCode::Enter => {
                     match kind {
-                        AuthFieldKind::BearerToken   => self.auth_config.bearer_token   = value,
-                        AuthFieldKind::BasicUsername => self.auth_config.basic_username = value,
-                        AuthFieldKind::BasicPassword => self.auth_config.basic_password = value,
-                        AuthFieldKind::ApiKeyName    => self.auth_config.api_key_name   = value,
-                        AuthFieldKind::ApiKeyValue   => self.auth_config.api_key_value  = value,
+                        AuthFieldKind::BearerToken        => self.auth_config.bearer_token        = value,
+                        AuthFieldKind::BasicUsername      => self.auth_config.basic_username      = value,
+                        AuthFieldKind::BasicPassword      => self.auth_config.basic_password      = value,
+                        AuthFieldKind::ApiKeyName         => self.auth_config.api_key_name        = value,
+                        AuthFieldKind::ApiKeyValue        => self.auth_config.api_key_value       = value,
+                        AuthFieldKind::OAuth2TokenUrl     => self.auth_config.oauth2_token_url    = value,
+                        AuthFieldKind::OAuth2ClientId     => self.auth_config.oauth2_client_id    = value,
+                        AuthFieldKind::OAuth2ClientSecret => self.auth_config.oauth2_client_secret = value,
+                        AuthFieldKind::OAuth2Scope        => self.auth_config.oauth2_scope        = value,
+                        AuthFieldKind::OAuth2AuthUrl      => self.auth_config.oauth2_auth_url     = value,
+                        AuthFieldKind::OAuth2RedirectPort => {
+                            if let Ok(port) = value.parse::<u16>() {
+                                self.auth_config.oauth2_redirect_port = port;
+                            }
+                        }
                     }
                 }
                 KeyCode::Char(c) => {

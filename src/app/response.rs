@@ -115,6 +115,29 @@ impl App {
                 }
             }
         }
+
+        // ── poll OAuth2 token results ──────────────────────────────────────
+        if let Ok(outcome) = self.oauth2_rx.try_recv() {
+            match outcome {
+                Ok(token) => {
+                    let key = self.auth_config.oauth2_cache_key();
+                    self.oauth2_token_cache.insert(key, token);
+                    self.oauth2_wait_state = OAuth2WaitState::Idle;
+                    self.status_message = "OAuth2 token obtained — press s to send".into();
+                    // If request was waiting for token, fire it now
+                    if self.request_loading {
+                        self.request_loading = false;
+                        self.send_request();
+                    }
+                }
+                Err(msg) => {
+                    self.oauth2_wait_state = OAuth2WaitState::Error(msg.clone());
+                    self.request_loading = false;
+                    let short = msg.chars().take(80).collect::<String>();
+                    self.status_message = format!("OAuth2 error: {}", short);
+                }
+            }
+        }
     }
 
     pub(super) fn response_line_count(&self) -> usize {

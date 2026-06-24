@@ -9,6 +9,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.7.0] — 2026-06-24 — OAuth2 (Client Credentials + Authorization Code)
+
+### Added
+- **OAuth2 Client Credentials** — nouvel `AuthType` dans l'onglet Auth. Configurer Token URL, Client ID, Client Secret et Scope (optionnel). Le token est obtenu automatiquement avant l'envoi de la requête (POST `application/x-www-form-urlencoded`, `grant_type=client_credentials`). Le token est mis en cache en session avec gestion de l'expiration (`expires_in`).
+
+- **OAuth2 Authorization Code** — flow complet en TUI. Configurer Token URL, Client ID, Client Secret, Scope, Auth URL et Redirect Port (défaut : 9876). Terapi ouvre le navigateur avec l'URL d'autorisation, démarre un serveur TCP local temporaire pour capturer le `code`, l'échange contre un token, puis envoie la requête. Timeout 5 min.
+
+- **Touches Auth tab** :
+  - `↑`/`↓` navigue entre les champs ; `Space`/`Enter` cycle le type ou ouvre l'éditeur de champ
+  - `f` — fetch manuel du token OAuth2 (sans envoyer la requête)
+  - `Esc` — annule l'attente du callback navigateur ou efface une erreur OAuth2
+
+- **Indicateur de statut token** — ligne `● token cached` (vert) ou `○ no token  (f to fetch)` (gris) affichée dans le panneau Auth. Banner jaune `⟳ fetching…` / `⟳ waiting for browser…` pendant l'obtention.
+
+- **Persistance TOML** — tous les champs OAuth2 (`oauth2_token_url`, `oauth2_client_id`, `oauth2_client_secret`, `oauth2_scope`, `oauth2_auth_url`, `oauth2_redirect_port`) sont sauvegardés dans le TOML de la collection. Compat ascendante garantie via `#[serde(default)]`. Le token lui-même n'est jamais écrit sur disque (session uniquement).
+
+### Changed
+- L'hint de l'onglet Auth mentionne désormais `f: fetch token`
+
+---
+
 ## [0.6.7] — 2026-06-24 — Fix panic UTF-8 dans le rendu campaigns
 
 ### Fixed

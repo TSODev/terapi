@@ -127,6 +127,6 @@ assert = [
 
 [[outputs]]
 from_step    = "Géocodage inverse"
-path         = "itineraire_etapes.json"
+path         = "/tmp/itineraire_etapes.json"
 select       = "features.0.properties"
 include_vars = ["nom_depart", "nom_arrivee", "distance_m", "duration_s"]

@@ -1396,9 +1396,42 @@ fn render_response_http(frame: &mut Frame, app: &App, area: Rect) {
     // ── Response ──────────────────────────────────────────────────────────
     lines.push(Line::from(Span::styled("── Response ─────────────────────────────────────────", sep_style)));
 
+    let diag_label = Style::default().fg(Color::Indexed(245));
+    let diag_val   = Style::default().fg(Color::White);
+
     match app.response_status {
-        None => {
+        None if app.last_request_raw.is_none() => {
             lines.push(Line::from(Span::styled("No response yet.", hint_style)));
+        }
+        None => {
+            // Transport error — request was sent but no HTTP response received.
+            lines.push(Line::from(Span::styled(
+                "⚠  Transport error",
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            )));
+            lines.push(Line::from(Span::raw("")));
+            let raw = app.response_body.as_deref().unwrap_or("Unknown error");
+            let msg = raw.strip_prefix("Error: ").unwrap_or(raw);
+            for l in msg.lines() {
+                let t = l.trim();
+                if t.is_empty() { continue; }
+                let style = if t.starts_with("caused by:") {
+                    Style::default().fg(Color::Indexed(245))
+                } else {
+                    Style::default().fg(Color::Red)
+                };
+                lines.push(Line::from(Span::styled(format!("  {t}"), style)));
+            }
+
+            // Still show timing if we have it (e.g. timeout after partial connect).
+            if let Some(elapsed) = app.response_elapsed_ms {
+                lines.push(Line::from(Span::raw("")));
+                lines.push(Line::from(Span::styled("── Diagnostics ──────────────────────────────────────", sep_style)));
+                lines.push(Line::from(vec![
+                    Span::styled("  Elapsed     ", diag_label),
+                    Span::styled(format!("{} ms", elapsed), Style::default().fg(Color::Red)),
+                ]));
+            }
         }
         Some(status) => {
             let status_color = match status {
@@ -1424,6 +1457,69 @@ fn render_response_http(frame: &mut Frame, app: &App, area: Rect) {
             lines.push(Line::from(Span::raw("")));
             let body = app.response_body.as_deref().unwrap_or("");
             lines.extend(highlight_raw(body));
+
+            // ── Diagnostics ───────────────────────────────────────────────
+            lines.push(Line::from(Span::raw("")));
+            lines.push(Line::from(Span::styled("── Diagnostics ──────────────────────────────────────", sep_style)));
+
+            // Elapsed + color-coded threshold
+            if let Some(elapsed) = app.response_elapsed_ms {
+                let t_color = if elapsed < 300 { Color::Green }
+                    else if elapsed < 1000 { Color::Yellow }
+                    else { Color::Red };
+                lines.push(Line::from(vec![
+                    Span::styled("  Elapsed     ", diag_label),
+                    Span::styled(format!("{} ms", elapsed),
+                        Style::default().fg(t_color).add_modifier(Modifier::BOLD)),
+                ]));
+            }
+
+            // Response size (decompressed — reqwest decompresses automatically)
+            let size = body.len();
+            let compressed = app.response_headers.iter()
+                .any(|(k, _)| k.to_lowercase() == "content-encoding");
+            let size_str = if size < 1024 {
+                format!("{} B", size)
+            } else if size < 1024 * 1024 {
+                format!("{:.1} KB  ({} B)", size as f64 / 1024.0, size)
+            } else {
+                format!("{:.1} MB  ({} B)", size as f64 / (1024.0 * 1024.0), size)
+            };
+            let size_suffix = if compressed { "  (decompressed)" } else { "" };
+            lines.push(Line::from(vec![
+                Span::styled("  Size        ", diag_label),
+                Span::styled(format!("{}{}", size_str, size_suffix), diag_val),
+            ]));
+
+            // Content-Type
+            if let Some((_, ct)) = app.response_headers.iter()
+                .find(|(k, _)| k.to_lowercase() == "content-type")
+            {
+                lines.push(Line::from(vec![
+                    Span::styled("  Type        ", diag_label),
+                    Span::styled(ct.clone(), Style::default().fg(Color::Cyan)),
+                ]));
+            }
+
+            // Content-Encoding (if present)
+            if let Some((_, enc)) = app.response_headers.iter()
+                .find(|(k, _)| k.to_lowercase() == "content-encoding")
+            {
+                lines.push(Line::from(vec![
+                    Span::styled("  Encoding    ", diag_label),
+                    Span::styled(enc.clone(), Style::default().fg(Color::Cyan)),
+                ]));
+            }
+
+            // Server
+            if let Some((_, srv)) = app.response_headers.iter()
+                .find(|(k, _)| k.to_lowercase() == "server")
+            {
+                lines.push(Line::from(vec![
+                    Span::styled("  Server      ", diag_label),
+                    Span::styled(srv.clone(), diag_val),
+                ]));
+            }
         }
     }
 

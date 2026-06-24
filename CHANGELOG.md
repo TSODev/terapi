@@ -5,7 +5,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Unreleased]
+## [0.7.4] — 2026-06-24
 
 ### Added
 - **Shift+Tab** — navigue les onglets principaux dans le sens inverse (Collections ← Request ← Env ← History ← Campaigns).

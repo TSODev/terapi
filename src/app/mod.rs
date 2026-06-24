@@ -1048,6 +1048,7 @@ impl App {
                         if self.campaign_cursor > 0 {
                             self.campaign_cursor -= 1;
                             self.campaign_result_scroll = 0;
+                            self.campaign_run_state = crate::campaign::CampaignRunState::Idle;
                         }
                     }
                     CampaignFocus::Result => {
@@ -1061,6 +1062,7 @@ impl App {
                         if self.campaign_cursor + 1 < self.campaigns.len() {
                             self.campaign_cursor += 1;
                             self.campaign_result_scroll = 0;
+                            self.campaign_run_state = crate::campaign::CampaignRunState::Idle;
                         }
                     }
                     CampaignFocus::Result => {

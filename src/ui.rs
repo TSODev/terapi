@@ -1378,6 +1378,20 @@ fn render_response_http(frame: &mut Frame, app: &App, area: Rect) {
                     Span::styled(v.clone(), header_val),
                 ]));
             }
+            // Show cookies that were sent from the cookie jar (cookie_jar_enabled).
+            if app.cookie_jar && !app.response_cookies.is_empty() {
+                let cookie_str = app.response_cookies.iter()
+                    .map(|(name, rest)| {
+                        let val = rest.split(';').next().unwrap_or(rest).trim();
+                        format!("{}={}", name, val)
+                    })
+                    .collect::<Vec<_>>()
+                    .join("; ");
+                lines.push(Line::from(vec![
+                    Span::styled("Cookie: ", header_key),
+                    Span::styled(cookie_str, header_val),
+                ]));
+            }
             if let Some(body) = &req.body {
                 lines.push(Line::from(vec![
                     Span::styled("Content-Length: ", header_key),
@@ -1457,6 +1471,46 @@ fn render_response_http(frame: &mut Frame, app: &App, area: Rect) {
             lines.push(Line::from(Span::raw("")));
             let body = app.response_body.as_deref().unwrap_or("");
             lines.extend(highlight_raw(body));
+
+            // ── Redirect chain ────────────────────────────────────────────
+            if !app.response_redirects.is_empty() {
+                lines.push(Line::from(Span::raw("")));
+                lines.push(Line::from(Span::styled("── Redirects ────────────────────────────────────────", sep_style)));
+                for (i, (code, url)) in app.response_redirects.iter().enumerate() {
+                    let code_color = match code {
+                        301 | 308 => Color::Yellow,
+                        302 | 303 => Color::Cyan,
+                        307       => Color::Blue,
+                        _         => Color::White,
+                    };
+                    lines.push(Line::from(vec![
+                        Span::styled(format!("  {}  ", i + 1), hint_style),
+                        Span::styled(format!("{} ", code),
+                            Style::default().fg(code_color).add_modifier(Modifier::BOLD)),
+                        Span::styled("→ ", hint_style),
+                        Span::styled(url.clone(), header_val),
+                    ]));
+                }
+            }
+
+            // ── Cookies set ───────────────────────────────────────────────
+            if !app.response_cookies.is_empty() {
+                lines.push(Line::from(Span::raw("")));
+                lines.push(Line::from(Span::styled("── Cookies ──────────────────────────────────────────", sep_style)));
+                for (name, rest) in &app.response_cookies {
+                    let mut parts = rest.splitn(2, ';');
+                    let value = parts.next().unwrap_or(rest).trim();
+                    let attrs  = rest.find(';').map(|i| &rest[i..]).unwrap_or("").trim();
+                    lines.push(Line::from(vec![
+                        Span::styled(format!("  {}=", name), Style::default().fg(Color::Yellow)),
+                        Span::styled(value.to_string(), header_val),
+                        Span::styled(
+                            if attrs.is_empty() { String::new() } else { format!("  {}", attrs) },
+                            hint_style,
+                        ),
+                    ]));
+                }
+            }
 
             // ── Diagnostics ───────────────────────────────────────────────
             lines.push(Line::from(Span::raw("")));

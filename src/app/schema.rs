@@ -24,7 +24,7 @@ impl App {
             let body = serde_json::to_string(&serde_json::json!({"query": Q}))
                 .unwrap_or_default();
 
-            let result = match execute_http(client, "POST", &url, &headers, Some(body)).await {
+            let result = match execute_http(client, "POST", &url, &headers, Some(body), false).await {
                 Err(e) => Err(e),
                 Ok(h) if h.status != 200 => Err(format!("HTTP {} — {}", h.status,
                     h.body.chars().take(200).collect::<String>())),
@@ -55,7 +55,7 @@ impl App {
             let body = serde_json::to_string(&serde_json::json!({"query": q}))
                 .unwrap_or_default();
 
-            let result = match execute_http(client, "POST", &url, &headers, Some(body)).await {
+            let result = match execute_http(client, "POST", &url, &headers, Some(body), false).await {
                 Err(e) => Err(e),
                 Ok(h) if h.status != 200 => Err(format!("HTTP {} — {}", h.status,
                     h.body.chars().take(200).collect::<String>())),

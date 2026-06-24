@@ -9,6 +9,8 @@ pub struct HttpResult {
     pub body: String,
     pub headers: Vec<(String, String)>,
     pub elapsed_ms: u64,
+    /// Redirect hops recorded before the final response: (status, url_followed_to).
+    pub redirect_chain: Vec<(u16, String)>,
 }
 
 pub type HttpOutcome = anyhow::Result<HttpResult, String>;

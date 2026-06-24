@@ -75,6 +75,8 @@ pub struct App {
     pub response_status: Option<u16>,
     pub response_elapsed_ms: Option<u64>,
     pub response_headers: Vec<(String, String)>,
+    pub response_redirects: Vec<(u16, String)>,
+    pub response_cookies: Vec<(String, String)>,
     pub response_view: ResponseView,
     pub response_cursor: usize,
     pub response_scroll: u16,
@@ -188,6 +190,8 @@ impl App {
             response_status: None,
             response_elapsed_ms: None,
             response_headers: Vec::new(),
+            response_redirects: Vec::new(),
+            response_cookies: Vec::new(),
             response_view: ResponseView::Json,
             response_cursor: 0,
             response_scroll: 0,
@@ -229,11 +233,7 @@ impl App {
             .user_agent(concat!("terapi/", env!("CARGO_PKG_VERSION")))
             .timeout(std::time::Duration::from_secs(self.request_timeout_secs))
             .danger_accept_invalid_certs(self.skip_tls_verify)
-            .redirect(if self.follow_redirects {
-                reqwest::redirect::Policy::limited(10)
-            } else {
-                reqwest::redirect::Policy::none()
-            });
+            .redirect(reqwest::redirect::Policy::none()); // redirects handled manually
         if self.cookie_jar {
             builder = builder.cookie_provider(self.cookie_jar_store.clone());
         }

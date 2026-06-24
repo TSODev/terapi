@@ -90,6 +90,18 @@ impl App {
                 Ok(http) => {
                     self.response_status = Some(http.status);
                     self.response_elapsed_ms = Some(http.elapsed_ms);
+                    self.response_redirects = http.redirect_chain.clone();
+                    // Collect Set-Cookie headers from the final response.
+                    self.response_cookies = http.headers.iter()
+                        .filter(|(k, _)| k.to_lowercase() == "set-cookie")
+                        .map(|(_, v)| {
+                            // Split "name=value; Path=/; ..." into (name, value+attrs).
+                            let mut parts = v.splitn(2, '=');
+                            let name = parts.next().unwrap_or("").trim().to_string();
+                            let rest  = parts.next().unwrap_or("").trim().to_string();
+                            (name, rest)
+                        })
+                        .collect();
                     self.response_headers = http.headers.clone();
                     self.response_body = Some(http.body.clone());
                     self.response_cursor = 0;

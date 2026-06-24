@@ -300,8 +300,9 @@ impl App {
             format!("Sending {} {}…", method, resolved_url)
         };
 
+        let follow_redirects = self.follow_redirects;
         tokio::spawn(async move {
-            let result = execute_http(client, &method, &resolved_url, &resolved_headers, body).await;
+            let result = execute_http(client, &method, &resolved_url, &resolved_headers, body, follow_redirects).await;
             let _ = tx.send(result);
         });
     }

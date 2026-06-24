@@ -84,6 +84,11 @@ terapi --help
 
 ## TUI keybindings
 
+| Key | Action |
+|-----|--------|
+| `Tab` | Cycle panels forward |
+| `Shift+Tab` | Cycle panels backward |
+
 **Request panel**
 
 | Key | Action |
@@ -174,8 +179,9 @@ terapi --help
 | Key | Action |
 |-----|--------|
 | `Tab` | Switch panel |
-| `↑` / `↓` | Navigate campaigns |
+| `↑` / `↓` | Navigate campaign list (List focus) — or move step cursor (Done panel, Result focus) |
 | `r` | Run selected campaign — or open params modal if `[[params]]` defined |
+| `L` | Load selected step into Request tab (Done panel, Result focus) |
 | `E` | Open campaign TOML in `$EDITOR` — TUI suspends, reloads on exit |
 | `Esc` | Clear run result |
 | `q` `q` | Quit (press twice to confirm) |

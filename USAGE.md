@@ -789,10 +789,17 @@ The **right panel** adapts to the run state:
 
 | Key | Action |
 |-----|--------|
-| `↑` / `↓` | Navigate campaign list |
+| `↑` / `↓` | Navigate campaign list (List focus) — or move step cursor in Done panel (Result focus) |
 | `r` | Run the selected campaign (opens params modal if `[[params]]` defined) |
+| `L` | Load the selected step into the Request tab (Done panel, Result focus) |
 | `E` | Open campaign TOML in `$EDITOR`, reload on exit |
 | `Esc` | Clear run result (return to Idle) |
+
+**Loading a failing step for inspection (`L`)** — after a campaign run, switch focus to the right panel (`→`) then use `↑`/`↓` to move the cyan `▶` cursor between HTTP steps (WAIT and TRSF steps are skipped). Press `L` to open the selected step in the Request tab with all fields fully resolved (URL, method, headers, body — `{{VAR}}` already substituted). From there you can:
+- Press `s` to replay the step
+- Press `r` twice for the HTTP view (diagnostics, redirect chain, cookies)
+- Modify headers or body and re-send
+- Press `S` to save to a collection
 
 **Campaign parameters modal** — if the selected campaign declares `[[params]]`, pressing `r` opens a form instead of running immediately. Each parameter is shown with its current value (pre-filled from `default`):
 
@@ -843,7 +850,8 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 
 | Key | Context | Action |
 |-----|---------|--------|
-| `Tab` | Global | Cycle panels: Request → Collections → History |
+| `Tab` | Global | Cycle panels forward: Collections → Request → Env → History → Campaigns |
+| `Shift+Tab` | Global | Cycle panels backward: Collections → Campaigns → History → Env → Request |
 | `q` | Global | Quit — press twice to confirm (status bar turns yellow on first press) |
 | `Esc` | Global | Close modal / exit edit mode — does **not** quit the app |
 | `n` | Request panel | New request — clear all fields |
@@ -900,7 +908,9 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `↑` / `↓` | History panel | Navigate entries |
 | `Enter` | History panel | Load entry into Request tab |
 | `d` | History panel | Delete selected entry |
-| `↑` / `↓` | Campaigns panel | Navigate campaign list |
+| `↑` / `↓` | Campaigns panel (List) | Navigate campaign list |
+| `↑` / `↓` | Campaigns panel (Done, Result focus) | Move step cursor (▶) between HTTP steps |
+| `L` | Campaigns panel (Done, Result focus) | Load selected step into Request tab |
 | `r` | Campaigns panel | Run campaign (or open params modal if `[[params]]` defined) |
 | `E` | Campaigns panel | Open campaign TOML in `$EDITOR`, reload on exit |
 | `Esc` | Campaigns panel | Clear run result |

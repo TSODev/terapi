@@ -109,7 +109,7 @@ terapi --help
 | `Esc` | Auth sub-tab — cancel OAuth2 browser wait or clear OAuth2 error |
 | `↑` / `↓` | Options sub-tab — navigate between options |
 | `Space` / `Enter` | Options sub-tab — toggle (Skip TLS / Follow redirects / Cookie jar) or cycle timeout |
-| `r` | Cycle response view: JSON → Raw → HTTP exchange |
+| `r` | Cycle response view: JSON → Raw → HTTP (full diagnostics + redirect chain + cookies) |
 | `-` / `=` | Resize Key column |
 | `q` `q` | Quit (press twice to confirm) |
 
@@ -218,6 +218,43 @@ cp examples/transform_demo.toml .terapi/campaigns/
 # Or use the import command (auto-detects collection vs campaign)
 terapi import examples/crud_demo.toml
 ```
+
+---
+
+## HTTP view — debugging
+
+Press `r` twice from the response area to reach the **HTTP view**. It shows the complete exchange in wire format — useful when you need to see exactly what was sent and what came back:
+
+```
+── Request ──────────────────────────────────────────────
+POST /login HTTP/1.1
+Host: api.tsodev.fr
+Content-Type: application/json
+Cookie: session=abc123            ← jar cookies when cookie jar is enabled
+Content-Length: 45
+
+{"username":"thierry","password":"Pr0bleme#"}
+
+── Response ─────────────────────────────────────────────
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"token":"eyJ0eXAiOiJKV1Qi…"}
+
+── Redirects ────────────────────────────────────────────   ← 3xx hops (when follow redirects on)
+  1  301 → https://www.example.com/login
+
+── Cookies ──────────────────────────────────────────────   ← Set-Cookie details
+  session=abc123  ; Path=/; HttpOnly
+
+── Diagnostics ──────────────────────────────────────────
+  Elapsed     84 ms                   ← green <300ms / yellow <1s / red ≥1s
+  Size        1.2 KB
+  Type        application/json; charset=utf-8
+  Server      nginx/1.24.0
+```
+
+Transport errors (DNS failure, TLS error, timeout) are displayed inline with the full `caused by:` chain.
 
 ---
 

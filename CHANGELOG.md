@@ -9,6 +9,92 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.7.2] — 2026-06-24 — Redirect chain & cookie jar visibility
+
+### Added
+- **Redirect chain capture** — terapi now handles redirects manually (instead of delegating to reqwest's auto-follow). Each 3xx hop is recorded with its status code and resolved destination URL. The HTTP view shows a new `── Redirects ──` section listing every hop (e.g. `1  301 → https://www.example.com/`) with colour-coded status codes (301/308 yellow, 302/303 cyan, 307 blue). Up to 20 hops are captured.
+
+- **Cookie jar visibility in HTTP view** — `Set-Cookie` response headers are now parsed into a structured `response_cookies` list on `App`. Two new sections appear in the HTTP view:
+  - **Request section** — when the cookie jar is enabled, a reconstructed `Cookie: name=value; …` header line shows what cookies would be sent in the next request (drawn from the cookies received in the last response).
+  - **`── Cookies ──` section** — after the response body, each received `Set-Cookie` is displayed as `name=value` (yellow) followed by its attributes (Path, Secure, HttpOnly…) in grey. Useful to understand session and tracking cookies without reading raw headers.
+
+- **URL resolution for relative redirects** — `Location: /new-path` is correctly resolved against the current URL base (scheme + host + port) using `reqwest::Url::join`.
+
+### Changed
+- `execute_http` in `app/http.rs` now takes a `follow_redirects: bool` parameter. When `true`, it loops over 3xx responses and builds the `redirect_chain`. Schema introspection calls (`fetch_schema`, `fetch_type_detail`) pass `false` — they never need to follow redirects.
+
+---
+
+## [0.7.1] — 2026-06-24 — foreach, wildcard extraction, JSON highlight & HTTP diagnostics
+
+### Added
+- **`foreach` step** — iterate a step over every element of an extracted JSON array. Add `foreach = "{{VAR}}"` on any step; `{{item}}` is the current element and `{{item_index}}` its 0-based position:
+
+  ```toml
+  [[steps]]
+  name    = "List users"
+  url     = "https://api.example.com/users"
+  [steps.extract]
+  user_ids = "*.id"          # collects all id values → JSON array
+
+  [[steps]]
+  name    = "Get profile"
+  foreach = "{{user_ids}}"
+  url     = "https://api.example.com/users/{{item}}/profile"
+  ```
+
+  - Live progress: `✓ Get profile [3/10]` for each iteration
+  - `continue_on_error` and assertions apply per iteration
+  - Output connector collects all N bodies into the JSON array
+  - Campaign idle view shows a `↻` badge on foreach steps
+
+- **`*` wildcard in extraction paths** — `data.*.id` maps over an array and returns a new JSON array of all matching values. Combines naturally with `foreach`:
+  - `"*.id"` → extracts all `id` fields from the root array
+  - `"items.*.price"` → extracts all `price` from `items` array
+  - Works recursively: `"a.*.b.*.c"` chains multiple wildcards
+
+- **`include_vars` in output connector** — a campaign `[[outputs]]` block can now carry identifying context alongside each response body:
+
+  ```toml
+  [[outputs]]
+  from_step    = "Get weather"
+  path         = "results.json"
+  include_vars = ["city", "country", "lat", "lon"]
+  ```
+
+  Each output object becomes `{ "body": {...}, "city": "Paris", "country": "FR", … }`.
+
+- **JSON syntax highlighting** — Raw and HTTP response views now colour-code JSON content (no new dependencies — pure Rust char-by-char tokenizer):
+  - Keys → Cyan bold
+  - Strings → Green
+  - Numbers → Yellow
+  - `true` / `false` → Magenta
+  - `null` → Dark grey
+  - Braces / brackets → Indexed(240) bold
+
+- **HTTP view diagnostics section** — a new `── Diagnostics ──` section at the bottom of the HTTP response view shows:
+  - **Elapsed** — response time in ms, colour-coded: green < 300 ms, yellow < 1 s, red ≥ 1 s
+  - **Size** — response body size (B / KB / MB) with `(decompressed)` if `Content-Encoding` was present
+  - **Type** — `Content-Type` from response headers
+  - **Encoding** — `Content-Encoding` if present
+  - **Server** — `Server` header if present
+
+- **Transport error display in HTTP view** — when a request fails at the transport layer (TLS failure, DNS error, connection refused, timeout), the HTTP view now shows:
+  - `⚠  Transport error` in red bold
+  - The full error chain (each `caused by:` line) formatted inline with indentation
+  - Elapsed time (if available, e.g. for timeouts)
+
+### Changed
+- Campaign panel: switching campaign in the left list now resets the right panel to **Idle** — the previous run result is cleared. Previously, the Done panel from the last run was still visible when selecting a different campaign.
+- Campaign idle view: GraphQL steps display a magenta `GQL` badge instead of `POST`, matching the rest of the TUI.
+
+### Added (examples)
+- **`examples/eu_capitals.toml`** — full 4-step pipeline: GraphQL seed (53 EU countries from countries API) → language transform → geocode capital (IGN Géoplateforme) → live weather (Open-Meteo). Output includes `include_vars` with country metadata. Paired with `examples/eu_capitals_map.html`.
+- **`examples/eu_capitals_map.html`** — dark-themed Leaflet.js interactive map. Reads `eu_capitals_weather.json` and renders each capital as a coloured bubble (temperature scale blue → red) with flag emoji, weather icon, and a full detail popup. Served locally via `python3 -m http.server 8080 --directory examples`.
+- **`examples/foreach_demo.toml`** — demonstrates `foreach`: GET /users → `*.id` wildcard extraction → foreach GET /todos per user.
+
+---
+
 ## [0.7.0] — 2026-06-24 — OAuth2 (Client Credentials + Authorization Code)
 
 ### Added

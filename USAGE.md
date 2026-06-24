@@ -548,16 +548,17 @@ Press `/` in the JSON view to open a search bar at the bottom. Type to filter �
 | View | Content |
 |------|---------|
 | JSON | Parsed JSON tree — foldable, colour-coded, cursor navigation, path bar, search |
-| Raw | Plain response body text |
-| HTTP | Full HTTP exchange: request line + headers + body, then response status + headers + body |
+| Raw | Plain response body text with JSON syntax highlighting |
+| HTTP | Full HTTP exchange with diagnostics, redirect chain, and cookie details |
 
-The **HTTP view** is especially useful for debugging — it shows the exact request that was sent (with all `{{VAR}}` already resolved) and the full response headers:
+The **HTTP view** is the primary debugging tool — it shows the exact request sent (all `{{VAR}}` resolved), the full response, redirect chain, received cookies, and timing diagnostics.
 
 ```
 ── Request ──────────────────────────────────────────────
 POST /login HTTP/1.1
 Host: api.tsodev.fr
 Content-Type: application/json
+Cookie: session=abc123; csrf=xyz          ← jar cookies (when cookie jar on)
 Content-Length: 45
 
 {"username":"thierry","password":"Pr0bleme#"}
@@ -565,11 +566,54 @@ Content-Length: 45
 ── Response ─────────────────────────────────────────────
 HTTP/1.1 200 OK
 Content-Type: application/json
-Date: Tue, 02 Jun 2026 08:34:44 GMT
-...
+Set-Cookie: session=abc123; Path=/; HttpOnly
 
 {"token":"eyJ0eXAiOiJKV1Qi…"}
+
+── Redirects ────────────────────────────────────────────   ← only when redirects occurred
+  1  301 → https://www.example.com/login
+
+── Cookies ──────────────────────────────────────────────   ← only when Set-Cookie present
+  session=abc123  ; Path=/; HttpOnly
+  csrf=xyz        ; Path=/; SameSite=Strict
+
+── Diagnostics ──────────────────────────────────────────
+  Elapsed     84 ms
+  Size        1.2 KB  (1247 B)
+  Type        application/json; charset=utf-8
+  Server      nginx/1.24.0
 ```
+
+**Redirect chain** — when "Follow redirects" is on (Options sub-tab), each 3xx hop is listed with its status code and destination URL. Useful to diagnose redirect loops, HTTP→HTTPS upgrades, or URL canonicalization.
+
+| Status colour | Meaning |
+|---------------|---------|
+| Yellow | 301 Moved Permanently / 308 Permanent Redirect |
+| Cyan | 302 Found / 303 See Other |
+| Blue | 307 Temporary Redirect |
+
+**Cookie jar** — when "Cookie jar" is on (Options sub-tab), the Request section shows the reconstructed `Cookie:` header that was sent (derived from the cookies received in the previous response). The `── Cookies ──` section lists each `Set-Cookie` set by the server with its name, value, and attributes (Path, Secure, HttpOnly, SameSite…).
+
+**Transport error** — when the request fails before an HTTP response is received (DNS resolution failure, TLS error, connection refused, timeout), the Response section shows:
+
+```
+── Response ─────────────────────────────────────────────
+⚠  Transport error
+
+  error sending request for url: https://…
+    caused by: error trying to connect: dns error
+    caused by: failed to lookup address
+```
+
+**Diagnostics** — always shown at the bottom of a successful response:
+
+| Row | Colour | Meaning |
+|-----|--------|---------|
+| Elapsed | Green / Yellow / Red | < 300 ms / < 1 s / ≥ 1 s |
+| Size | — | Decompressed body size; `(decompressed)` suffix if `Content-Encoding` was set |
+| Type | Cyan | `Content-Type` header |
+| Encoding | Cyan | `Content-Encoding` if present |
+| Server | — | `Server` header if present |
 
 **Value type colours:**
 

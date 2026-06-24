@@ -2070,8 +2070,8 @@ fn render_history_panel(frame: &mut Frame, app: &App, area: Rect) {
             None => String::new(),
         };
         let url_max = area.width.saturating_sub(46) as usize;
-        let url_display = if entry.url.len() > url_max {
-            format!("{}…", &entry.url[..url_max.saturating_sub(1)])
+        let url_display = if entry.url.chars().count() > url_max {
+            format!("{}…", entry.url.chars().take(url_max.saturating_sub(1)).collect::<String>())
         } else {
             entry.url.clone()
         };
@@ -2105,7 +2105,9 @@ fn render_history_panel(frame: &mut Frame, app: &App, area: Rect) {
                 .border_style(Style::default().fg(Color::Cyan)),
         );
 
-    frame.render_widget(list, area);
+    let mut state = ratatui::widgets::ListState::default();
+    state.select(Some(app.history_cursor));
+    frame.render_stateful_widget(list, area, &mut state);
 }
 
 // ── Shared helpers ───────────────────────────────────────────────────────────

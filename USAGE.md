@@ -269,16 +269,17 @@ Press `S` (Shift+s) from anywhere in the Request tab to save the current request
 │                                                  │
 │  Folder:      ↑ PokeAPI ↓          (3/6)        │
 │                                                  │
-│  Tab: next field   ↑/↓: navigate   Enter: save  │
+│  Tab: next field  ↑/↓: navigate  n: new  Enter: save  │
 └──────────────────────────────────────────────────┘
 ```
 
 - **Name** — free text, required
-- **Collection** — `↑`/`↓` to cycle through collections; counter shows position
-- **Folder** — `↑`/`↓` to cycle through folders in the selected collection plus `(root)` for the collection root
-- `Tab` moves between the three fields
+- **Collection** — `↑`/`↓` to cycle through existing collections; `n` to create a new collection inline (`+ _` prompt, `Enter` to confirm, `Esc` to cancel)
+- **Folder** — `↑`/`↓` to cycle through folders in the selected collection plus `(root)`; `n` to create a new folder inline
+- `Tab` always cycles Name → Collection → Folder → Name
 - `Enter` saves and writes to disk immediately; the request appears in the Collections tab
 - `Esc` cancels without saving
+- When a request was loaded from Collections (`Enter` or `e`) or already saved in the session, the modal opens pre-filled with the existing name, collection, and folder
 
 The saved request includes method, URL (with query params appended), headers, and body.
 
@@ -643,7 +644,8 @@ Displays the full collection tree loaded from disk. Collections can contain fold
 | `n` | Create a new collection |
 | `f` | Create a new folder inside the selected collection |
 | `a` | Add a request to the selected collection or folder |
-| `e` | Edit the selected request (name, method, URL) |
+| `e` | Edit the selected request — loads all fields into Request tab; `S` opens pre-filled Update modal |
+| `D` | Duplicate selected request — loads all fields, opens Save modal with `"<name> copy"` in same collection/folder |
 | `d` | Delete the selected item (collection, folder, or request) |
 
 **Creating a collection (`n`)** — a modal prompts for a name. Press `Enter` to save or `Esc` to cancel. The collection is immediately written to disk.
@@ -670,7 +672,7 @@ The request is added to:
 - the collection root, if a collection or root request is selected
 - the folder, if a folder or folder request is selected
 
-**Loading a request (`Enter` on a request node)** — pressing `Enter` on a non-folder item loads the request into the Request tab and switches to it. Method, URL, headers, and body are all restored. The response area is cleared and the status bar confirms the load.
+**Loading a request (`Enter` on a request node)** — pressing `Enter` on a non-folder item loads the request into the Request tab and switches to it. Method, URL, headers, and body are all restored. The response area is cleared, and `editing_request_origin` is set so that `S` opens a pre-filled Save modal.
 
 **Editing a request (`e`)** — pressing `e` on a request node loads the request fully into the **Request tab** and switches to it. All fields are editable: URL (press `e` to enter URL mode), method (`m` or `↑`/`↓` in URL mode), headers, URL params, body, auth, and description (`i` to edit).
 
@@ -682,6 +684,10 @@ Press `S` to open the **Update Request** modal, pre-filled with the original nam
 | Edit name + keep location → `Enter` | Renames the request in place |
 | Change collection or folder → `Enter` | Saves as a new entry at the new location (original preserved) |
 | `Esc` | Cancel — no changes written |
+
+The modal remains pre-filled on every subsequent `S` press within the session — no need to re-type the name or re-select the collection after saving.
+
+**Duplicating a request (`D`)** — pressing `D` on a request node loads all its fields into the Request tab, switches to it, and immediately opens the Save modal pre-filled with `"<name> copy"` in the same collection and folder. The original request is never modified — pressing `Enter` in the modal saves a brand-new entry.
 
 Press `n` to discard all edits and start a new blank request instead.
 
@@ -737,11 +743,13 @@ The panel is split into two columns:
 | `n` | Create a new environment |
 | `a` | Add a variable to the selected environment |
 | `d` | Delete the selected environment (focus left) or variable (focus right) |
-| `Enter` | Activate the selected environment (focus left) |
+| `Enter` | Activate the selected environment (focus left) / Edit selected variable (focus right) |
 
 **Creating an environment (`n`)** — prompts for a name. Saved to `<terapi_dir>/envs/<name>.toml`.
 
 **Adding a variable (`a`)** — modal with two fields: Key and Value. Use `Tab` to switch between them. The variable is added to the currently selected environment. Variables are displayed sorted alphabetically.
+
+**Editing a variable (`Enter` on a variable)** — switch focus to the right panel (`→`), navigate to the variable with `↑`/`↓`, then press `Enter`. The "Edit Variable" modal (green border) opens pre-filled with the current key and value, with the cursor on the Value field. Use `Tab` to switch between Key and Value. Press `Enter` to save (renaming the key is supported), `Esc` to cancel.
 
 **Activating an environment** — press `Enter` on an environment in the left panel. The `●` indicator moves to it. The active environment name is displayed in the Request panel URL bar title: ` URL · env: Test `. Its variables are substituted in all `{{VAR}}` placeholders in the URL, headers, and body when a request is sent.
 
@@ -908,12 +916,14 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `n` | Collections panel | New collection |
 | `f` | Collections panel | New folder in selected collection |
 | `a` | Collections panel | Add request to selected collection / folder |
-| `e` | Collections panel (request) | Edit request (name, method, URL) |
+| `e` | Collections panel (request) | Edit request — loads all fields into Request tab; `S` opens pre-filled Update modal |
+| `D` | Collections panel (request) | Duplicate request — opens Save modal with `"<name> copy"` in same collection/folder |
 | `E` | Collections panel | Open collection TOML in `$EDITOR`, reload on exit |
 | `d` | Collections panel | Delete selected item |
 | `←` / `→` | Env panel | Switch focus: Environments ↔ Variables |
 | `↑` / `↓` | Env panel | Navigate within focused panel |
 | `Enter` | Env panel (left) | Activate selected environment |
+| `Enter` | Env panel (right) | Edit selected variable (pre-filled modal, green border) |
 | `n` | Env panel | New environment |
 | `a` | Env panel | Add variable to selected environment |
 | `d` | Env panel | Delete selected environment or variable |

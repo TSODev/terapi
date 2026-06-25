@@ -146,7 +146,8 @@ terapi --help
 | `n` | New collection |
 | `f` | New folder in selected collection |
 | `a` | Add request to selected collection / folder |
-| `e` | Edit selected request — loads into Request tab with all fields editable (URL, headers, body, auth, description); `S` opens Update Request modal (pre-filled name/location; change location to save as new) |
+| `e` | Edit selected request — loads into Request tab with all fields editable; `S` opens Update Request modal pre-filled with name/collection/folder |
+| `D` | Duplicate selected request — loads all fields, opens Save modal with `"<name> copy"` in same collection/folder, saves as new entry |
 | `E` | Open collection TOML in `$EDITOR` — TUI suspends, reloads on exit |
 | `/` | Search / filter the collection tree — type to narrow the list, `↑`/`↓` navigate, `Enter` loads, `Esc` closes |
 | `d` | Delete selected item |
@@ -159,7 +160,7 @@ terapi --help
 | `Tab` | Switch panel |
 | `←` / `→` | Switch focus: Environments ↔ Variables |
 | `↑` / `↓` | Navigate within focused panel |
-| `Enter` | Activate selected environment |
+| `Enter` | Activate selected environment (focus left) / Edit selected variable (focus right) |
 | `n` | New environment |
 | `a` | Add variable to selected environment |
 | `d` | Delete selected environment or variable |

@@ -386,6 +386,14 @@ fn run_builder(
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+fn toml_escape(s: &str) -> String {
+    s.replace('\\', "\\\\")
+     .replace('"', "\\\"")
+     .replace('\n', "\\n")
+     .replace('\r', "")
+     .replace('\t', "\\t")
+}
+
 fn empty_campaign(name: &str) -> Campaign {
     Campaign {
         campaign: Meta { name: name.to_string(), description: String::new() },
@@ -517,6 +525,9 @@ fn generate_toml(campaign: &Campaign) -> String {
         }
         out.push_str("\n[[steps]]\n");
         out.push_str(&format!("name   = \"{}\"\n", step.name));
+        if !step.description.is_empty() {
+            out.push_str(&format!("description = \"{}\"\n", toml_escape(&step.description)));
+        }
         if step.kind != "http" {
             out.push_str(&format!("kind   = \"{}\"\n", step.kind));
         }

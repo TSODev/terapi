@@ -908,6 +908,10 @@ fn generate_toml_preview(app: &BuilderApp) -> String {
         }
         out.push_str("\n[[steps]]\n");
         out.push_str(&format!("name   = \"{}\"\n", step.name));
+        if !step.description.is_empty() {
+            let esc = step.description.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n");
+            out.push_str(&format!("description = \"{}\"\n", esc));
+        }
         if step.kind != "http" {
             out.push_str(&format!("kind   = \"{}\"\n", step.kind));
         }

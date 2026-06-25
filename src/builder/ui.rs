@@ -370,6 +370,11 @@ fn render_step_editor(
     let mut rows: Vec<ListItem> = Vec::new();
 
     for (i, section) in sections.iter().enumerate() {
+        // Visual separator before the action row
+        if *section == StepSection::LoadFromCollection {
+            rows.push(ListItem::new(Line::from("")));
+        }
+
         let is_cursor = i == section_cursor;
         let _base_style = if is_cursor {
             Style::default().fg(Color::White).add_modifier(Modifier::BOLD)

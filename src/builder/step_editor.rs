@@ -224,6 +224,18 @@ fn handle_browse(
             app.start_step_preview(step_idx);
             return Ok(());
         }
+        KeyCode::Char('L') if matches!(kind.as_str(), "http" | "graphql" | "seed") => {
+            let mut expanded = std::collections::HashSet::new();
+            for ci in 0..app.stored_collections.len() {
+                expanded.insert(format!("c{ci}"));
+            }
+            app.focus = BuilderFocus::CollectionBrowser {
+                for_step: step_idx,
+                col_cursor: 0,
+                expanded,
+            };
+            return Ok(());
+        }
         _ => {}
     }
 

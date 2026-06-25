@@ -207,7 +207,9 @@ impl App {
         self.stored_collections.push(col);
         self.expanded_nodes.insert(format!("c{}", ci));
         let flat = flatten_stored(&self.stored_collections, &self.expanded_nodes);
-        self.collection_cursor = flat.len().saturating_sub(1);
+        if let Some(pos) = flat.iter().position(|n| matches!(&n.address, NodeAddress::Collection(c) if *c == ci)) {
+            self.collection_cursor = pos;
+        }
         Ok(())
     }
 

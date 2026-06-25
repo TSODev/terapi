@@ -586,7 +586,11 @@ pub struct FlatNode {
 
 pub fn flatten_stored(cols: &[StoredCollection], expanded: &HashSet<String>) -> Vec<FlatNode> {
     let mut result = Vec::new();
-    for (ci, col) in cols.iter().enumerate() {
+    let mut col_order: Vec<usize> = (0..cols.len()).collect();
+    col_order.sort_by(|&a, &b| cols[a].collection.name.to_lowercase().cmp(&cols[b].collection.name.to_lowercase()));
+
+    for ci in col_order {
+        let col = &cols[ci];
         let col_key = format!("c{}", ci);
         let col_expanded = expanded.contains(&col_key);
         result.push(FlatNode {
@@ -598,7 +602,10 @@ pub fn flatten_stored(cols: &[StoredCollection], expanded: &HashSet<String>) -> 
             address: NodeAddress::Collection(ci),
         });
         if col_expanded {
-            for (fi, folder) in col.folders.iter().enumerate() {
+            let mut folder_order: Vec<usize> = (0..col.folders.len()).collect();
+            folder_order.sort_by(|&a, &b| col.folders[a].name.to_lowercase().cmp(&col.folders[b].name.to_lowercase()));
+            for fi in folder_order {
+                let folder = &col.folders[fi];
                 let folder_key = format!("c{}f{}", ci, fi);
                 let folder_expanded = expanded.contains(&folder_key);
                 result.push(FlatNode {
@@ -610,7 +617,10 @@ pub fn flatten_stored(cols: &[StoredCollection], expanded: &HashSet<String>) -> 
                     address: NodeAddress::Folder(ci, fi),
                 });
                 if folder_expanded {
-                    for (ri, req) in folder.requests.iter().enumerate() {
+                    let mut req_order: Vec<usize> = (0..folder.requests.len()).collect();
+                    req_order.sort_by(|&a, &b| folder.requests[a].name.to_lowercase().cmp(&folder.requests[b].name.to_lowercase()));
+                    for ri in req_order {
+                        let req = &folder.requests[ri];
                         result.push(FlatNode {
                             depth: 2,
                             name: req.name.clone(),
@@ -622,7 +632,10 @@ pub fn flatten_stored(cols: &[StoredCollection], expanded: &HashSet<String>) -> 
                     }
                 }
             }
-            for (ri, req) in col.requests.iter().enumerate() {
+            let mut req_order: Vec<usize> = (0..col.requests.len()).collect();
+            req_order.sort_by(|&a, &b| col.requests[a].name.to_lowercase().cmp(&col.requests[b].name.to_lowercase()));
+            for ri in req_order {
+                let req = &col.requests[ri];
                 result.push(FlatNode {
                     depth: 1,
                     name: req.name.clone(),
@@ -641,7 +654,11 @@ pub fn flatten_stored(cols: &[StoredCollection], expanded: &HashSet<String>) -> 
 /// Used when searching so that collapsed folders are also searched.
 pub fn flatten_stored_full(cols: &[StoredCollection], expanded: &HashSet<String>) -> Vec<FlatNode> {
     let mut result = Vec::new();
-    for (ci, col) in cols.iter().enumerate() {
+    let mut col_order: Vec<usize> = (0..cols.len()).collect();
+    col_order.sort_by(|&a, &b| cols[a].collection.name.to_lowercase().cmp(&cols[b].collection.name.to_lowercase()));
+
+    for ci in col_order {
+        let col = &cols[ci];
         let col_key = format!("c{}", ci);
         let col_expanded = expanded.contains(&col_key);
         result.push(FlatNode {
@@ -652,7 +669,10 @@ pub fn flatten_stored_full(cols: &[StoredCollection], expanded: &HashSet<String>
             method: None,
             address: NodeAddress::Collection(ci),
         });
-        for (fi, folder) in col.folders.iter().enumerate() {
+        let mut folder_order: Vec<usize> = (0..col.folders.len()).collect();
+        folder_order.sort_by(|&a, &b| col.folders[a].name.to_lowercase().cmp(&col.folders[b].name.to_lowercase()));
+        for fi in folder_order {
+            let folder = &col.folders[fi];
             let folder_key = format!("c{}f{}", ci, fi);
             let folder_expanded = expanded.contains(&folder_key);
             result.push(FlatNode {
@@ -663,7 +683,10 @@ pub fn flatten_stored_full(cols: &[StoredCollection], expanded: &HashSet<String>
                 method: None,
                 address: NodeAddress::Folder(ci, fi),
             });
-            for (ri, req) in folder.requests.iter().enumerate() {
+            let mut req_order: Vec<usize> = (0..folder.requests.len()).collect();
+            req_order.sort_by(|&a, &b| folder.requests[a].name.to_lowercase().cmp(&folder.requests[b].name.to_lowercase()));
+            for ri in req_order {
+                let req = &folder.requests[ri];
                 result.push(FlatNode {
                     depth: 2,
                     name: req.name.clone(),
@@ -674,7 +697,10 @@ pub fn flatten_stored_full(cols: &[StoredCollection], expanded: &HashSet<String>
                 });
             }
         }
-        for (ri, req) in col.requests.iter().enumerate() {
+        let mut req_order: Vec<usize> = (0..col.requests.len()).collect();
+        req_order.sort_by(|&a, &b| col.requests[a].name.to_lowercase().cmp(&col.requests[b].name.to_lowercase()));
+        for ri in req_order {
+            let req = &col.requests[ri];
             result.push(FlatNode {
                 depth: 1,
                 name: req.name.clone(),

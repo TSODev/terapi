@@ -1001,12 +1001,86 @@ fn render_step_editor(
             _ => "Content-Type (optional)  Enter: save  Esc: cancel",
         },
         StepEditorMode::EditBody => "", // full-screen, hints rendered by render_body_editor
+        StepEditorMode::ExtractPicker { .. } => "", // overlay rendered below
     };
     rows.push(ListItem::new(Line::from(
         Span::styled(hints, Style::default().fg(Color::Indexed(242)))
     )));
 
     frame.render_widget(List::new(rows), sections_area);
+
+    // Picker overlay (drawn last so it sits on top)
+    if let StepEditorMode::ExtractPicker { paths, filter, cursor, .. } = mode {
+        render_extract_picker(frame, paths, filter, *cursor, inner);
+    }
+}
+
+fn render_extract_picker(
+    frame: &mut Frame,
+    paths: &[String],
+    filter: &str,
+    cursor: usize,
+    area: Rect,
+) {
+    let filtered: Vec<&String> = paths.iter()
+        .filter(|p| p.to_lowercase().contains(&filter.to_lowercase()))
+        .collect();
+
+    let popup_height = (filtered.len().min(12) + 4) as u16;
+    let popup = centered_rect(area.width.saturating_sub(4), popup_height, area);
+    frame.render_widget(Clear, popup);
+
+    let block = Block::default()
+        .title(" Extract path picker — Tab/Esc: close  ↑↓: navigate  Enter: insert ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Magenta));
+    let inner = block.inner(popup);
+    frame.render_widget(block, popup);
+
+    if inner.height == 0 { return; }
+
+    // Filter input line
+    let filter_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(1), Constraint::Min(0)])
+        .split(inner);
+
+    frame.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled("filter: ", Style::default().fg(Color::Indexed(242))),
+            Span::styled(filter, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled("█", Style::default().fg(Color::Magenta)),
+        ])),
+        filter_chunks[0],
+    );
+
+    // Path list
+    let list_area = filter_chunks[1];
+    let items: Vec<ListItem> = filtered.iter().enumerate()
+        .take(list_area.height as usize)
+        .map(|(i, path)| {
+            if i == cursor {
+                ListItem::new(Line::from(vec![
+                    Span::styled("▶ ", Style::default().fg(Color::Magenta)),
+                    Span::styled(path.as_str(), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                ]))
+            } else {
+                ListItem::new(Line::from(vec![
+                    Span::raw("  "),
+                    Span::styled(path.as_str(), Style::default().fg(Color::Indexed(242))),
+                ]))
+            }
+        })
+        .collect();
+
+    if items.is_empty() {
+        frame.render_widget(
+            Paragraph::new(Span::styled("(no matches)", Style::default().fg(Color::Indexed(238)))),
+            list_area,
+        );
+    } else {
+        frame.render_widget(List::new(items), list_area);
+    }
 }
 
 fn render_description_area(
@@ -1833,6 +1907,8 @@ fn render_status(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         BuilderFocus::StepEditor { mode, .. } => match mode {
             StepEditorMode::Browse =>
                 "↑↓: field  ↑ at top: description  Enter: edit  ←/→: cycle  a/d: list  r: run step  Esc: back",
+            StepEditorMode::ExtractPicker { .. } =>
+                "↑↓: navigate  Type: filter  Enter: insert  Tab/Esc: close",
             StepEditorMode::EditText { .. } =>
                 "Type to edit  Enter: confirm  Esc: cancel",
             _ =>

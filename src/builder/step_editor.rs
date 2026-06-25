@@ -1,5 +1,6 @@
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
+use serde_json::Value;
 
 use super::BuilderApp;
 use super::types::{ASSERT_OPS, WHEN_OPS, BuilderFocus, PairTarget, StepEditorMode, StepSection};
@@ -122,6 +123,8 @@ pub fn handle_key(
             handle_when_value(app, key, step_idx, section_cursor, sub_cursor, var, op, buffer),
         StepEditorMode::AddMultipart { idx, name, value, content_type, stage } =>
             handle_add_multipart(app, key, step_idx, section_cursor, sub_cursor, idx, name, value, content_type, stage),
+        StepEditorMode::ExtractPicker { key: pair_key, paths, filter, cursor } =>
+            handle_extract_picker(app, key, step_idx, section_cursor, sub_cursor, pair_key, paths, filter, cursor),
         StepEditorMode::EditBody => Ok(()), // handled at the top of handle_key
     }
 }
@@ -540,6 +543,23 @@ fn handle_add_stage2(
     pair_key: String,
     mut buffer: String,
 ) -> Result<()> {
+    // Tab on Extract value opens the JSON path picker (only when preview result exists)
+    if key.code == KeyCode::Tab {
+        if target == PairTarget::Extract {
+            if let Some(ref result) = app.step_preview_result {
+                if let Some(ref body) = result.body_json {
+                    let paths = collect_json_paths(body);
+                    let filter = buffer.clone();
+                    let cursor = 0;
+                    set_focus(app, step_idx, section_cursor, sub_cursor,
+                        StepEditorMode::ExtractPicker { key: pair_key, paths, filter, cursor });
+                    return Ok(());
+                }
+            }
+        }
+        return Ok(());
+    }
+
     match key.code {
         KeyCode::Esc => {
             set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
@@ -562,6 +582,69 @@ fn handle_add_stage2(
             buffer.push(c);
             set_focus(app, step_idx, section_cursor, sub_cursor,
                 StepEditorMode::AddPairStage2 { target, key: pair_key, buffer });
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn handle_extract_picker(
+    app: &mut BuilderApp,
+    key: KeyEvent,
+    step_idx: usize,
+    section_cursor: usize,
+    sub_cursor: usize,
+    pair_key: String,
+    paths: Vec<String>,
+    mut filter: String,
+    mut cursor: usize,
+) -> Result<()> {
+    let filtered: Vec<&String> = paths.iter()
+        .filter(|p| p.to_lowercase().contains(&filter.to_lowercase()))
+        .collect();
+
+    match key.code {
+        KeyCode::Esc | KeyCode::Tab => {
+            // Return to stage2 with the current filter as buffer
+            set_focus(app, step_idx, section_cursor, sub_cursor,
+                StepEditorMode::AddPairStage2 {
+                    target: PairTarget::Extract,
+                    key: pair_key,
+                    buffer: filter,
+                });
+        }
+        KeyCode::Enter => {
+            // Insert selected path into step.extract and return to Browse
+            if let Some(&path) = filtered.get(cursor) {
+                let step = &mut app.campaign.steps[step_idx];
+                step.extract.insert(pair_key, path.clone());
+                app.modified = true;
+            }
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
+        }
+        KeyCode::Up => {
+            cursor = cursor.saturating_sub(1);
+            set_focus(app, step_idx, section_cursor, sub_cursor,
+                StepEditorMode::ExtractPicker { key: pair_key, paths, filter, cursor });
+        }
+        KeyCode::Down => {
+            if !filtered.is_empty() {
+                cursor = (cursor + 1).min(filtered.len().saturating_sub(1));
+            }
+            set_focus(app, step_idx, section_cursor, sub_cursor,
+                StepEditorMode::ExtractPicker { key: pair_key, paths, filter, cursor });
+        }
+        KeyCode::Backspace => {
+            filter.pop();
+            cursor = 0;
+            set_focus(app, step_idx, section_cursor, sub_cursor,
+                StepEditorMode::ExtractPicker { key: pair_key, paths, filter, cursor: 0 });
+        }
+        KeyCode::Char(c) => {
+            filter.push(c);
+            cursor = 0;
+            set_focus(app, step_idx, section_cursor, sub_cursor,
+                StepEditorMode::ExtractPicker { key: pair_key, paths, filter, cursor: 0 });
         }
         _ => {}
     }
@@ -947,5 +1030,47 @@ fn blank_transform() -> crate::campaign::Transform {
         to: None,
         delimiter: None,
         index: 0,
+    }
+}
+
+// ── JSON dot-path extraction ──────────────────────────────────────────────────
+
+pub fn collect_json_paths(value: &Value) -> Vec<String> {
+    let mut paths = Vec::new();
+    collect_paths_recursive(value, String::new(), &mut paths);
+    paths
+}
+
+fn collect_paths_recursive(value: &Value, prefix: String, paths: &mut Vec<String>) {
+    match value {
+        Value::Object(map) => {
+            for (k, v) in map {
+                let path = if prefix.is_empty() { k.clone() } else { format!("{}.{}", prefix, k) };
+                paths.push(path.clone());
+                collect_paths_recursive(v, path, paths);
+            }
+        }
+        Value::Array(arr) => {
+            // Wildcard path for the whole array (useful for extraction)
+            if !prefix.is_empty() {
+                let wc = format!("{}.*", prefix);
+                // Add wildcard sub-field paths from first element
+                if let Some(first) = arr.first() {
+                    if let Value::Object(map) = first {
+                        for k in map.keys() {
+                            paths.push(format!("{}.{}", wc, k));
+                        }
+                    }
+                }
+                paths.push(wc);
+            }
+            // Individual index paths (first 10 elements)
+            for (i, v) in arr.iter().enumerate().take(10) {
+                let path = format!("{}.{}", prefix, i);
+                paths.push(path.clone());
+                collect_paths_recursive(v, path, paths);
+            }
+        }
+        _ => {}
     }
 }

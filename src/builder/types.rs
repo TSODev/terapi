@@ -123,6 +123,8 @@ pub enum StepEditorMode {
     EditWhenValue { var: String, op: usize, buffer: String },
     // Multipart part add/edit flow: stage 0=name 1=value 2=content_type
     AddMultipart  { idx: Option<usize>, name: String, value: String, content_type: String, stage: u8 },
+    // JSON dot-path picker for Extract value fields (opened with Tab from AddPairStage2 Extract)
+    ExtractPicker { key: String, paths: Vec<String>, filter: String, cursor: usize },
 }
 
 #[derive(Debug, Clone, PartialEq)]

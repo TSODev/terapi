@@ -2,7 +2,7 @@ use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 
 use super::BuilderApp;
-use super::types::{BuilderFocus, PairTarget, StepEditorMode, StepSection};
+use super::types::{ASSERT_OPS, WHEN_OPS, BuilderFocus, PairTarget, StepEditorMode, StepSection};
 
 pub const METHODS: &[&str] = &["GET", "POST", "PUT", "PATCH", "DELETE"];
 
@@ -17,16 +17,19 @@ pub fn sections_for(kind: &str) -> Vec<StepSection> {
         ],
         "pause" => vec![
             StepSection::Name,
+            StepSection::Description,
             StepSection::WaitMs,
         ],
         "transform" => vec![
             StepSection::Name,
+            StepSection::Description,
             StepSection::TransformKind,
             StepSection::TransformInput,
             StepSection::TransformOutput,
         ],
         _ => vec![
             StepSection::Name,
+            StepSection::Description,
             StepSection::Method,
             StepSection::Url,
             StepSection::Headers,
@@ -78,13 +81,29 @@ pub fn handle_key(
             handle_add_stage1(app, key, step_idx, section_cursor, sub_cursor, target, buffer),
         StepEditorMode::AddPairStage2 { target, key: pair_key, buffer } =>
             handle_add_stage2(app, key, step_idx, section_cursor, sub_cursor, target, pair_key, buffer),
+        StepEditorMode::AddAssertPath { buffer } =>
+            handle_assert_path(app, key, step_idx, section_cursor, sub_cursor, buffer),
+        StepEditorMode::AddAssertOp { path, op } =>
+            handle_assert_op(app, key, step_idx, section_cursor, sub_cursor, path, op),
+        StepEditorMode::AddAssertValue { path, op, buffer } =>
+            handle_assert_value(app, key, step_idx, section_cursor, sub_cursor, path, op, buffer),
+        StepEditorMode::EditWhenVar { buffer } =>
+            handle_when_var(app, key, step_idx, section_cursor, sub_cursor, buffer),
+        StepEditorMode::EditWhenOp { var, op } =>
+            handle_when_op(app, key, step_idx, section_cursor, sub_cursor, var, op),
+        StepEditorMode::EditWhenValue { var, op, buffer } =>
+            handle_when_value(app, key, step_idx, section_cursor, sub_cursor, var, op, buffer),
     }
 }
 
 fn save_description(app: &mut BuilderApp, step_idx: usize) {
     let text = app.description_textarea.lines().join("\n");
-    if app.campaign.steps[step_idx].description != text {
-        app.campaign.steps[step_idx].description = text;
+    let current = app.step_comments.get(step_idx).map(|s| s.as_str()).unwrap_or("");
+    if current != text {
+        while app.step_comments.len() <= step_idx {
+            app.step_comments.push(String::new());
+        }
+        app.step_comments[step_idx] = text;
         app.modified = true;
     }
 }
@@ -110,9 +129,9 @@ fn handle_browse(
         }
         KeyCode::Up => {
             if section_cursor == 0 {
-                // Enter description textarea
-                let desc = app.campaign.steps[step_idx].description.clone();
-                let lines: Vec<String> = desc.lines().map(String::from).collect();
+                // Enter comments textarea
+                let comment = app.step_comments.get(step_idx).cloned().unwrap_or_default();
+                let lines: Vec<String> = comment.lines().map(String::from).collect();
                 app.description_textarea = if lines.is_empty() {
                     tui_textarea::TextArea::default()
                 } else {
@@ -142,6 +161,12 @@ fn handle_browse(
         StepSection::Name => {
             if key.code == KeyCode::Enter {
                 let buf = app.campaign.steps[step_idx].name.clone();
+                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { buffer: buf });
+            }
+        }
+        StepSection::Description => {
+            if key.code == KeyCode::Enter {
+                let buf = app.campaign.steps[step_idx].description.clone();
                 set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { buffer: buf });
             }
         }
@@ -255,6 +280,10 @@ fn handle_browse(
             _ => {}
         },
         StepSection::Assertions => match key.code {
+            KeyCode::Char('a') => {
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::AddAssertPath { buffer: String::new() });
+            }
             KeyCode::Char('d') => {
                 let step = &mut app.campaign.steps[step_idx];
                 if !step.assert.is_empty() {
@@ -280,7 +309,21 @@ fn handle_browse(
             }
         }
 
-        StepSection::When => {}
+        StepSection::When => match key.code {
+            KeyCode::Enter => {
+                // Pre-fill from existing condition if any
+                let buf = app.campaign.steps[step_idx].when.as_ref()
+                    .map(|w| w.var.clone())
+                    .unwrap_or_default();
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::EditWhenVar { buffer: buf });
+            }
+            KeyCode::Char('d') => {
+                app.campaign.steps[step_idx].when = None;
+                app.modified = true;
+            }
+            _ => {}
+        },
     }
 
     Ok(())
@@ -325,11 +368,12 @@ fn apply_text_edit(app: &mut BuilderApp, step_idx: usize, section: &StepSection,
     {
         let step = &mut app.campaign.steps[step_idx];
         match section {
-            StepSection::Name    => step.name    = value.to_string(),
-            StepSection::Url     => step.url     = value.to_string(),
-            StepSection::Body    => step.body    = if value.is_empty() { None } else { Some(value.to_string()) },
-            StepSection::Foreach => step.foreach = if value.is_empty() { None } else { Some(value.to_string()) },
-            StepSection::WaitMs  => step.wait_ms = value.parse().unwrap_or(0),
+            StepSection::Name        => step.name        = value.to_string(),
+            StepSection::Description => step.description = value.to_string(),
+            StepSection::Url         => step.url         = value.to_string(),
+            StepSection::Body        => step.body        = if value.is_empty() { None } else { Some(value.to_string()) },
+            StepSection::Foreach     => step.foreach     = if value.is_empty() { None } else { Some(value.to_string()) },
+            StepSection::WaitMs      => step.wait_ms     = value.parse().unwrap_or(0),
             StepSection::TransformInput => {
                 ensure_transform_step(step);
                 step.transforms[0].input = value.to_string();
@@ -417,13 +461,260 @@ fn handle_add_stage2(
     Ok(())
 }
 
+// ── Assertion add flow ────────────────────────────────────────────────────────
+
+fn handle_assert_path(
+    app: &mut BuilderApp,
+    key: KeyEvent,
+    step_idx: usize,
+    section_cursor: usize,
+    sub_cursor: usize,
+    mut buffer: String,
+) -> Result<()> {
+    match key.code {
+        KeyCode::Esc => set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse),
+        KeyCode::Enter if !buffer.is_empty() => {
+            set_focus(app, step_idx, section_cursor, sub_cursor,
+                StepEditorMode::AddAssertOp { path: buffer.trim().to_string(), op: 0 });
+        }
+        KeyCode::Backspace => {
+            buffer.pop();
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddAssertPath { buffer });
+        }
+        KeyCode::Char(c) => {
+            buffer.push(c);
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddAssertPath { buffer });
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn handle_assert_op(
+    app: &mut BuilderApp,
+    key: KeyEvent,
+    step_idx: usize,
+    section_cursor: usize,
+    sub_cursor: usize,
+    path: String,
+    op: usize,
+) -> Result<()> {
+    match key.code {
+        KeyCode::Esc => set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse),
+        KeyCode::Left => {
+            let new_op = if op == 0 { ASSERT_OPS.len() - 1 } else { op - 1 };
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddAssertOp { path, op: new_op });
+        }
+        KeyCode::Right => {
+            let new_op = (op + 1) % ASSERT_OPS.len();
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddAssertOp { path, op: new_op });
+        }
+        KeyCode::Enter => {
+            if ASSERT_OPS[op].1 {
+                // needs a value
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::AddAssertValue { path, op, buffer: String::new() });
+            } else {
+                // no value needed (exists / not exists)
+                let a = build_assertion(&path, op, "");
+                app.campaign.steps[step_idx].assert.push(a);
+                app.modified = true;
+                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn handle_assert_value(
+    app: &mut BuilderApp,
+    key: KeyEvent,
+    step_idx: usize,
+    section_cursor: usize,
+    sub_cursor: usize,
+    path: String,
+    op: usize,
+    mut buffer: String,
+) -> Result<()> {
+    match key.code {
+        KeyCode::Esc => set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse),
+        KeyCode::Enter => {
+            let a = build_assertion(&path, op, buffer.trim());
+            app.campaign.steps[step_idx].assert.push(a);
+            app.modified = true;
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
+        }
+        KeyCode::Backspace => {
+            buffer.pop();
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddAssertValue { path, op, buffer });
+        }
+        KeyCode::Char(c) => {
+            buffer.push(c);
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddAssertValue { path, op, buffer });
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn build_assertion(path: &str, op_idx: usize, value: &str) -> crate::campaign::Assertion {
+    let mut a = crate::campaign::Assertion {
+        on: path.to_string(),
+        eq: None, ne: None,
+        lt: None, lte: None, gt: None, gte: None,
+        in_: vec![],
+        exists: None, contains: None, matches: None,
+    };
+    let json_val = || {
+        value.parse::<i64>()
+            .map(|n| serde_json::Value::Number(n.into()))
+            .unwrap_or_else(|_| serde_json::Value::String(value.to_string()))
+    };
+    match op_idx {
+        0 => a.eq       = Some(json_val()),
+        1 => a.ne       = Some(json_val()),
+        2 => a.lt       = value.parse().ok(),
+        3 => a.lte      = value.parse().ok(),
+        4 => a.gt       = value.parse().ok(),
+        5 => a.gte      = value.parse().ok(),
+        6 => a.contains = Some(value.to_string()),
+        7 => a.matches  = Some(value.to_string()),
+        8 => a.exists   = Some(true),
+        9 => a.exists   = Some(false),
+        _ => {}
+    }
+    a
+}
+
+// ── When condition edit flow ──────────────────────────────────────────────────
+
+fn handle_when_var(
+    app: &mut BuilderApp,
+    key: KeyEvent,
+    step_idx: usize,
+    section_cursor: usize,
+    sub_cursor: usize,
+    mut buffer: String,
+) -> Result<()> {
+    match key.code {
+        KeyCode::Esc => set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse),
+        KeyCode::Enter if !buffer.is_empty() => {
+            // Find initial op from existing condition
+            let init_op = app.campaign.steps[step_idx].when.as_ref()
+                .map(|w| {
+                    if w.eq.is_some() { 0 }
+                    else if w.ne.is_some() { 1 }
+                    else if w.exists == Some(true) { 2 }
+                    else { 3 }
+                })
+                .unwrap_or(0);
+            set_focus(app, step_idx, section_cursor, sub_cursor,
+                StepEditorMode::EditWhenOp { var: buffer.trim().to_string(), op: init_op });
+        }
+        KeyCode::Backspace => {
+            buffer.pop();
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditWhenVar { buffer });
+        }
+        KeyCode::Char(c) => {
+            buffer.push(c);
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditWhenVar { buffer });
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn handle_when_op(
+    app: &mut BuilderApp,
+    key: KeyEvent,
+    step_idx: usize,
+    section_cursor: usize,
+    sub_cursor: usize,
+    var: String,
+    op: usize,
+) -> Result<()> {
+    match key.code {
+        KeyCode::Esc => set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse),
+        KeyCode::Left => {
+            let new_op = if op == 0 { WHEN_OPS.len() - 1 } else { op - 1 };
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditWhenOp { var, op: new_op });
+        }
+        KeyCode::Right => {
+            let new_op = (op + 1) % WHEN_OPS.len();
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditWhenOp { var, op: new_op });
+        }
+        KeyCode::Enter => {
+            if WHEN_OPS[op].1 {
+                let init_val = app.campaign.steps[step_idx].when.as_ref()
+                    .and_then(|w| w.eq.as_ref().or(w.ne.as_ref()).cloned())
+                    .unwrap_or_default();
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::EditWhenValue { var, op, buffer: init_val });
+            } else {
+                app.campaign.steps[step_idx].when = Some(build_when(&var, op, ""));
+                app.modified = true;
+                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn handle_when_value(
+    app: &mut BuilderApp,
+    key: KeyEvent,
+    step_idx: usize,
+    section_cursor: usize,
+    sub_cursor: usize,
+    var: String,
+    op: usize,
+    mut buffer: String,
+) -> Result<()> {
+    match key.code {
+        KeyCode::Esc => set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse),
+        KeyCode::Enter => {
+            app.campaign.steps[step_idx].when = Some(build_when(&var, op, buffer.trim()));
+            app.modified = true;
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
+        }
+        KeyCode::Backspace => {
+            buffer.pop();
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditWhenValue { var, op, buffer });
+        }
+        KeyCode::Char(c) => {
+            buffer.push(c);
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditWhenValue { var, op, buffer });
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn build_when(var: &str, op_idx: usize, value: &str) -> crate::campaign::StepCondition {
+    let mut w = crate::campaign::StepCondition {
+        var: var.to_string(),
+        eq: None, ne: None, exists: None,
+    };
+    match op_idx {
+        0 => w.eq     = Some(value.to_string()),
+        1 => w.ne     = Some(value.to_string()),
+        2 => w.exists = Some(true),
+        3 => w.exists = Some(false),
+        _ => {}
+    }
+    w
+}
+
 // ── Value display helper ──────────────────────────────────────────────────────
 
 pub fn current_value(app: &BuilderApp, step_idx: usize, section: &StepSection) -> String {
     let step = &app.campaign.steps[step_idx];
     match section {
-        StepSection::Name      => step.name.clone(),
-        StepSection::Method    => step.method.clone(),
+        StepSection::Name        => step.name.clone(),
+        StepSection::Description => step.description.clone(),
+        StepSection::Method      => step.method.clone(),
         StepSection::Url       => step.url.clone(),
         StepSection::Body      => step.body.clone().unwrap_or_default(),
         StepSection::Foreach   => step.foreach.clone().unwrap_or_default(),

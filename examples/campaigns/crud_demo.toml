@@ -6,13 +6,11 @@ description = "Demonstrates all HTTP methods with assertions. JSONPlaceholder si
 BASE_URL = "https://jsonplaceholder.typicode.com"
 POST_ID = "1"
 
-# ceci est un commentaire pour cette etape
-# 
-# 
-# 
+# commentaire sur step 1
 
 [[steps]]
 name   = "Create post"
+description = "ma description de step 1\n"
 method = "POST"
 url    = "{{BASE_URL}}/posts"
 [steps.headers]

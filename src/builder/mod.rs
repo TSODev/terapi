@@ -14,10 +14,11 @@ use ratatui::{backend::CrosstermBackend, Terminal};
 use std::io;
 use std::path::PathBuf;
 
-use crate::campaign::{Campaign, Meta};
-use types::{CampaignSettingsMode, StepEditorMode};
+use crate::campaign::{Campaign, CampaignEvent, CampaignRunState, Meta};
+use types::{CampaignSettingsMode, IoEditorMode, ParamEditorMode, StepEditorMode};
 use crate::event::{Event, EventHandler};
 use crate::storage::StoredCollection;
+use tokio::sync::mpsc;
 use types::*;
 
 pub struct BuilderApp {
@@ -31,15 +32,31 @@ pub struct BuilderApp {
     pub stored_env_names: Vec<String>,
     pub status_message: String,
     pub description_textarea: tui_textarea::TextArea<'static>,
+    /// Comment block at the very top of the TOML file (before [campaign]).
+    pub header_comment: String,
+    /// Per-step comment blocks, stored as `# lines` above [[steps]] in TOML.
+    /// Parallel to campaign.steps; not persisted via serde.
+    pub step_comments: Vec<String>,
+    // ── Run state ──────────────────────────────────────────────────────────────
+    pub run_state: CampaignRunState,
+    pub campaign_rx: Option<mpsc::UnboundedReceiver<CampaignEvent>>,
 }
 
 impl BuilderApp {
     pub fn new(path: Option<PathBuf>) -> Self {
-        let campaign = if let Some(ref p) = path {
-            crate::campaign::load(p.to_str().unwrap_or(""))
-                .unwrap_or_else(|_| empty_campaign("new_campaign"))
+        let (campaign, step_comments, header_comment) = if let Some(ref p) = path {
+            let camp = crate::campaign::load(p.to_str().unwrap_or(""))
+                .unwrap_or_else(|_| empty_campaign("new_campaign"));
+            let (step_c, header_c) = std::fs::read_to_string(p)
+                .map(|content| {
+                    let sc = parse_step_comments(&content, camp.steps.len());
+                    let hc = parse_header_comment(&content);
+                    (sc, hc)
+                })
+                .unwrap_or_else(|_| (vec![String::new(); camp.steps.len()], String::new()));
+            (camp, step_c, header_c)
         } else {
-            empty_campaign("new_campaign")
+            (empty_campaign("new_campaign"), Vec::new(), String::new())
         };
         let stored_collections = crate::storage::load_collections().unwrap_or_default();
         let stored_env_names = crate::storage::load_envs()
@@ -58,6 +75,10 @@ impl BuilderApp {
             stored_env_names,
             status_message: String::new(),
             description_textarea: tui_textarea::TextArea::default(),
+            header_comment,
+            step_comments,
+            run_state: CampaignRunState::Idle,
+            campaign_rx: None,
         }
     }
 
@@ -76,9 +97,18 @@ impl BuilderApp {
             BuilderFocus::CampaignSettings { cursor, mode } => {
                 self.handle_campaign_settings_key(key, cursor, mode)
             }
-            BuilderFocus::Checker { .. }         => self.handle_overlay_key(key),
-            BuilderFocus::TomlPreview { scroll } => self.handle_preview_key(key, scroll),
-            BuilderFocus::Variables { cursor }   => self.handle_variables_key(key, cursor),
+            BuilderFocus::Checker { .. }                  => self.handle_overlay_key(key),
+            BuilderFocus::TomlPreview { scroll }          => self.handle_preview_key(key, scroll),
+            BuilderFocus::Variables { cursor }            => self.handle_variables_key(key, cursor),
+            BuilderFocus::Run { scroll }                  => self.handle_run_key(key, scroll),
+            BuilderFocus::ParamsEditor { cursor, mode }     => self.handle_params_editor_key(key, cursor, mode),
+            BuilderFocus::ConnectorsEditor { cursor, mode } => self.handle_connectors_key(key, cursor, mode),
+            BuilderFocus::OutputsEditor { cursor, mode }    => self.handle_outputs_key(key, cursor, mode),
+            BuilderFocus::PipelineConnectors { cursor }     => self.handle_pipeline_connectors_key(key, cursor),
+            BuilderFocus::PipelineOutputs { cursor }        => self.handle_pipeline_outputs_key(key, cursor),
+            BuilderFocus::OutputStepPicker { output_idx, step_cursor, f1, f2, f3, output_cursor } => {
+                self.handle_output_step_picker_key(key, output_idx, step_cursor, f1, f2, f3, output_cursor)
+            }
         }
     }
 
@@ -90,11 +120,19 @@ impl BuilderApp {
         match key.code {
             KeyCode::Char('q') => self.running = false,
             KeyCode::Up => {
-                if self.cursor > 0 { self.cursor -= 1; }
+                if self.cursor > 0 {
+                    self.cursor -= 1;
+                } else if !self.campaign.connectors.is_empty() {
+                    self.focus = BuilderFocus::PipelineConnectors {
+                        cursor: self.campaign.connectors.len() - 1,
+                    };
+                }
             }
             KeyCode::Down => {
                 if step_count > 0 && self.cursor < step_count - 1 {
                     self.cursor += 1;
+                } else if !self.campaign.outputs.is_empty() {
+                    self.focus = BuilderFocus::PipelineOutputs { cursor: 0 };
                 }
             }
             KeyCode::Enter | KeyCode::Char('e') if step_count > 0 => {
@@ -131,6 +169,9 @@ impl BuilderApp {
                     mode: CampaignSettingsMode::Browse,
                 };
             }
+            KeyCode::Char('r') if !self.campaign.steps.is_empty() => {
+                self.start_run();
+            }
             KeyCode::Char('w') => self.save()?,
             _ => {}
         }
@@ -158,21 +199,47 @@ impl BuilderApp {
             }
             KeyCode::Enter => {
                 let kind = &BRICK_KINDS[cursor];
-                let step = new_step_for(kind);
-                let pos = match insert_after {
-                    Some(after) => after + 1,
-                    None => self.campaign.steps.len(),
-                };
-                self.campaign.steps.insert(pos, step);
-                self.cursor = pos;
-                self.modified = true;
-                self.focus = BuilderFocus::StepEditor {
-                    step_idx: pos,
-                    section_cursor: 0,
-                    sub_cursor: 0,
-                    mode: StepEditorMode::Browse,
-                    desc_active: false,
-                };
+                match kind {
+                    BrickKind::Connector => {
+                        self.focus = BuilderFocus::ConnectorsEditor {
+                            cursor: self.campaign.connectors.len(),
+                            mode: IoEditorMode::Edit {
+                                idx: None,
+                                f0: "csv".into(),
+                                f1: String::new(),
+                                f2: String::new(),
+                                f3: String::new(),
+                                field: 0,
+                            },
+                        };
+                    }
+                    BrickKind::Output => {
+                        self.focus = BuilderFocus::OutputStepPicker {
+                            output_idx: None,
+                            step_cursor: 0,
+                            f1: String::new(), f2: String::new(), f3: String::new(),
+                            output_cursor: self.campaign.outputs.len(),
+                        };
+                    }
+                    _ => {
+                        let step = new_step_for(kind);
+                        let pos = match insert_after {
+                            Some(after) => after + 1,
+                            None => self.campaign.steps.len(),
+                        };
+                        self.campaign.steps.insert(pos, step);
+                        self.step_comments.insert(pos.min(self.step_comments.len()), String::new());
+                        self.cursor = pos;
+                        self.modified = true;
+                        self.focus = BuilderFocus::StepEditor {
+                            step_idx: pos,
+                            section_cursor: 0,
+                            sub_cursor: 0,
+                            mode: StepEditorMode::Browse,
+                            desc_active: false,
+                        };
+                    }
+                }
             }
             _ => {}
         }
@@ -227,7 +294,7 @@ impl BuilderApp {
         mode: CampaignSettingsMode,
     ) -> Result<()> {
         use crossterm::event::KeyCode;
-        const FIELDS: usize = 4; // Name, Description, Continue on error, Env
+        const FIELDS: usize = 5; // Name, Description, Continue on error, Env, Params
 
         match mode {
             CampaignSettingsMode::Browse => match key.code {
@@ -259,6 +326,9 @@ impl BuilderApp {
                     3 => {
                         self.cycle_env(1);
                         self.focus = BuilderFocus::CampaignSettings { cursor, mode: CampaignSettingsMode::Browse };
+                    }
+                    4 => {
+                        self.focus = BuilderFocus::ParamsEditor { cursor: 0, mode: ParamEditorMode::Browse };
                     }
                     _ => {}
                 },
@@ -324,6 +394,553 @@ impl BuilderApp {
         self.modified = true;
     }
 
+    // ── Params editor ─────────────────────────────────────────────────────────
+
+    fn handle_params_editor_key(
+        &mut self,
+        key: crossterm::event::KeyEvent,
+        cursor: usize,
+        mode: ParamEditorMode,
+    ) -> Result<()> {
+        use crossterm::event::KeyCode;
+
+        match mode {
+            ParamEditorMode::Browse => {
+                let n = self.campaign.params.len();
+                match key.code {
+                    KeyCode::Esc => {
+                        self.focus = BuilderFocus::CampaignSettings {
+                            cursor: 4,
+                            mode: CampaignSettingsMode::Browse,
+                        };
+                    }
+                    KeyCode::Up => {
+                        let new = cursor.saturating_sub(1);
+                        self.focus = BuilderFocus::ParamsEditor { cursor: new, mode: ParamEditorMode::Browse };
+                    }
+                    KeyCode::Down => {
+                        let new = if n > 0 { (cursor + 1).min(n - 1) } else { 0 };
+                        self.focus = BuilderFocus::ParamsEditor { cursor: new, mode: ParamEditorMode::Browse };
+                    }
+                    KeyCode::Char('a') => {
+                        self.focus = BuilderFocus::ParamsEditor {
+                            cursor,
+                            mode: ParamEditorMode::AddParam {
+                                name: String::new(),
+                                desc: String::new(),
+                                default_val: String::new(),
+                                field: 0,
+                            },
+                        };
+                    }
+                    KeyCode::Char('d') if n > 0 && cursor < n => {
+                        self.campaign.params.remove(cursor);
+                        self.modified = true;
+                        let new = cursor.min(self.campaign.params.len().saturating_sub(1));
+                        self.focus = BuilderFocus::ParamsEditor { cursor: new, mode: ParamEditorMode::Browse };
+                    }
+                    KeyCode::Enter if n > 0 && cursor < n => {
+                        let p = &self.campaign.params[cursor];
+                        self.focus = BuilderFocus::ParamsEditor {
+                            cursor,
+                            mode: ParamEditorMode::EditParam {
+                                idx: cursor,
+                                name: p.name.clone(),
+                                desc: p.description.clone(),
+                                default_val: p.default.clone().unwrap_or_default(),
+                                field: 0,
+                            },
+                        };
+                    }
+                    _ => {}
+                }
+            }
+
+            ParamEditorMode::AddParam { mut name, mut desc, mut default_val, field } => {
+                match key.code {
+                    KeyCode::Esc => {
+                        self.focus = BuilderFocus::ParamsEditor { cursor, mode: ParamEditorMode::Browse };
+                    }
+                    KeyCode::Tab | KeyCode::Enter => {
+                        let next_field = field + 1;
+                        if next_field > 2 {
+                            // Save
+                            if !name.trim().is_empty() {
+                                self.campaign.params.push(crate::campaign::CampaignParam {
+                                    name: name.trim().to_string(),
+                                    description: desc.trim().to_string(),
+                                    default: if default_val.trim().is_empty() { None } else { Some(default_val.trim().to_string()) },
+                                });
+                                self.modified = true;
+                            }
+                            let new_cursor = self.campaign.params.len().saturating_sub(1);
+                            self.focus = BuilderFocus::ParamsEditor { cursor: new_cursor, mode: ParamEditorMode::Browse };
+                        } else {
+                            self.focus = BuilderFocus::ParamsEditor { cursor, mode: ParamEditorMode::AddParam { name, desc, default_val, field: next_field } };
+                        }
+                    }
+                    KeyCode::Backspace => {
+                        match field { 0 => { name.pop(); } 1 => { desc.pop(); } _ => { default_val.pop(); } }
+                        self.focus = BuilderFocus::ParamsEditor { cursor, mode: ParamEditorMode::AddParam { name, desc, default_val, field } };
+                    }
+                    KeyCode::Char(c) => {
+                        match field { 0 => name.push(c), 1 => desc.push(c), _ => default_val.push(c) }
+                        self.focus = BuilderFocus::ParamsEditor { cursor, mode: ParamEditorMode::AddParam { name, desc, default_val, field } };
+                    }
+                    _ => {}
+                }
+            }
+
+            ParamEditorMode::EditParam { idx, mut name, mut desc, mut default_val, field } => {
+                match key.code {
+                    KeyCode::Esc => {
+                        self.focus = BuilderFocus::ParamsEditor { cursor, mode: ParamEditorMode::Browse };
+                    }
+                    KeyCode::Tab | KeyCode::Enter => {
+                        let next_field = field + 1;
+                        if next_field > 2 {
+                            // Save
+                            if idx < self.campaign.params.len() && !name.trim().is_empty() {
+                                let p = &mut self.campaign.params[idx];
+                                p.name        = name.trim().to_string();
+                                p.description = desc.trim().to_string();
+                                p.default     = if default_val.trim().is_empty() { None } else { Some(default_val.trim().to_string()) };
+                                self.modified = true;
+                            }
+                            self.focus = BuilderFocus::ParamsEditor { cursor, mode: ParamEditorMode::Browse };
+                        } else {
+                            self.focus = BuilderFocus::ParamsEditor { cursor, mode: ParamEditorMode::EditParam { idx, name, desc, default_val, field: next_field } };
+                        }
+                    }
+                    KeyCode::Backspace => {
+                        match field { 0 => { name.pop(); } 1 => { desc.pop(); } _ => { default_val.pop(); } }
+                        self.focus = BuilderFocus::ParamsEditor { cursor, mode: ParamEditorMode::EditParam { idx, name, desc, default_val, field } };
+                    }
+                    KeyCode::Char(c) => {
+                        match field { 0 => name.push(c), 1 => desc.push(c), _ => default_val.push(c) }
+                        self.focus = BuilderFocus::ParamsEditor { cursor, mode: ParamEditorMode::EditParam { idx, name, desc, default_val, field } };
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Ok(())
+    }
+
+    // ── Connectors editor ─────────────────────────────────────────────────────
+
+    fn handle_connectors_key(&mut self, key: crossterm::event::KeyEvent, cursor: usize, mode: IoEditorMode) -> Result<()> {
+        use crossterm::event::KeyCode;
+        const KINDS: &[&str] = &["csv", "json"];
+
+        match mode {
+            IoEditorMode::Browse => {
+                let n = self.campaign.connectors.len();
+                match key.code {
+                    KeyCode::Esc => { self.focus = BuilderFocus::Pipeline; }
+                    KeyCode::Up   => { self.focus = BuilderFocus::ConnectorsEditor { cursor: cursor.saturating_sub(1), mode: IoEditorMode::Browse }; }
+                    KeyCode::Down => { self.focus = BuilderFocus::ConnectorsEditor { cursor: if n > 0 { (cursor+1).min(n-1) } else { 0 }, mode: IoEditorMode::Browse }; }
+                    KeyCode::Char('a') => {
+                        self.focus = BuilderFocus::ConnectorsEditor { cursor, mode: IoEditorMode::Edit { idx: None, f0: "csv".into(), f1: String::new(), f2: String::new(), f3: String::new(), field: 0 } };
+                    }
+                    KeyCode::Char('d') if n > 0 && cursor < n => {
+                        self.campaign.connectors.remove(cursor);
+                        self.modified = true;
+                        let new = cursor.min(self.campaign.connectors.len().saturating_sub(1));
+                        self.focus = BuilderFocus::ConnectorsEditor { cursor: new, mode: IoEditorMode::Browse };
+                    }
+                    KeyCode::Enter if n > 0 && cursor < n => {
+                        let c = &self.campaign.connectors[cursor];
+                        self.focus = BuilderFocus::ConnectorsEditor { cursor, mode: IoEditorMode::Edit {
+                            idx: Some(cursor),
+                            f0: c.kind.clone(),
+                            f1: c.path.clone(),
+                            f2: c.select.clone().unwrap_or_default(),
+                            f3: c.from_step.clone().unwrap_or_default(),
+                            field: 0,
+                        }};
+                    }
+                    _ => {}
+                }
+            }
+            IoEditorMode::Edit { idx, mut f0, mut f1, mut f2, mut f3, field } => {
+                use crossterm::event::KeyCode;
+                let max_field = 3u8;
+                match key.code {
+                    KeyCode::Esc => { self.focus = BuilderFocus::ConnectorsEditor { cursor, mode: IoEditorMode::Browse }; }
+                    KeyCode::Left if field == 0 => {
+                        let i = KINDS.iter().position(|&k| k == f0).unwrap_or(0);
+                        f0 = KINDS[(i + KINDS.len() - 1) % KINDS.len()].to_string();
+                        self.focus = BuilderFocus::ConnectorsEditor { cursor, mode: IoEditorMode::Edit { idx, f0, f1, f2, f3, field } };
+                    }
+                    KeyCode::Right if field == 0 => {
+                        let i = KINDS.iter().position(|&k| k == f0).unwrap_or(0);
+                        f0 = KINDS[(i + 1) % KINDS.len()].to_string();
+                        self.focus = BuilderFocus::ConnectorsEditor { cursor, mode: IoEditorMode::Edit { idx, f0, f1, f2, f3, field } };
+                    }
+                    KeyCode::Tab | KeyCode::Enter if field == 0 => {
+                        self.focus = BuilderFocus::ConnectorsEditor { cursor, mode: IoEditorMode::Edit { idx, f0, f1, f2, f3, field: 1 } };
+                    }
+                    KeyCode::Tab | KeyCode::Enter => {
+                        if field >= max_field {
+                            self.save_connector(idx, &f0, &f1, &f2, &f3, cursor);
+                        } else {
+                            self.focus = BuilderFocus::ConnectorsEditor { cursor, mode: IoEditorMode::Edit { idx, f0, f1, f2, f3, field: field + 1 } };
+                        }
+                    }
+                    KeyCode::Backspace if field > 0 => {
+                        match field { 1 => { f1.pop(); } 2 => { f2.pop(); } _ => { f3.pop(); } }
+                        self.focus = BuilderFocus::ConnectorsEditor { cursor, mode: IoEditorMode::Edit { idx, f0, f1, f2, f3, field } };
+                    }
+                    KeyCode::Char(c) if field > 0 => {
+                        match field { 1 => f1.push(c), 2 => f2.push(c), _ => f3.push(c) }
+                        self.focus = BuilderFocus::ConnectorsEditor { cursor, mode: IoEditorMode::Edit { idx, f0, f1, f2, f3, field } };
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn save_connector(&mut self, idx: Option<usize>, kind: &str, path: &str, select: &str, from_step: &str, _cursor: usize) {
+        let conn = crate::connector::ConnectorConfig {
+            kind: kind.to_string(),
+            path: path.trim().to_string(),
+            select: if select.trim().is_empty() { None } else { Some(select.trim().to_string()) },
+            from_step: if from_step.trim().is_empty() { None } else { Some(from_step.trim().to_string()) },
+        };
+        match idx {
+            Some(i) if i < self.campaign.connectors.len() => { self.campaign.connectors[i] = conn; }
+            _ => { self.campaign.connectors.push(conn); }
+        }
+        self.modified = true;
+        let new_cursor = idx.unwrap_or(self.campaign.connectors.len() - 1);
+        self.focus = BuilderFocus::ConnectorsEditor { cursor: new_cursor, mode: IoEditorMode::Browse };
+    }
+
+    // ── Outputs editor ────────────────────────────────────────────────────────
+
+    fn handle_outputs_key(&mut self, key: crossterm::event::KeyEvent, cursor: usize, mode: IoEditorMode) -> Result<()> {
+        use crossterm::event::KeyCode;
+
+        match mode {
+            IoEditorMode::Browse => {
+                let n = self.campaign.outputs.len();
+                match key.code {
+                    KeyCode::Esc => { self.focus = BuilderFocus::Pipeline; }
+                    KeyCode::Up   => { self.focus = BuilderFocus::OutputsEditor { cursor: cursor.saturating_sub(1), mode: IoEditorMode::Browse }; }
+                    KeyCode::Down => { self.focus = BuilderFocus::OutputsEditor { cursor: if n > 0 { (cursor+1).min(n-1) } else { 0 }, mode: IoEditorMode::Browse }; }
+                    KeyCode::Char('a') => {
+                        self.focus = BuilderFocus::OutputStepPicker {
+                            output_idx: None,
+                            step_cursor: 0,
+                            f1: String::new(), f2: String::new(), f3: String::new(),
+                            output_cursor: cursor,
+                        };
+                    }
+                    KeyCode::Char('d') if n > 0 && cursor < n => {
+                        self.campaign.outputs.remove(cursor);
+                        self.modified = true;
+                        let new = cursor.min(self.campaign.outputs.len().saturating_sub(1));
+                        self.focus = BuilderFocus::OutputsEditor { cursor: new, mode: IoEditorMode::Browse };
+                    }
+                    KeyCode::Enter if n > 0 && cursor < n => {
+                        let o = &self.campaign.outputs[cursor];
+                        let step_cursor = self.campaign.steps.iter()
+                            .position(|s| s.name == o.from_step)
+                            .unwrap_or(0);
+                        self.focus = BuilderFocus::OutputStepPicker {
+                            output_idx: Some(cursor),
+                            step_cursor,
+                            f1: o.path.clone(),
+                            f2: o.select.clone().unwrap_or_default(),
+                            f3: o.include_vars.join(", "),
+                            output_cursor: cursor,
+                        };
+                    }
+                    _ => {}
+                }
+            }
+            IoEditorMode::Edit { idx, f0, mut f1, mut f2, mut f3, field } => {
+                // field 0 (from_step) is set by OutputStepPicker — here we start at field >= 1
+                const MAX_FIELD: u8 = 3;
+                match key.code {
+                    KeyCode::Esc => { self.focus = BuilderFocus::OutputsEditor { cursor, mode: IoEditorMode::Browse }; }
+                    KeyCode::Tab | KeyCode::Enter => {
+                        if field >= MAX_FIELD {
+                            self.save_output(idx, &f0, &f1, &f2, &f3, cursor);
+                        } else {
+                            self.focus = BuilderFocus::OutputsEditor { cursor, mode: IoEditorMode::Edit { idx, f0, f1, f2, f3, field: field + 1 } };
+                        }
+                    }
+                    KeyCode::Backspace => {
+                        match field { 1 => { f1.pop(); } 2 => { f2.pop(); } _ => { f3.pop(); } }
+                        self.focus = BuilderFocus::OutputsEditor { cursor, mode: IoEditorMode::Edit { idx, f0, f1, f2, f3, field } };
+                    }
+                    KeyCode::Char(c) => {
+                        match field { 1 => f1.push(c), 2 => f2.push(c), _ => f3.push(c) }
+                        self.focus = BuilderFocus::OutputsEditor { cursor, mode: IoEditorMode::Edit { idx, f0, f1, f2, f3, field } };
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn save_output(&mut self, idx: Option<usize>, from_step: &str, path: &str, select: &str, include_vars: &str, _cursor: usize) {
+        let out = crate::campaign::OutputConfig {
+            from_step: from_step.trim().to_string(),
+            path: path.trim().to_string(),
+            select: if select.trim().is_empty() { None } else { Some(select.trim().to_string()) },
+            include_vars: include_vars.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
+        };
+        match idx {
+            Some(i) if i < self.campaign.outputs.len() => { self.campaign.outputs[i] = out; }
+            _ => { self.campaign.outputs.push(out); }
+        }
+        self.modified = true;
+        let new_cursor = idx.unwrap_or(self.campaign.outputs.len() - 1);
+        self.focus = BuilderFocus::OutputsEditor { cursor: new_cursor, mode: IoEditorMode::Browse };
+    }
+
+    // ── Output step picker ────────────────────────────────────────────────────
+
+    fn handle_output_step_picker_key(
+        &mut self,
+        key: crossterm::event::KeyEvent,
+        output_idx: Option<usize>,
+        step_cursor: usize,
+        f1: String, f2: String, f3: String,
+        output_cursor: usize,
+    ) -> Result<()> {
+        use crossterm::event::KeyCode;
+        let steps: Vec<&str> = self.campaign.steps.iter()
+            .filter(|s| s.kind != "comment" && s.kind != "transform" && s.kind != "pause")
+            .map(|s| s.name.as_str())
+            .collect();
+        let n = steps.len();
+        match key.code {
+            KeyCode::Esc => {
+                self.focus = BuilderFocus::OutputsEditor { cursor: output_cursor, mode: IoEditorMode::Browse };
+            }
+            KeyCode::Up => {
+                let new = step_cursor.saturating_sub(1);
+                self.focus = BuilderFocus::OutputStepPicker { output_idx, step_cursor: new, f1, f2, f3, output_cursor };
+            }
+            KeyCode::Down => {
+                let new = if n > 0 { (step_cursor + 1).min(n - 1) } else { 0 };
+                self.focus = BuilderFocus::OutputStepPicker { output_idx, step_cursor: new, f1, f2, f3, output_cursor };
+            }
+            KeyCode::Enter if n > 0 => {
+                let selected = steps[step_cursor.min(n - 1)].to_string();
+                self.focus = BuilderFocus::OutputsEditor {
+                    cursor: output_cursor,
+                    mode: IoEditorMode::Edit {
+                        idx: output_idx,
+                        f0: selected,
+                        f1, f2, f3,
+                        field: 1,
+                    },
+                };
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    // ── Pipeline connector/output inline navigation ───────────────────────────
+
+    fn handle_pipeline_connectors_key(&mut self, key: crossterm::event::KeyEvent, cursor: usize) -> Result<()> {
+        use crossterm::event::KeyCode;
+        let n = self.campaign.connectors.len();
+        match key.code {
+            KeyCode::Esc => { self.focus = BuilderFocus::Pipeline; }
+            KeyCode::Up => {
+                if cursor > 0 {
+                    self.focus = BuilderFocus::PipelineConnectors { cursor: cursor - 1 };
+                }
+                // at top: stay here (no wrapping back to steps above connectors)
+            }
+            KeyCode::Down => {
+                if cursor + 1 < n {
+                    self.focus = BuilderFocus::PipelineConnectors { cursor: cursor + 1 };
+                } else {
+                    // bottom of connectors → back to steps (step 0)
+                    self.cursor = 0;
+                    self.focus = BuilderFocus::Pipeline;
+                }
+            }
+            KeyCode::Enter if n > 0 => {
+                let c = &self.campaign.connectors[cursor];
+                self.focus = BuilderFocus::ConnectorsEditor {
+                    cursor,
+                    mode: IoEditorMode::Edit {
+                        idx: Some(cursor),
+                        f0: c.kind.clone(),
+                        f1: c.path.clone(),
+                        f2: c.select.clone().unwrap_or_default(),
+                        f3: c.from_step.clone().unwrap_or_default(),
+                        field: 1,
+                    },
+                };
+            }
+            KeyCode::Char('d') if n > 0 => {
+                self.campaign.connectors.remove(cursor);
+                self.modified = true;
+                if self.campaign.connectors.is_empty() {
+                    self.cursor = 0;
+                    self.focus = BuilderFocus::Pipeline;
+                } else {
+                    self.focus = BuilderFocus::PipelineConnectors {
+                        cursor: cursor.min(self.campaign.connectors.len() - 1),
+                    };
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn handle_pipeline_outputs_key(&mut self, key: crossterm::event::KeyEvent, cursor: usize) -> Result<()> {
+        use crossterm::event::KeyCode;
+        let n = self.campaign.outputs.len();
+        match key.code {
+            KeyCode::Esc => { self.focus = BuilderFocus::Pipeline; }
+            KeyCode::Up => {
+                if cursor > 0 {
+                    self.focus = BuilderFocus::PipelineOutputs { cursor: cursor - 1 };
+                } else {
+                    // top of outputs → back to last step
+                    let last = self.campaign.steps.len().saturating_sub(1);
+                    self.cursor = last;
+                    self.focus = BuilderFocus::Pipeline;
+                }
+            }
+            KeyCode::Down => {
+                if cursor + 1 < n {
+                    self.focus = BuilderFocus::PipelineOutputs { cursor: cursor + 1 };
+                }
+                // at bottom: stay here
+            }
+            KeyCode::Enter if n > 0 => {
+                let o = &self.campaign.outputs[cursor];
+                let step_cursor = self.campaign.steps.iter()
+                    .position(|s| s.name == o.from_step)
+                    .unwrap_or(0);
+                self.focus = BuilderFocus::OutputStepPicker {
+                    output_idx: Some(cursor),
+                    step_cursor,
+                    f1: o.path.clone(),
+                    f2: o.select.clone().unwrap_or_default(),
+                    f3: o.include_vars.join(", "),
+                    output_cursor: cursor,
+                };
+            }
+            KeyCode::Char('d') if n > 0 => {
+                self.campaign.outputs.remove(cursor);
+                self.modified = true;
+                if self.campaign.outputs.is_empty() {
+                    let last = self.campaign.steps.len().saturating_sub(1);
+                    self.cursor = last;
+                    self.focus = BuilderFocus::Pipeline;
+                } else {
+                    self.focus = BuilderFocus::PipelineOutputs {
+                        cursor: cursor.min(self.campaign.outputs.len() - 1),
+                    };
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    // ── Run ───────────────────────────────────────────────────────────────────
+
+    fn start_run(&mut self) {
+        let campaign = self.campaign.clone();
+        let name = campaign.campaign.name.clone();
+        let (tx, rx) = mpsc::unbounded_channel::<CampaignEvent>();
+        self.run_state = CampaignRunState::Running {
+            name,
+            step_results: vec![],
+            current_step: None,
+        };
+        self.campaign_rx = Some(rx);
+        self.focus = BuilderFocus::Run { scroll: 0 };
+        tokio::spawn(async move {
+            crate::campaign::run_streaming(campaign, tx, std::collections::HashMap::new()).await;
+        });
+    }
+
+    pub fn handle_tick(&mut self) {
+        // Drain the channel into a local vec to avoid borrow conflicts
+        let events: Vec<CampaignEvent> = {
+            let Some(ref mut rx) = self.campaign_rx else { return };
+            let mut buf = Vec::new();
+            while let Ok(ev) = rx.try_recv() { buf.push(ev); }
+            buf
+        };
+
+        let mut finished = false;
+        for event in events {
+            match event {
+                CampaignEvent::StepStarted { name } => {
+                    if let CampaignRunState::Running { ref mut current_step, .. } = self.run_state {
+                        *current_step = Some(name);
+                    }
+                }
+                CampaignEvent::StepDone(result) => {
+                    if let CampaignRunState::Running { ref mut step_results, ref mut current_step, .. } = self.run_state {
+                        step_results.push(result);
+                        *current_step = None;
+                    }
+                }
+                CampaignEvent::Finished(results) => {
+                    let name = if let CampaignRunState::Running { ref name, .. } = self.run_state {
+                        name.clone()
+                    } else { String::new() };
+                    self.run_state = CampaignRunState::Done { name, results };
+                    finished = true;
+                }
+                CampaignEvent::Error(e) => {
+                    self.status_message = format!("Run error: {}", e);
+                }
+                CampaignEvent::Warning(w) => {
+                    self.status_message = format!("Warning: {}", w);
+                }
+                _ => {}
+            }
+        }
+        if finished {
+            self.campaign_rx = None;
+        }
+    }
+
+    fn handle_run_key(&mut self, key: crossterm::event::KeyEvent, scroll: usize) -> Result<()> {
+        use crossterm::event::KeyCode;
+        match key.code {
+            KeyCode::Esc => {
+                self.focus = BuilderFocus::Pipeline;
+            }
+            KeyCode::Up => {
+                self.focus = BuilderFocus::Run { scroll: scroll.saturating_sub(1) };
+            }
+            KeyCode::Down => {
+                self.focus = BuilderFocus::Run { scroll: scroll + 1 };
+            }
+            KeyCode::Char('r') => {
+                // Re-run
+                if matches!(self.run_state, CampaignRunState::Done { .. } | CampaignRunState::Idle) {
+                    self.start_run();
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
     // ── Persistence ───────────────────────────────────────────────────────────
 
     fn save(&mut self) -> Result<()> {
@@ -336,11 +953,11 @@ impl BuilderApp {
                 dir.join(format!("{}.toml", name))
             }
         };
-        let toml_str = generate_toml(&self.campaign);
+        let toml_str = generate_toml(&self.campaign, &self.step_comments, &self.header_comment);
         std::fs::write(&path, &toml_str)?;
         self.path = Some(path.clone());
         self.modified = false;
-        self.status_message = format!("Sauvegardé : {}", path.display());
+        self.status_message = format!("Saved: {}", path.display());
         Ok(())
     }
 }
@@ -377,7 +994,7 @@ fn run_builder(
         terminal.draw(|frame| ui::render(frame, &app))?;
         match events.next()? {
             Event::Key(key) => app.handle_key(key)?,
-            Event::Tick => {}
+            Event::Tick => app.handle_tick(),
         }
     }
 
@@ -385,6 +1002,52 @@ fn run_builder(
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+fn parse_header_comment(content: &str) -> String {
+    let mut lines: Vec<String> = Vec::new();
+    for raw in content.lines() {
+        let trimmed = raw.trim();
+        if trimmed.starts_with('[') {
+            break;
+        }
+        if trimmed.starts_with('#') {
+            let stripped = if trimmed.starts_with("# ") { &trimmed[2..] }
+                           else { &trimmed[1..] };
+            lines.push(stripped.to_string());
+        }
+        // blank lines between comment lines: skip silently
+    }
+    lines.join("\n")
+}
+
+fn parse_step_comments(content: &str, step_count: usize) -> Vec<String> {
+    let lines: Vec<&str> = content.lines().collect();
+    let step_positions: Vec<usize> = lines.iter().enumerate()
+        .filter(|(_, l)| l.trim() == "[[steps]]")
+        .map(|(i, _)| i)
+        .collect();
+
+    let mut comments = vec![String::new(); step_count];
+    for (idx, &sl) in step_positions.iter().enumerate() {
+        if idx >= step_count { break; }
+        let mut block: Vec<String> = Vec::new();
+        let mut j = sl;
+        while j > 0 {
+            j -= 1;
+            let trimmed = lines[j].trim();
+            if trimmed.starts_with('#') {
+                let stripped = if trimmed.starts_with("# ") { &trimmed[2..] }
+                               else { &trimmed[1..] };
+                block.push(stripped.to_string());
+            } else {
+                break;
+            }
+        }
+        block.reverse();
+        comments[idx] = block.join("\n");
+    }
+    comments
+}
 
 fn toml_escape(s: &str) -> String {
     s.replace('\\', "\\\\")
@@ -495,13 +1158,66 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
         },
+        // Connector and Output are handled directly in handle_catalog_key — not steps
+        BrickKind::Connector | BrickKind::Output => unreachable!(),
     }
 }
 
-fn generate_toml(campaign: &Campaign) -> String {
+fn generate_toml(campaign: &Campaign, step_comments: &[String], header_comment: &str) -> String {
     let mut out = String::new();
+    if !header_comment.is_empty() {
+        for line in header_comment.lines() {
+            out.push_str(&format!("# {}\n", line));
+        }
+        out.push('\n');
+    }
     let m = &campaign.campaign;
     out.push_str(&format!("[campaign]\nname        = \"{}\"\ndescription = \"{}\"\n", m.name, m.description));
+
+    if campaign.continue_on_error {
+        out.push_str("continue_on_error = true\n");
+    }
+    if let Some(ref env) = campaign.env_file {
+        out.push_str(&format!("env_file = \"{}\"\n", env));
+    }
+
+    for c in &campaign.connectors {
+        out.push_str("\n[[connectors]]\n");
+        out.push_str(&format!("type = \"{}\"\n", c.kind));
+        if !c.path.is_empty() {
+            out.push_str(&format!("path = \"{}\"\n", toml_escape(&c.path)));
+        }
+        if let Some(ref s) = c.select {
+            out.push_str(&format!("select = \"{}\"\n", toml_escape(s)));
+        }
+        if let Some(ref fs) = c.from_step {
+            out.push_str(&format!("from_step = \"{}\"\n", toml_escape(fs)));
+        }
+    }
+
+    for o in &campaign.outputs {
+        out.push_str("\n[[outputs]]\n");
+        out.push_str(&format!("from_step = \"{}\"\n", toml_escape(&o.from_step)));
+        out.push_str(&format!("path      = \"{}\"\n", toml_escape(&o.path)));
+        if let Some(ref s) = o.select {
+            out.push_str(&format!("select = \"{}\"\n", toml_escape(s)));
+        }
+        if !o.include_vars.is_empty() {
+            let vars: Vec<String> = o.include_vars.iter().map(|v| format!("\"{}\"", toml_escape(v))).collect();
+            out.push_str(&format!("include_vars = [{}]\n", vars.join(", ")));
+        }
+    }
+
+    for p in &campaign.params {
+        out.push_str("\n[[params]]\n");
+        out.push_str(&format!("name        = \"{}\"\n", toml_escape(&p.name)));
+        if !p.description.is_empty() {
+            out.push_str(&format!("description = \"{}\"\n", toml_escape(&p.description)));
+        }
+        if let Some(ref d) = p.default {
+            out.push_str(&format!("default     = \"{}\"\n", toml_escape(d)));
+        }
+    }
 
     if !campaign.env.is_empty() {
         out.push_str("\n[env]\n");
@@ -512,14 +1228,15 @@ fn generate_toml(campaign: &Campaign) -> String {
         }
     }
 
-    for step in &campaign.steps {
+    for (i, step) in campaign.steps.iter().enumerate() {
         if step.kind == "comment" {
             out.push_str(&format!("\n# {}\n", step.name));
             continue;
         }
-        if !step.description.is_empty() {
+        let comment = step_comments.get(i).map(|s| s.as_str()).unwrap_or("");
+        if !comment.is_empty() {
             out.push('\n');
-            for line in step.description.lines() {
+            for line in comment.lines() {
                 out.push_str(&format!("# {}\n", line));
             }
         }
@@ -543,6 +1260,12 @@ fn generate_toml(campaign: &Campaign) -> String {
         if let Some(foreach) = &step.foreach {
             out.push_str(&format!("foreach = \"{}\"\n", foreach));
         }
+        if let Some(env) = &step.env {
+            out.push_str(&format!("env    = \"{}\"\n", env));
+        }
+        if let Some(coe) = step.continue_on_error {
+            out.push_str(&format!("continue_on_error = {}\n", coe));
+        }
         if !step.headers.is_empty() {
             out.push_str("[steps.headers]\n");
             let mut headers: Vec<_> = step.headers.iter().collect();
@@ -559,7 +1282,42 @@ fn generate_toml(campaign: &Campaign) -> String {
                 out.push_str(&format!("{} = \"{}\"\n", k, v));
             }
         }
+        if let Some(when) = &step.when {
+            let mut w = format!("when   = {{var = \"{}\"", when.var);
+            if let Some(eq) = &when.eq { w.push_str(&format!(", eq = \"{}\"", eq)); }
+            if let Some(ne) = &when.ne { w.push_str(&format!(", ne = \"{}\"", ne)); }
+            if let Some(b)  = when.exists { w.push_str(&format!(", exists = {}", b)); }
+            w.push_str("}\n");
+            out.push_str(&w);
+        }
+        if !step.assert.is_empty() {
+            let parts: Vec<String> = step.assert.iter().map(assertion_inline).collect();
+            out.push_str(&format!("assert = [{}]\n", parts.join(", ")));
+        }
     }
 
     out
+}
+
+fn assertion_inline(a: &crate::campaign::Assertion) -> String {
+    let mut parts = vec![format!("on = \"{}\"", a.on.replace('"', "\\\""))];
+    if let Some(v) = &a.eq      { parts.push(format!("eq = {}", json_val_str(v))); }
+    if let Some(v) = &a.ne      { parts.push(format!("ne = {}", json_val_str(v))); }
+    if let Some(v) = &a.lt      { parts.push(format!("lt = {}", v)); }
+    if let Some(v) = &a.lte     { parts.push(format!("lte = {}", v)); }
+    if let Some(v) = &a.gt      { parts.push(format!("gt = {}", v)); }
+    if let Some(v) = &a.gte     { parts.push(format!("gte = {}", v)); }
+    if let Some(v) = &a.contains { parts.push(format!("contains = \"{}\"", v.replace('"', "\\\""))); }
+    if let Some(v) = &a.matches  { parts.push(format!("matches = \"{}\"", v.replace('"', "\\\""))); }
+    if let Some(b) = &a.exists  { parts.push(format!("exists = {}", b)); }
+    format!("{{{}}}", parts.join(", "))
+}
+
+fn json_val_str(v: &serde_json::Value) -> String {
+    match v {
+        serde_json::Value::Number(n) => n.to_string(),
+        serde_json::Value::Bool(b)   => b.to_string(),
+        serde_json::Value::String(s) => format!("\"{}\"", s.replace('"', "\\\"")),
+        other                        => format!("\"{}\"", other),
+    }
 }

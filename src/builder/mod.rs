@@ -1,6 +1,7 @@
 pub mod types;
 mod checker;
 mod editor;
+pub(super) mod step_editor;
 mod ui;
 
 use anyhow::Result;
@@ -13,6 +14,7 @@ use std::io;
 use std::path::PathBuf;
 
 use crate::campaign::{Campaign, Meta};
+use types::StepEditorMode;
 use crate::event::{Event, EventHandler};
 use crate::storage::StoredCollection;
 use types::*;
@@ -50,15 +52,18 @@ impl BuilderApp {
     }
 
     pub fn handle_key(&mut self, key: crossterm::event::KeyEvent) -> Result<()> {
-        match &self.focus.clone() {
-            BuilderFocus::Pipeline              => self.handle_pipeline_key(key),
+        match self.focus.clone() {
+            BuilderFocus::Pipeline => self.handle_pipeline_key(key),
             BuilderFocus::Catalog { cursor, insert_after } => {
-                self.handle_catalog_key(key, *cursor, *insert_after)
+                self.handle_catalog_key(key, cursor, insert_after)
             }
-            BuilderFocus::Checker { .. }        => self.handle_overlay_key(key),
-            BuilderFocus::TomlPreview { scroll }=> self.handle_preview_key(key, *scroll),
-            BuilderFocus::Variables { cursor }  => self.handle_variables_key(key, *cursor),
-            _                                   => self.handle_overlay_key(key),
+            BuilderFocus::StepEditor { step_idx, section_cursor, sub_cursor, mode } => {
+                step_editor::handle_key(self, key, step_idx, section_cursor, sub_cursor, mode)
+            }
+            BuilderFocus::Checker { .. }         => self.handle_overlay_key(key),
+            BuilderFocus::TomlPreview { scroll } => self.handle_preview_key(key, scroll),
+            BuilderFocus::Variables { cursor }   => self.handle_variables_key(key, cursor),
+            _                                    => self.handle_overlay_key(key),
         }
     }
 
@@ -76,6 +81,14 @@ impl BuilderApp {
                 if step_count > 0 && self.cursor < step_count - 1 {
                     self.cursor += 1;
                 }
+            }
+            KeyCode::Enter | KeyCode::Char('e') if step_count > 0 => {
+                self.focus = BuilderFocus::StepEditor {
+                    step_idx: self.cursor,
+                    section_cursor: 0,
+                    sub_cursor: 0,
+                    mode: StepEditorMode::Browse,
+                };
             }
             KeyCode::Char('n') => {
                 self.focus = BuilderFocus::Catalog { insert_after: None, cursor: 0 };

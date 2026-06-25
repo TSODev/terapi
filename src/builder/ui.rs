@@ -7,7 +7,8 @@ use ratatui::{
 };
 
 use super::BuilderApp;
-use super::types::{BRICK_KINDS, BuilderFocus, CheckLevel};
+use super::step_editor::{current_value, sections_for, sorted_keys};
+use super::types::{BRICK_KINDS, BuilderFocus, CheckLevel, StepEditorMode, StepSection};
 
 pub fn render(frame: &mut Frame, app: &BuilderApp) {
     let area = frame.area();
@@ -181,6 +182,8 @@ fn render_context(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     match &app.focus {
         BuilderFocus::Pipeline => render_pipeline_hint(frame, app, area),
         BuilderFocus::Catalog { cursor, .. } => render_catalog(frame, *cursor, area),
+        BuilderFocus::StepEditor { step_idx, section_cursor, sub_cursor, mode } =>
+            render_step_editor(frame, app, *step_idx, *section_cursor, *sub_cursor, mode, area),
         BuilderFocus::Checker { results } => render_checker(frame, results, area),
         BuilderFocus::TomlPreview { scroll } => render_toml_preview(frame, app, *scroll, area),
         BuilderFocus::Variables { cursor } => render_variables(frame, app, *cursor, area),
@@ -342,6 +345,215 @@ fn render_variables(frame: &mut Frame, app: &BuilderApp, cursor: usize, area: Re
     frame.render_widget(List::new(all), inner);
 }
 
+fn render_step_editor(
+    frame: &mut Frame,
+    app: &BuilderApp,
+    step_idx: usize,
+    section_cursor: usize,
+    _sub_cursor: usize,
+    mode: &StepEditorMode,
+    area: Rect,
+) {
+    let step = &app.campaign.steps[step_idx];
+    let (badge, _badge_color) = step_badge(&step.kind);
+    let title = format!(" {} step — {} ", badge, step.name);
+
+    let block = Block::default()
+        .title(title)
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let sections = sections_for(&step.kind);
+    let mut rows: Vec<ListItem> = Vec::new();
+
+    for (i, section) in sections.iter().enumerate() {
+        let is_cursor = i == section_cursor;
+        let _base_style = if is_cursor {
+            Style::default().fg(Color::White).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::Indexed(250))
+        };
+        let label_style = if is_cursor {
+            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::Indexed(242))
+        };
+
+        let cursor_char = if is_cursor { "▶ " } else { "  " };
+        let label = format!("{}{:<17}", cursor_char, section.label());
+
+        // Determine what to show as the value
+        let value_span = if is_cursor {
+            match mode {
+                StepEditorMode::EditText { buffer } => {
+                    Span::styled(
+                        format!("[ {}_]", buffer),
+                        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                    )
+                }
+                StepEditorMode::AddPairStage1 { .. } | StepEditorMode::AddPairStage2 { .. }
+                    if section.is_list() =>
+                {
+                    Span::styled(
+                        format!("({} items)", list_count(app, step_idx, section)),
+                        Style::default().fg(Color::Indexed(242)),
+                    )
+                }
+                _ => value_span_for(app, step_idx, section, is_cursor),
+            }
+        } else {
+            value_span_for(app, step_idx, section, is_cursor)
+        };
+
+        // Hint for list sections or action row
+        let hint_span = if is_cursor && section.is_list() && matches!(mode, StepEditorMode::Browse) {
+            Span::styled("  a: add  d: del", Style::default().fg(Color::Indexed(242)))
+        } else {
+            Span::raw("")
+        };
+
+        rows.push(ListItem::new(Line::from(vec![
+            Span::styled(label, label_style),
+            value_span,
+            hint_span,
+        ])));
+
+        // Sub-items for list sections
+        if section.is_list() {
+            let items = list_items_for(app, step_idx, section);
+            for item_str in &items {
+                rows.push(ListItem::new(Line::from(vec![
+                    Span::raw("     "),
+                    Span::styled(
+                        format!("  {}", item_str),
+                        Style::default().fg(if is_cursor { Color::Indexed(250) } else { Color::Indexed(242) }),
+                    ),
+                ])));
+            }
+        }
+
+        // Input row for add-pair modes (shown below the active list section)
+        if is_cursor {
+            match mode {
+                StepEditorMode::AddPairStage1 { buffer, .. } => {
+                    rows.push(ListItem::new(Line::from(vec![
+                        Span::raw("     "),
+                        Span::styled(
+                            format!("  Nom/clé : [ {}_]", buffer),
+                            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                        ),
+                    ])));
+                }
+                StepEditorMode::AddPairStage2 { key, buffer, .. } => {
+                    rows.push(ListItem::new(Line::from(vec![
+                        Span::raw("     "),
+                        Span::styled(
+                            format!("  {} : [ {}_]", key, buffer),
+                            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                        ),
+                    ])));
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // Hints footer
+    rows.push(ListItem::new(Line::from("")));
+    let hints = match mode {
+        StepEditorMode::Browse =>
+            "↑↓: champ  Enter: éditer  ←/→: cycle  a/d: liste  Esc: retour",
+        StepEditorMode::EditText { .. } =>
+            "Tapez pour modifier  Enter: valider  Esc: annuler",
+        StepEditorMode::AddPairStage1 { .. } =>
+            "Nom/clé  Enter: suivant  Esc: annuler",
+        StepEditorMode::AddPairStage2 { .. } =>
+            "Valeur  Enter: ajouter  Esc: annuler",
+    };
+    rows.push(ListItem::new(Line::from(
+        Span::styled(hints, Style::default().fg(Color::Indexed(242)))
+    )));
+
+    frame.render_widget(List::new(rows), inner);
+}
+
+fn value_span_for<'a>(app: &'a BuilderApp, step_idx: usize, section: &StepSection, is_cursor: bool) -> Span<'a> {
+    let val = current_value(app, step_idx, section);
+    let color = if is_cursor { Color::White } else { Color::Indexed(250) };
+    match section {
+        StepSection::Method => {
+            Span::styled(
+                format!("[ {} ▾ ]", val),
+                Style::default().fg(Color::Yellow).add_modifier(if is_cursor { Modifier::BOLD } else { Modifier::empty() }),
+            )
+        }
+        StepSection::TransformKind => {
+            Span::styled(
+                format!("[ {} ▾ ]", val),
+                Style::default().fg(Color::Yellow).add_modifier(if is_cursor { Modifier::BOLD } else { Modifier::empty() }),
+            )
+        }
+        StepSection::ContinueOnError => {
+            let checked = val.contains('x');
+            Span::styled(val, Style::default().fg(if checked { Color::Green } else { color }))
+        }
+        StepSection::LoadFromCollection => {
+            Span::styled("Enter / L", Style::default().fg(Color::Cyan))
+        }
+        _ if val.is_empty() => {
+            Span::styled("—", Style::default().fg(Color::Indexed(242)))
+        }
+        _ => {
+            Span::styled(truncate(&val, 38), Style::default().fg(color))
+        }
+    }
+}
+
+fn list_count(app: &BuilderApp, step_idx: usize, section: &StepSection) -> usize {
+    let step = &app.campaign.steps[step_idx];
+    match section {
+        StepSection::Headers    => step.headers.len(),
+        StepSection::Extract    => step.extract.len(),
+        StepSection::Assertions => step.assert.len(),
+        _ => 0,
+    }
+}
+
+fn list_items_for(app: &BuilderApp, step_idx: usize, section: &StepSection) -> Vec<String> {
+    let step = &app.campaign.steps[step_idx];
+    match section {
+        StepSection::Headers => {
+            sorted_keys(&step.headers).into_iter()
+                .map(|k| format!("{}: {}", k, step.headers.get(&k).cloned().unwrap_or_default()))
+                .collect()
+        }
+        StepSection::Extract => {
+            sorted_keys(&step.extract).into_iter()
+                .map(|k| format!("{} = {}", k, step.extract.get(&k).cloned().unwrap_or_default()))
+                .collect()
+        }
+        StepSection::Assertions => {
+            step.assert.iter()
+                .map(|a| format!("{} {}", a.on, assertion_op_label(a)))
+                .collect()
+        }
+        _ => vec![],
+    }
+}
+
+fn assertion_op_label(a: &crate::campaign::Assertion) -> String {
+    if let Some(eq) = &a.eq  { return format!("eq {}", eq); }
+    if let Some(ne) = &a.ne  { return format!("ne {}", ne); }
+    if a.exists == Some(true) { return "exists".into(); }
+    if a.exists == Some(false){ return "not exists".into(); }
+    if let Some(c) = &a.contains { return format!("contains {}", c); }
+    if let Some(m) = &a.matches  { return format!("matches {}", m); }
+    String::new()
+}
+
 fn render_placeholder(frame: &mut Frame, area: Rect) {
     let block = Block::default()
         .borders(Borders::ALL)
@@ -355,7 +567,10 @@ fn render_status(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     let focus_label = match &app.focus {
         BuilderFocus::Pipeline          => "Builder › Pipeline",
         BuilderFocus::Catalog { .. }    => "Builder › Catalog",
-        BuilderFocus::StepEditor { .. } => "Builder › Step editor",
+        BuilderFocus::StepEditor { step_idx, .. } => {
+            let _ = step_idx; // used via format below
+            "Builder › Step editor"
+        }
         BuilderFocus::CollectionBrowser { .. } => "Builder › Collections",
         BuilderFocus::Variables { .. }  => "Builder › Variables",
         BuilderFocus::Checker { .. }    => "Builder › Checker",
@@ -367,6 +582,14 @@ fn render_status(frame: &mut Frame, app: &BuilderApp, area: Rect) {
             "n: new  i: insert  d: del  K/J: move  Enter: edit  v: vars  c: check  p: preview  w: save  q: quit",
         BuilderFocus::Catalog { .. } =>
             "↑↓: choisir  Enter: créer  Esc: annuler",
+        BuilderFocus::StepEditor { mode, .. } => match mode {
+            StepEditorMode::Browse =>
+                "↑↓: champ  Enter: éditer  ←/→: cycle  a/d: liste  Esc: retour pipeline",
+            StepEditorMode::EditText { .. } =>
+                "Tapez pour modifier  Enter: valider  Esc: annuler",
+            _ =>
+                "Tapez  Enter: suivant/valider  Esc: annuler",
+        },
         BuilderFocus::Checker { .. } | BuilderFocus::TomlPreview { .. } | BuilderFocus::Variables { .. } =>
             "↑↓: naviguer  Esc: fermer",
         _ =>

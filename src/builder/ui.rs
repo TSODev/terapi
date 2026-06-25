@@ -352,8 +352,18 @@ fn render_context(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     match &app.focus {
         BuilderFocus::Pipeline => render_pipeline_hint(frame, app, area),
         BuilderFocus::Catalog { cursor, .. } => render_catalog(frame, *cursor, area),
-        BuilderFocus::StepEditor { step_idx, section_cursor, sub_cursor, mode, desc_active } =>
-            render_step_editor(frame, app, *step_idx, *section_cursor, *sub_cursor, mode, *desc_active, area),
+        BuilderFocus::StepEditor { step_idx, section_cursor, sub_cursor, mode, desc_active } => {
+            if app.step_preview_result.is_some() || app.step_preview_running {
+                let chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
+                    .split(area);
+                render_step_editor(frame, app, *step_idx, *section_cursor, *sub_cursor, mode, *desc_active, chunks[0]);
+                render_step_preview(frame, app, chunks[1]);
+            } else {
+                render_step_editor(frame, app, *step_idx, *section_cursor, *sub_cursor, mode, *desc_active, area);
+            }
+        }
         BuilderFocus::CollectionBrowser { col_cursor, expanded, .. } =>
             render_collection_browser(frame, app, *col_cursor, expanded, area),
         BuilderFocus::CampaignSettings { cursor, mode } =>
@@ -681,6 +691,113 @@ fn render_body_editor(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         Paragraph::new(Line::from(hints)).style(Style::default().fg(Color::Indexed(242))),
         chunks[1],
     );
+}
+
+fn render_step_preview(frame: &mut Frame, app: &BuilderApp, area: Rect) {
+    if app.step_preview_running {
+        let block = Block::default()
+            .title(" Run result ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Indexed(242)));
+        let inner = block.inner(area);
+        frame.render_widget(block, area);
+        frame.render_widget(
+            Paragraph::new(Line::from(Span::styled(
+                "⟳ running…",
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            ))),
+            inner,
+        );
+        return;
+    }
+
+    let Some(result) = &app.step_preview_result else { return };
+
+    let (title_icon, border_color) = if result.success { ("✓", Color::Green) } else { ("✗", Color::Red) };
+    let status_color = match result.status {
+        Some(s) if s < 300 => Color::Green,
+        Some(s) if s < 400 => Color::Yellow,
+        Some(_)             => Color::Red,
+        None                => if result.success { Color::Green } else { Color::Red },
+    };
+
+    let block = Block::default()
+        .title(format!(" {} Run result ", title_icon))
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(border_color));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let mut lines: Vec<Line> = Vec::new();
+
+    // Status + duration + url
+    let status_str = result.status
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| result.method.clone());
+    let url_display = if result.url.chars().count() > 35 {
+        format!("…{}", result.url.chars().rev().take(34).collect::<String>().chars().rev().collect::<String>())
+    } else {
+        result.url.clone()
+    };
+    lines.push(Line::from(vec![
+        Span::styled(status_str, Style::default().fg(status_color).add_modifier(Modifier::BOLD)),
+        Span::raw("  "),
+        Span::styled(format!("{} ms", result.duration_ms), Style::default().fg(Color::Indexed(242))),
+        Span::raw("  "),
+        Span::styled(url_display, Style::default().fg(Color::Indexed(242))),
+    ]));
+
+    // Error
+    if let Some(ref err) = result.error {
+        lines.push(Line::from(Span::styled(
+            format!("⚠ {}", err),
+            Style::default().fg(Color::Red),
+        )));
+    }
+
+    // Assertions
+    for (label, passed) in &result.assertion_results {
+        let (icon, color) = if *passed { ("✓", Color::Green) } else { ("✗", Color::Red) };
+        lines.push(Line::from(vec![
+            Span::styled(icon, Style::default().fg(color)),
+            Span::raw(format!(" {}", label)),
+        ]));
+    }
+
+    // Extracted vars
+    for (key, val) in &result.extracted {
+        let v = if val.chars().count() > 38 {
+            format!("{}…", val.chars().take(38).collect::<String>())
+        } else {
+            val.clone()
+        };
+        lines.push(Line::from(vec![
+            Span::styled("↳ ", Style::default().fg(Color::Cyan)),
+            Span::styled(key.clone(), Style::default().fg(Color::Cyan)),
+            Span::raw(format!(" = {}", v)),
+        ]));
+    }
+
+    // Body preview (first 6 lines)
+    if let Some(ref body) = result.body_json {
+        lines.push(Line::from(""));
+        let body_str = serde_json::to_string_pretty(body).unwrap_or_default();
+        let total = body_str.lines().count();
+        for line in body_str.lines().take(6) {
+            lines.push(Line::from(Span::styled(
+                line.to_string(),
+                Style::default().fg(Color::Indexed(242)),
+            )));
+        }
+        if total > 6 {
+            lines.push(Line::from(Span::styled(
+                format!("… ({} more lines)", total - 6),
+                Style::default().fg(Color::Indexed(238)),
+            )));
+        }
+    }
+
+    frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), inner);
 }
 
 fn render_step_editor(
@@ -1715,7 +1832,7 @@ fn render_status(frame: &mut Frame, app: &BuilderApp, area: Rect) {
             "Type body  Enter: new line  Esc: save & close",
         BuilderFocus::StepEditor { mode, .. } => match mode {
             StepEditorMode::Browse =>
-                "↑↓: field  ↑ at top: description  Enter: edit  ←/→: cycle  a/d: list  Esc: back",
+                "↑↓: field  ↑ at top: description  Enter: edit  ←/→: cycle  a/d: list  r: run step  Esc: back",
             StepEditorMode::EditText { .. } =>
                 "Type to edit  Enter: confirm  Esc: cancel",
             _ =>

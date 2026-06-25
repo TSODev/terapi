@@ -183,6 +183,10 @@ fn handle_browse(
             set_focus(app, step_idx, c, 0, StepEditorMode::Browse);
             return Ok(());
         }
+        KeyCode::Char('r') if kind != "comment" => {
+            app.start_step_preview(step_idx);
+            return Ok(());
+        }
         _ => {}
     }
 

@@ -253,6 +253,16 @@ pub fn load(path: &str) -> Result<Campaign> {
         .with_context(|| format!("invalid TOML in '{}'", path))
 }
 
+// ── single-step preview (used by the builder's Run Step feature) ──────────────
+
+pub async fn run_step_preview(step: Step, env: HashMap<String, String>) -> StepResult {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
+    run_single_step(&client, &step, &env, false).await
+}
+
 // ── streaming runner (core) ───────────────────────────────────────────────────
 
 pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<CampaignEvent>, overrides: HashMap<String, String>) {

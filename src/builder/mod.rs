@@ -42,6 +42,10 @@ pub struct BuilderApp {
     pub campaign_rx: Option<mpsc::UnboundedReceiver<CampaignEvent>>,
     /// true while the "save before quit?" confirmation overlay is shown
     pub quit_confirm: bool,
+    // ── Single-step preview ────────────────────────────────────────────────────
+    pub step_preview_running: bool,
+    pub step_preview_result: Option<crate::campaign::StepResult>,
+    pub step_preview_rx: Option<mpsc::UnboundedReceiver<crate::campaign::StepResult>>,
 }
 
 impl BuilderApp {
@@ -82,6 +86,9 @@ impl BuilderApp {
             run_state: CampaignRunState::Idle,
             campaign_rx: None,
             quit_confirm: false,
+            step_preview_running: false,
+            step_preview_result: None,
+            step_preview_rx: None,
         }
     }
 
@@ -967,7 +974,40 @@ impl BuilderApp {
         });
     }
 
+    pub fn start_step_preview(&mut self, step_idx: usize) {
+        let step = self.campaign.steps[step_idx].clone();
+        let mut env: std::collections::HashMap<String, String> =
+            if let Some(ref name) = self.campaign.env_file {
+                crate::storage::load_env_by_name(name)
+                    .map(|s| s.vars)
+                    .unwrap_or_default()
+            } else {
+                std::collections::HashMap::new()
+            };
+        env.extend(self.campaign.env.clone());
+        let (tx, rx) = mpsc::unbounded_channel::<crate::campaign::StepResult>();
+        self.step_preview_rx = Some(rx);
+        self.step_preview_result = None;
+        self.step_preview_running = true;
+        self.status_message = "Running step…".into();
+        tokio::spawn(async move {
+            let result = crate::campaign::run_step_preview(step, env).await;
+            let _ = tx.send(result);
+        });
+    }
+
     pub fn handle_tick(&mut self) {
+        // Poll single-step preview channel
+        if let Some(ref mut rx) = self.step_preview_rx {
+            if let Ok(result) = rx.try_recv() {
+                let ok = result.success;
+                self.step_preview_result = Some(result);
+                self.step_preview_running = false;
+                self.step_preview_rx = None;
+                self.status_message = if ok { "Step OK".into() } else { "Step failed".into() };
+            }
+        }
+
         // Drain the channel into a local vec to avoid borrow conflicts
         let events: Vec<CampaignEvent> = {
             let Some(ref mut rx) = self.campaign_rx else { return };

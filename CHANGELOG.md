@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.8.1] — 2026-06-25
+
+### Changed
+- README: Campaign Builder section moved to the end (after OAuth2), before Stack.
+
+### Fixed
+- `examples/campaigns/crud_demo.toml`: removed stray comment.
+
+---
+
 ## [0.8.0] — 2026-06-25 — Campaign Builder (`terapi build`)
 
 ### Added

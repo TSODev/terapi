@@ -591,10 +591,8 @@ fn render_toml_preview(frame: &mut Frame, app: &BuilderApp, scroll: usize, area:
     frame.render_widget(block, area);
 
     let toml_str = generate_toml_preview(app);
-    let lines: Vec<Line> = toml_str.lines()
-        .skip(scroll)
-        .map(|l| Line::from(Span::styled(l.to_string(), Style::default().fg(Color::White))))
-        .collect();
+    let all_lines = highlight_toml(&toml_str);
+    let lines: Vec<Line> = all_lines.into_iter().skip(scroll).collect();
 
     frame.render_widget(Paragraph::new(lines), inner);
 }
@@ -1982,6 +1980,104 @@ fn render_status(frame: &mut Frame, app: &BuilderApp, area: Rect) {
 }
 
 // ── TOML generation (preview) ─────────────────────────────────────────────────
+
+fn highlight_toml(text: &str) -> Vec<Line<'static>> {
+    let mut lines: Vec<Line<'static>> = Vec::new();
+    let mut in_multiline = false; // inside ''' or """ block
+
+    for raw in text.lines() {
+        let trimmed = raw.trim_start();
+
+        // Track multi-line literal/basic strings
+        if in_multiline {
+            let style = Style::default().fg(Color::Green);
+            if trimmed.contains("'''") || trimmed.contains("\"\"\"") {
+                in_multiline = false;
+            }
+            lines.push(Line::from(Span::styled(raw.to_string(), style)));
+            continue;
+        }
+
+        // Empty line
+        if trimmed.is_empty() {
+            lines.push(Line::from(""));
+            continue;
+        }
+
+        // Comment line
+        if trimmed.starts_with('#') {
+            lines.push(Line::from(Span::styled(
+                raw.to_string(),
+                Style::default().fg(Color::Indexed(242)),
+            )));
+            continue;
+        }
+
+        // [[array.table]] header
+        if trimmed.starts_with("[[") {
+            lines.push(Line::from(Span::styled(
+                raw.to_string(),
+                Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
+            )));
+            continue;
+        }
+
+        // [table] header
+        if trimmed.starts_with('[') {
+            lines.push(Line::from(Span::styled(
+                raw.to_string(),
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            )));
+            continue;
+        }
+
+        // key = value
+        if let Some(eq_pos) = trimmed.find(" = ") {
+            let indent = " ".repeat(raw.len() - trimmed.len());
+            let key = &trimmed[..eq_pos];
+            let value = trimmed[eq_pos + 3..].trim();
+
+            // Detect start of multi-line string
+            if value.starts_with("'''") && !value[3..].contains("'''") {
+                in_multiline = true;
+            } else if value.starts_with("\"\"\"") && !value[3..].contains("\"\"\"") {
+                in_multiline = true;
+            }
+
+            let val_style = toml_value_style(value);
+            lines.push(Line::from(vec![
+                Span::raw(indent),
+                Span::styled(key.to_string(), Style::default().fg(Color::White)),
+                Span::styled(" = ", Style::default().fg(Color::Indexed(242))),
+                Span::styled(value.to_string(), val_style),
+            ]));
+            continue;
+        }
+
+        // Fallback (continuation of inline tables, etc.)
+        lines.push(Line::from(Span::styled(
+            raw.to_string(),
+            Style::default().fg(Color::Indexed(242)),
+        )));
+    }
+
+    lines
+}
+
+fn toml_value_style(value: &str) -> Style {
+    if value.starts_with("'''") || value.starts_with("\"\"\"")
+        || value.starts_with('"')  || value.starts_with('\'') {
+        Style::default().fg(Color::Green)
+    } else if value == "true" || value == "false" {
+        Style::default().fg(Color::Yellow)
+    } else if value.starts_with(|c: char| c.is_ascii_digit() || c == '-') {
+        Style::default().fg(Color::Yellow)
+    } else if value.starts_with('[') || value.starts_with('{') {
+        Style::default().fg(Color::Indexed(242))
+    } else {
+        Style::default().fg(Color::White)
+    }
+}
 
 fn generate_toml_preview(app: &BuilderApp) -> String {
     let mut out = String::new();

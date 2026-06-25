@@ -83,7 +83,7 @@ The Request panel is split into four zones, from top to bottom:
 
 ```
 ┌─ URL ─────────────────────────────────────────────────────────────┐
-│   GET  https://api.example.com/users                               │
+│   GET  https://api.example.com/users                              │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
@@ -91,7 +91,7 @@ In URL edit mode (`e`), the bar highlights and shows a cursor:
 
 ```
 ┌─ URL ─────────────────────────────────────────────────────────────┐
-│ ◀ GET ▶  https://api.example.com/users_                            │
+│ ◀ GET ▶  https://api.example.com/users_                           │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
@@ -117,10 +117,10 @@ In URL edit mode (`e`), the bar highlights and shows a cursor:
 Typing `{{` in any editable field opens a picker overlay showing the variables available in the active environment:
 
 ```
-┌─ Insert variable · filter: TO ──────────┐
-│  {{TOKEN}}  = eyJhbGciOiJIUzI...         │
-│▶ {{TOKEN_EXP}}  = 3600                   │
-│                                          │
+┌─ Insert variable · filter: TO   ──────────┐
+│  {{TOKEN}}  = eyJhbGciOiJIUzI...          │
+│▶ {{TOKEN_EXP}}  = 3600                    │
+│                                           │
 │  ↑/↓: navigate  Enter: insert  Esc: cancel │
 └──────────────────────────────────────────┘
 ```

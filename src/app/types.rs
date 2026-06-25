@@ -308,7 +308,9 @@ pub enum CampaignFocus {
 pub enum SaveField {
     Name,
     Collection,
+    NewCollectionInput { input: String },
     Folder,
+    NewFolderInput { input: String },
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -551,6 +553,13 @@ pub enum ModalState {
     ConfirmDelete {
         label: String,
         address: NodeAddress,
+    },
+    EditVar {
+        key: String,
+        value: String,
+        active_field: VarField,
+        env_idx: usize,
+        original_key: String,
     },
     EditAuthField {
         kind: AuthFieldKind,

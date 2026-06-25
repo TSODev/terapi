@@ -414,7 +414,7 @@ impl App {
                 match self.active_tab {
                     Tab::Request     => self.update_request_status_hint(),
                     Tab::Collections => self.status_message = "Tab: switch panel  ↑/↓: navigate  Enter: expand/load  n: new  f: folder  a: add  e: edit  E: open in editor  d: delete  /: search  q: quit".into(),
-                    Tab::Env         => self.status_message = "Tab: switch panel  ←/→: switch focus  ↑/↓: navigate  Enter: activate  n: new env  a: add var  d: delete  q: quit".into(),
+                    Tab::Env         => self.status_message = "Tab: switch panel  ←/→: switch focus  ↑/↓: navigate  Enter: activate/edit  n: new env  a: add var  d: delete  q: quit".into(),
                     Tab::History     => self.status_message = "Tab: switch panel  ↑/↓: navigate  Enter: load  d: delete  q: quit".into(),
                     Tab::Campaigns   => self.status_message = "Tab: switch panel  ↑/↓: navigate  r: run  E: open in editor  Esc: clear  q: quit".into(),
                 };
@@ -1047,6 +1047,20 @@ impl App {
                     let _ = crate::storage::save_active_env(Some(&name));
                 }
             }
+            KeyCode::Enter if self.active_tab == Tab::Env && self.env_focus == EnvFocus::Vars => {
+                if let Some(env) = self.environments.get(self.env_cursor) {
+                    let vars = sorted_vars(env);
+                    if let Some((key, value)) = vars.get(self.env_var_cursor) {
+                        self.modal = Some(ModalState::EditVar {
+                            key: key.clone(),
+                            value: value.clone(),
+                            active_field: VarField::Value,
+                            env_idx: self.env_cursor,
+                            original_key: key.clone(),
+                        });
+                    }
+                }
+            }
             KeyCode::Char('n') if self.active_tab == Tab::Env => {
                 self.modal = Some(ModalState::NewEnv { input: String::new() });
             }
@@ -1279,6 +1293,29 @@ impl App {
                 _ => { self.modal = Some(ModalState::NewVar { key: var_key, value: var_value, active_field, env_idx }); }
             },
 
+            Some(ModalState::EditVar { key: mut var_key, value: mut var_value, mut active_field, env_idx, original_key }) => match key.code {
+                KeyCode::Esc => {}
+                KeyCode::Enter if !var_key.trim().is_empty() => {
+                    self.edit_var(env_idx, &original_key, var_key.trim().to_string(), var_value.trim().to_string())?;
+                }
+                KeyCode::Tab => {
+                    active_field = match active_field {
+                        VarField::Key => VarField::Value,
+                        VarField::Value => VarField::Key,
+                    };
+                    self.modal = Some(ModalState::EditVar { key: var_key, value: var_value, active_field, env_idx, original_key });
+                }
+                KeyCode::Char(c) => {
+                    match active_field { VarField::Key => var_key.push(c), VarField::Value => var_value.push(c) }
+                    self.modal = Some(ModalState::EditVar { key: var_key, value: var_value, active_field, env_idx, original_key });
+                }
+                KeyCode::Backspace => {
+                    match active_field { VarField::Key => { var_key.pop(); } VarField::Value => { var_value.pop(); } }
+                    self.modal = Some(ModalState::EditVar { key: var_key, value: var_value, active_field, env_idx, original_key });
+                }
+                _ => { self.modal = Some(ModalState::EditVar { key: var_key, value: var_value, active_field, env_idx, original_key }); }
+            },
+
             Some(ModalState::HeaderPicker { mut cursor }) => {
                 let total = COMMON_HEADERS.len() + 1;
                 match key.code {
@@ -1439,23 +1476,99 @@ impl App {
                 let n_cols = self.stored_collections.len();
                 let n_folders = self.stored_collections.get(collection_idx).map_or(0, |c| c.folders.len());
                 match key.code {
+                    // ── inline new-collection input ───────────────────────────
+                    KeyCode::Esc if matches!(active_field, SaveField::NewCollectionInput { .. }) => {
+                        active_field = SaveField::Collection;
+                        self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
+                    }
+                    KeyCode::Enter if matches!(active_field, SaveField::NewCollectionInput { .. }) => {
+                        if let SaveField::NewCollectionInput { input } = &active_field {
+                            if !input.trim().is_empty() {
+                                self.create_collection(input.trim().to_string())?;
+                                collection_idx = self.stored_collections.len() - 1;
+                                folder_display_idx = 0;
+                            }
+                        }
+                        active_field = SaveField::Collection;
+                        self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
+                    }
+                    KeyCode::Char(c) if matches!(active_field, SaveField::NewCollectionInput { .. }) => {
+                        if let SaveField::NewCollectionInput { ref mut input } = active_field { input.push(c); }
+                        self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
+                    }
+                    KeyCode::Backspace if matches!(active_field, SaveField::NewCollectionInput { .. }) => {
+                        if let SaveField::NewCollectionInput { ref mut input } = active_field { input.pop(); }
+                        self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
+                    }
+                    _ if matches!(active_field, SaveField::NewCollectionInput { .. }) => {
+                        self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
+                    }
+
+                    // ── inline new-folder input ───────────────────────────────
+                    KeyCode::Esc if matches!(active_field, SaveField::NewFolderInput { .. }) => {
+                        active_field = SaveField::Folder;
+                        self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
+                    }
+                    KeyCode::Enter if matches!(active_field, SaveField::NewFolderInput { .. }) => {
+                        if let SaveField::NewFolderInput { input } = &active_field {
+                            if !input.trim().is_empty() {
+                                let new_fi = self.stored_collections.get(collection_idx).map_or(0, |c| c.folders.len());
+                                self.create_folder(input.trim().to_string(), collection_idx)?;
+                                folder_display_idx = new_fi + 1;
+                            }
+                        }
+                        active_field = SaveField::Folder;
+                        self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
+                    }
+                    KeyCode::Char(c) if matches!(active_field, SaveField::NewFolderInput { .. }) => {
+                        if let SaveField::NewFolderInput { ref mut input } = active_field { input.push(c); }
+                        self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
+                    }
+                    KeyCode::Backspace if matches!(active_field, SaveField::NewFolderInput { .. }) => {
+                        if let SaveField::NewFolderInput { ref mut input } = active_field { input.pop(); }
+                        self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
+                    }
+                    _ if matches!(active_field, SaveField::NewFolderInput { .. }) => {
+                        self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
+                    }
+
+                    // ── normal navigation ─────────────────────────────────────
                     KeyCode::Esc => {}
                     KeyCode::Enter if !name.trim().is_empty() && n_cols > 0 => {
                         let fi = if folder_display_idx == 0 { None } else { Some(folder_display_idx - 1) };
+                        let saved_name = name.trim().to_string();
                         let overwrite_origin = self.editing_request_origin
                             .filter(|(oci, ofi, _)| *oci == collection_idx && *ofi == fi);
                         if let Some((ci, ofi, ri)) = overwrite_origin {
-                            self.overwrite_request(name.trim().to_string(), ci, ofi, ri)?;
+                            self.overwrite_request(saved_name.clone(), ci, ofi, ri)?;
+                            self.editing_request_origin = Some((ci, ofi, ri));
+                            self.editing_request_name = saved_name;
                         } else {
-                            self.save_request_to_collection(name.trim().to_string(), collection_idx, fi)?;
+                            self.save_request_to_collection(saved_name.clone(), collection_idx, fi)?;
+                            let ri = if let Some(fi) = fi {
+                                self.stored_collections[collection_idx].folders[fi].requests.len().saturating_sub(1)
+                            } else {
+                                self.stored_collections[collection_idx].requests.len().saturating_sub(1)
+                            };
+                            self.editing_request_origin = Some((collection_idx, fi, ri));
+                            self.editing_request_name = saved_name;
                         }
                     }
                     KeyCode::Tab => {
                         active_field = match active_field {
                             SaveField::Name => SaveField::Collection,
-                            SaveField::Collection => if n_folders > 0 { SaveField::Folder } else { SaveField::Name },
+                            SaveField::Collection => SaveField::Folder,
                             SaveField::Folder => SaveField::Name,
+                            _ => SaveField::Name,
                         };
+                        self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
+                    }
+                    KeyCode::Char('n') if active_field == SaveField::Collection => {
+                        active_field = SaveField::NewCollectionInput { input: String::new() };
+                        self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
+                    }
+                    KeyCode::Char('n') if active_field == SaveField::Folder => {
+                        active_field = SaveField::NewFolderInput { input: String::new() };
                         self.modal = Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field });
                     }
                     KeyCode::Up if active_field == SaveField::Collection && n_cols > 0 => {

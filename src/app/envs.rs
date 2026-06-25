@@ -23,6 +23,16 @@ impl App {
         Ok(())
     }
 
+    pub(super) fn edit_var(&mut self, env_idx: usize, original_key: &str, new_key: String, new_value: String) -> Result<()> {
+        let env = &mut self.environments[env_idx];
+        if original_key != new_key {
+            env.vars.remove(original_key);
+        }
+        env.vars.insert(new_key, new_value);
+        crate::storage::save_env(&self.environments[env_idx])?;
+        Ok(())
+    }
+
     pub(super) fn open_env_delete_modal(&mut self) {
         match self.env_focus {
             EnvFocus::Envs => {

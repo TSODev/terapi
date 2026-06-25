@@ -52,8 +52,20 @@ impl App {
                     self.expanded_nodes.insert(key);
                 }
             } else {
+                let (ci, fi, ri) = match &node.address {
+                    NodeAddress::RootRequest(ci, ri)       => (*ci, None, *ri),
+                    NodeAddress::FolderRequest(ci, fi, ri) => (*ci, Some(*fi), *ri),
+                    _ => return,
+                };
+                let req_name = if let Some(fi) = fi {
+                    self.stored_collections[ci].folders[fi].requests[ri].name.clone()
+                } else {
+                    self.stored_collections[ci].requests[ri].name.clone()
+                };
                 let address = node.address.clone();
                 self.load_collection_request(&address);
+                self.editing_request_origin = Some((ci, fi, ri));
+                self.editing_request_name = req_name;
             }
         }
     }

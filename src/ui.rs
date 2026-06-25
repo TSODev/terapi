@@ -2112,6 +2112,33 @@ fn render_modal(frame: &mut Frame, app: &App) {
             );
         }
 
+        Some(ModalState::EditVar { key, value, active_field, .. }) => {
+            let area = centered_rect(60, 9, frame.area());
+            frame.render_widget(Clear, area);
+
+            let key_style  = if *active_field == VarField::Key   { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
+            let val_style  = if *active_field == VarField::Value { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
+            let key_cursor = if *active_field == VarField::Key   { "_" } else { "" };
+            let val_cursor = if *active_field == VarField::Value { "_" } else { "" };
+
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![Span::raw("  Key:   "), Span::styled(format!("{}{}", key, key_cursor), key_style)]),
+                Line::from(""),
+                Line::from(vec![Span::raw("  Value: "), Span::styled(format!("{}{}", value, val_cursor), val_style)]),
+                Line::from(""),
+                Line::from(Span::styled("  Tab: next field   Enter: save   Esc: cancel", Style::default().fg(Color::Gray))),
+            ];
+            frame.render_widget(
+                Paragraph::new(text).block(
+                    Block::default().borders(Borders::ALL)
+                        .title(" Edit Variable ").title_alignment(Alignment::Center)
+                        .border_style(Style::default().fg(Color::Green)),
+                ),
+                area,
+            );
+        }
+
         Some(ModalState::NewHeader { key, value, active_field }) => {
             let area = centered_rect(64, 9, frame.area());
             frame.render_widget(Clear, area);
@@ -2202,52 +2229,82 @@ fn render_modal(frame: &mut Frame, app: &App) {
             };
             let name_cursor = if *active_field == SaveField::Name { "_" } else { "" };
 
-            let col_name = app.stored_collections
-                .get(*collection_idx)
-                .map(|c| c.collection.name.as_str())
-                .unwrap_or("—");
             let n_cols = app.stored_collections.len();
-            let col_style = if *active_field == SaveField::Collection {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
-            } else {
-                Style::default().fg(Color::White)
-            };
-            let col_nav = if *active_field == SaveField::Collection && n_cols > 1 {
-                format!("↑ {} ↓  ({}/{})", col_name, collection_idx + 1, n_cols)
-            } else {
-                col_name.to_string()
+            let n_folders = app.stored_collections.get(*collection_idx).map_or(0, |c| c.folders.len());
+
+            // Collection row
+            let (col_spans, col_hint): (Vec<Span>, Option<&str>) = match active_field {
+                SaveField::NewCollectionInput { input } => (
+                    vec![
+                        Span::styled("+ ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                        Span::styled(format!("{}_", input), Style::default().fg(Color::Yellow)),
+                    ],
+                    Some("  Enter: create collection   Esc: cancel"),
+                ),
+                SaveField::Collection => {
+                    let col_name = app.stored_collections.get(*collection_idx)
+                        .map(|c| c.collection.name.as_str()).unwrap_or("—");
+                    let nav = if n_cols > 1 {
+                        format!("↑ {} ↓  ({}/{})", col_name, collection_idx + 1, n_cols)
+                    } else {
+                        col_name.to_string()
+                    };
+                    (vec![Span::styled(nav, Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))], None)
+                }
+                _ => {
+                    let col_name = app.stored_collections.get(*collection_idx)
+                        .map(|c| c.collection.name.as_str()).unwrap_or("—");
+                    (vec![Span::styled(col_name.to_string(), Style::default().fg(Color::White))], None)
+                }
             };
 
-            let n_folders = app.stored_collections
-                .get(*collection_idx)
-                .map_or(0, |c| c.folders.len());
-            let folder_label = if *folder_display_idx == 0 {
-                "(root)".to_string()
-            } else {
-                app.stored_collections[*collection_idx]
-                    .folders
-                    .get(folder_display_idx - 1)
-                    .map(|f| f.name.clone())
-                    .unwrap_or_else(|| "(root)".to_string())
-            };
-            let folder_style = if *active_field == SaveField::Folder {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
-            } else {
-                Style::default().fg(Color::White)
-            };
-            let folder_nav = if *active_field == SaveField::Folder {
-                format!("↑ {} ↓  ({}/{})", folder_label, folder_display_idx, n_folders + 1)
-            } else {
-                folder_label.clone()
+            // Folder row
+            let (folder_spans, folder_hint): (Vec<Span>, Option<&str>) = match active_field {
+                SaveField::NewFolderInput { input } => (
+                    vec![
+                        Span::styled("+ ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                        Span::styled(format!("{}_", input), Style::default().fg(Color::Yellow)),
+                    ],
+                    Some("  Enter: create folder   Esc: cancel"),
+                ),
+                SaveField::Folder => {
+                    let folder_label = if *folder_display_idx == 0 {
+                        "(root)".to_string()
+                    } else {
+                        app.stored_collections[*collection_idx].folders
+                            .get(folder_display_idx - 1)
+                            .map(|f| f.name.clone())
+                            .unwrap_or_else(|| "(root)".to_string())
+                    };
+                    let nav = format!("↑ {} ↓  ({}/{})", folder_label, folder_display_idx, n_folders + 1);
+                    (vec![Span::styled(nav, Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))], None)
+                }
+                _ => {
+                    let folder_label = if *folder_display_idx == 0 {
+                        "(root)".to_string()
+                    } else {
+                        app.stored_collections[*collection_idx].folders
+                            .get(folder_display_idx - 1)
+                            .map(|f| f.name.clone())
+                            .unwrap_or_else(|| "(root)".to_string())
+                    };
+                    (vec![Span::styled(folder_label, Style::default().fg(Color::White))], None)
+                }
             };
 
             let is_edit_mode = app.editing_request_origin.is_some();
-            let hint = if is_edit_mode {
-                "  Tab: next field   ↑/↓: navigate   Enter: save   Esc: cancel  (change location → save as new)"
+            let default_hint = if is_edit_mode {
+                "  Tab: next field   ↑/↓: navigate   n: new   Enter: save   Esc: cancel  (move → save as new)"
             } else {
-                "  Tab: next field   ↑/↓: navigate   Enter: save   Esc: cancel"
+                "  Tab: next field   ↑/↓: navigate   n: new   Enter: save   Esc: cancel"
             };
+            let hint = col_hint.or(folder_hint).unwrap_or(default_hint);
             let modal_title = if is_edit_mode { " Update Request " } else { " Save Request " };
+
+            let mut col_line = vec![Span::raw("  Collection:  ")];
+            col_line.extend(col_spans);
+            let mut folder_line = vec![Span::raw("  Folder:      ")];
+            folder_line.extend(folder_spans);
 
             let text = vec![
                 Line::from(""),
@@ -2256,15 +2313,9 @@ fn render_modal(frame: &mut Frame, app: &App) {
                     Span::styled(format!("{}{}", name, name_cursor), name_style),
                 ]),
                 Line::from(""),
-                Line::from(vec![
-                    Span::raw("  Collection:  "),
-                    Span::styled(col_nav, col_style),
-                ]),
+                Line::from(col_line),
                 Line::from(""),
-                Line::from(vec![
-                    Span::raw("  Folder:      "),
-                    Span::styled(folder_nav, folder_style),
-                ]),
+                Line::from(folder_line),
                 Line::from(""),
                 Line::from(Span::styled(hint, Style::default().fg(Color::Gray))),
             ];

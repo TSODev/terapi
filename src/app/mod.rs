@@ -413,7 +413,7 @@ impl App {
                 };
                 match self.active_tab {
                     Tab::Request     => self.update_request_status_hint(),
-                    Tab::Collections => self.status_message = "Tab: switch panel  ↑/↓: navigate  Enter: expand/load  n: new  f: folder  a: add  e: edit  E: open in editor  d: delete  /: search  q: quit".into(),
+                    Tab::Collections => self.status_message = "Tab: switch panel  ↑/↓: navigate  Enter: expand/load  n: new  f: folder  a: add  e: edit  D: duplicate  E: open in editor  d: delete  /: search  q: quit".into(),
                     Tab::Env         => self.status_message = "Tab: switch panel  ←/→: switch focus  ↑/↓: navigate  Enter: activate/edit  n: new env  a: add var  d: delete  q: quit".into(),
                     Tab::History     => self.status_message = "Tab: switch panel  ↑/↓: navigate  Enter: load  d: delete  q: quit".into(),
                     Tab::Campaigns   => self.status_message = "Tab: switch panel  ↑/↓: navigate  r: run  E: open in editor  Esc: clear  q: quit".into(),
@@ -976,6 +976,34 @@ impl App {
                         self.editing_request_name = req_name;
                         self.active_request_tab = RequestTab::Description;
                         self.status_message = "Editing — i: description  ←/→: section  S: save  s: send  n: new request  q: quit".into();
+                    }
+                }
+            }
+            KeyCode::Char('D') if self.active_tab == Tab::Collections => {
+                let flat = flatten_stored(&self.stored_collections, &self.expanded_nodes);
+                if let Some(node) = flat.get(self.collection_cursor) {
+                    if !node.is_folder {
+                        let (ci, fi, ri) = match &node.address {
+                            NodeAddress::RootRequest(ci, ri)       => (*ci, None, *ri),
+                            NodeAddress::FolderRequest(ci, fi, ri) => (*ci, Some(*fi), *ri),
+                            _ => return Ok(()),
+                        };
+                        let req_name = if let Some(fi) = fi {
+                            self.stored_collections[ci].folders[fi].requests[ri].name.clone()
+                        } else {
+                            self.stored_collections[ci].requests[ri].name.clone()
+                        };
+                        let address = node.address.clone();
+                        self.load_collection_request(&address);
+                        self.editing_request_origin = None;
+                        self.editing_request_name = String::new();
+                        self.active_tab = Tab::Request;
+                        self.modal = Some(ModalState::SaveRequest {
+                            name: format!("{} copy", req_name),
+                            collection_idx: ci,
+                            folder_display_idx: fi.map_or(0, |f| f + 1),
+                            active_field: SaveField::Name,
+                        });
                     }
                 }
             }

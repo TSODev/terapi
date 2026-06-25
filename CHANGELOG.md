@@ -5,6 +5,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.7.8] — 2026-06-24
+
+### Added
+- **Édition de variable d'environnement** — dans l'onglet Env, `Enter` sur une variable du panneau droit (Variables) ouvre un modal d'édition pré-rempli avec la clé et la valeur actuelles. La clé est entièrement modifiable (renommage) ; `Tab` bascule entre les deux champs ; `Enter` sauvegarde. Si la clé est renommée, l'ancienne entrée est supprimée et la nouvelle est insérée. L'environnement est persisté immédiatement sur disque.
+
+- **Pré-remplissage intelligent du modal Save Request** — lors du chargement d'une requête depuis le panel Collections (via `Enter` ou `e`), puis à chaque sauvegarde réussie dans la session, le modal `S` (Save/Update Request) s'ouvre pré-rempli avec le nom, la collection et le dossier d'origine. Cela évite de ressaisir ces informations lors d'une re-sauvegarde après modification.
+
+- **Création inline de collection dans le modal Save** — dans le modal Save Request, lorsque le focus est sur le champ Collection, appuyer sur `n` ouvre un champ de saisie inline. Taper le nom et valider crée la collection et la sélectionne automatiquement, sans quitter le modal.
+
+- **Création inline de dossier dans le modal Save** — dans le modal Save Request, lorsque le focus est sur le champ Folder, appuyer sur `n` ouvre un champ de saisie inline. Taper le nom et valider crée le dossier dans la collection courante et le sélectionne automatiquement.
+
+- **`Tab` atteint toujours le champ Folder** — dans le modal Save Request, `Tab` depuis le champ Collection bascule systématiquement vers Folder, même si aucun dossier n'existe encore dans la collection. Cela permet de créer un dossier (`n`) sans workaround.
+
+- **Duplication de requête (`D`)** — dans le panel Collections, appuyer sur `D` sur une requête charge une copie de celle-ci dans l'onglet Request (tous les champs : URL, méthode, headers, body, auth, description, variables GraphQL) et ouvre directement le modal Save Request pré-rempli avec le nom `<nom> copy`, sans origine définie, prêt à être sauvegardé sous un nouveau nom ou dans un autre dossier/collection.
+
+- **Tri alphabétique dans le panel Collections** — les collections, les dossiers dans chaque collection, et les requêtes dans chaque dossier ou à la racine sont désormais affichés par ordre alphabétique croissant (insensible à la casse). Le tri est appliqué au niveau de l'affichage (`flatten_stored` / `flatten_stored_full`) sans modifier l'ordre des données sous-jacentes, ce qui préserve la validité des `NodeAddress`.
+
+---
+
 ## [0.7.7] — 2026-06-24
 
 ### Added

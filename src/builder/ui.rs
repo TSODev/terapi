@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, List, ListItem, Paragraph},
+    widgets::{Block, Borders, List, ListItem, Paragraph},
 };
 
 use super::BuilderApp;
@@ -112,7 +112,7 @@ fn render_pipeline(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         if !step.assert.is_empty() {
             let n = step.assert.len();
             let preview: Vec<String> = step.assert.iter().take(2)
-                .map(|a| format!("? {}", a.path))
+                .map(|a| format!("? {}", a.on))
                 .collect();
             let mut label = preview.join("  ·  ");
             if n > 2 { label.push_str(&format!("  +{}", n - 2)); }
@@ -149,7 +149,7 @@ fn step_summary(step: &crate::campaign::Step) -> String {
         "pause"     => format!("{}ms", step.wait_ms),
         "transform" => {
             if let Some(t) = step.transforms.first() {
-                format!("{} → {}", t.kind, t.output.as_deref().unwrap_or("?"))
+                format!("{} → {}", t.kind, t.output)
             } else {
                 step.name.clone()
             }

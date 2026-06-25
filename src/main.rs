@@ -1,4 +1,5 @@
 mod app;
+mod builder;
 mod campaign;
 mod connector;
 mod event;
@@ -53,6 +54,13 @@ enum Commands {
         #[arg(value_name = "FILE")]
         file: String,
     },
+
+    /// Build or edit a campaign interactively (TUI campaign editor)
+    Build {
+        /// Path to an existing campaign TOML file (optional — starts blank if omitted)
+        #[arg(value_name = "CAMPAIGN")]
+        file: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -69,6 +77,9 @@ async fn main() -> Result<()> {
         }
         Some(Commands::Import { file }) => {
             import_collection(&file)?;
+        }
+        Some(Commands::Build { file }) => {
+            builder::run(file)?;
         }
         None => launch_tui(load_json(cli.demo.as_deref())).await?,
     }

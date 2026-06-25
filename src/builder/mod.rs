@@ -40,6 +40,8 @@ pub struct BuilderApp {
     // ── Run state ──────────────────────────────────────────────────────────────
     pub run_state: CampaignRunState,
     pub campaign_rx: Option<mpsc::UnboundedReceiver<CampaignEvent>>,
+    /// true while the "save before quit?" confirmation overlay is shown
+    pub quit_confirm: bool,
 }
 
 impl BuilderApp {
@@ -79,10 +81,14 @@ impl BuilderApp {
             step_comments,
             run_state: CampaignRunState::Idle,
             campaign_rx: None,
+            quit_confirm: false,
         }
     }
 
     pub fn handle_key(&mut self, key: crossterm::event::KeyEvent) -> Result<()> {
+        if self.quit_confirm {
+            return self.handle_quit_confirm_key(key);
+        }
         match self.focus.clone() {
             BuilderFocus::Pipeline => self.handle_pipeline_key(key),
             BuilderFocus::Catalog { cursor, insert_after } => {
@@ -118,7 +124,13 @@ impl BuilderApp {
         use crossterm::event::KeyCode;
         let step_count = self.campaign.steps.len();
         match key.code {
-            KeyCode::Char('q') => self.running = false,
+            KeyCode::Char('q') => {
+                if self.modified {
+                    self.quit_confirm = true;
+                } else {
+                    self.running = false;
+                }
+            }
             KeyCode::Up => {
                 if self.cursor > 0 {
                     self.cursor -= 1;
@@ -1023,6 +1035,28 @@ impl BuilderApp {
     }
 
     // ── Persistence ───────────────────────────────────────────────────────────
+
+    fn handle_quit_confirm_key(&mut self, key: crossterm::event::KeyEvent) -> Result<()> {
+        use crossterm::event::KeyCode;
+        match key.code {
+            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                if let Err(e) = self.save() {
+                    self.status_message = format!("Save error: {e}");
+                    self.quit_confirm = false;
+                } else {
+                    self.running = false;
+                }
+            }
+            KeyCode::Char('n') | KeyCode::Char('N') => {
+                self.running = false;
+            }
+            KeyCode::Esc => {
+                self.quit_confirm = false;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
 
     fn save(&mut self) -> Result<()> {
         let path = match &self.path {

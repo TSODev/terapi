@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
+    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
 };
 use crate::campaign::{CampaignRunState, StepResult};
 
@@ -27,6 +27,45 @@ pub fn render(frame: &mut Frame, app: &BuilderApp) {
     render_pipeline(frame, app, panels[0]);
     render_context(frame, app, panels[1]);
     render_status(frame, app, outer[1]);
+
+    if app.quit_confirm {
+        render_quit_confirm(frame, area);
+    }
+}
+
+// ── Quit confirmation overlay ─────────────────────────────────────────────────
+
+fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {
+    let x = area.x + area.width.saturating_sub(width) / 2;
+    let y = area.y + area.height.saturating_sub(height) / 2;
+    Rect::new(x, y, width.min(area.width), height.min(area.height))
+}
+
+fn render_quit_confirm(frame: &mut Frame, area: Rect) {
+    let dialog = centered_rect(54, 6, area);
+    frame.render_widget(Clear, dialog);
+    let block = Block::default()
+        .title(" Unsaved changes ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Yellow));
+    let text = vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            "  Save before quitting?",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from(""),
+        Line::from(vec![
+            Span::raw("  "),
+            Span::styled("[y]", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::raw(" save & quit    "),
+            Span::styled("[n]", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+            Span::raw(" quit without saving    "),
+            Span::styled("[Esc]", Style::default().fg(Color::DarkGray)),
+            Span::raw(" cancel"),
+        ]),
+    ];
+    frame.render_widget(Paragraph::new(text).block(block), dialog);
 }
 
 // ── Pipeline ─────────────────────────────────────────────────────────────────

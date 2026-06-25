@@ -6,8 +6,6 @@ description = "Demonstrates all HTTP methods with assertions. JSONPlaceholder si
 BASE_URL = "https://jsonplaceholder.typicode.com"
 POST_ID = "1"
 
-# commentaire sur step 1
-
 [[steps]]
 name   = "Create post"
 description = "ma description de step 1\n"

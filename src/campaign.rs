@@ -1,4 +1,5 @@
 use anyhow::{bail, Context, Result};
+use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use regex::Regex;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::Deserialize;
@@ -99,6 +100,24 @@ pub struct Step {
     pub foreach: Option<String>,
     #[serde(default)]
     pub when: Option<StepCondition>,
+    // FileLoader fields (kind = "file")
+    #[serde(default)]
+    pub file_path: Option<String>,
+    #[serde(default)]
+    pub file_output: Option<String>,
+    #[serde(default)]
+    pub file_encoding: Option<String>, // "base64" | "text" | "hex"  (default: "base64")
+    // Multipart form-data parts (HTTP step)
+    #[serde(default)]
+    pub multipart_parts: Vec<MultipartPart>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct MultipartPart {
+    pub name: String,
+    pub value: String, // plain text (supports {{VAR}}), or "@/path/to/file" for binary
+    #[serde(default)]
+    pub content_type: Option<String>,
 }
 
 fn default_http() -> String { "http".into() }
@@ -608,6 +627,53 @@ async fn run_single_step(
         };
     }
 
+    if step.kind == "file" {
+        let t0 = Instant::now();
+        let path    = resolve(step.file_path.as_deref().unwrap_or(""), effective);
+        let output  = resolve(step.file_output.as_deref().unwrap_or("FILE_DATA"), effective);
+        let encoding = step.file_encoding.as_deref().unwrap_or("base64");
+        return match run_file_step(&path, encoding) {
+            Ok(content) => {
+                let mut extracted = HashMap::new();
+                extracted.insert(output, content);
+                StepResult {
+                    name: step.name.clone(),
+                    method: "FILE".into(),
+                    url: path,
+                    status: None,
+                    duration_ms: t0.elapsed().as_millis() as u64,
+                    success: true,
+                    skipped: false,
+                    non_blocking: effective_coe,
+                    error: None,
+                    extracted,
+                    assertion_results: vec![],
+                    body_json: None,
+                    graphql: false,
+                    request_headers: vec![],
+                    request_body: None,
+                }
+            }
+            Err(e) => StepResult {
+                name: step.name.clone(),
+                method: "FILE".into(),
+                url: path,
+                status: None,
+                duration_ms: t0.elapsed().as_millis() as u64,
+                success: false,
+                skipped: false,
+                non_blocking: effective_coe,
+                error: Some(e.to_string()),
+                extracted: HashMap::new(),
+                assertion_results: vec![],
+                body_json: None,
+                graphql: false,
+                request_headers: vec![],
+                request_body: None,
+            },
+        };
+    }
+
     // HTTP step — capture the fully-resolved request snapshot for the TUI "Load in Request" feature.
     let url     = resolve(&step.url, effective);
     let body    = step.body.as_deref().map(|b| resolve(b, effective));
@@ -894,7 +960,29 @@ async fn execute_step(
         hmap.insert(name, value);
     }
     req = req.headers(hmap);
-    if let Some(b) = body { req = req.body(b.to_owned()); }
+
+    if !step.multipart_parts.is_empty() {
+        let mut form = reqwest::multipart::Form::new();
+        for part_cfg in &step.multipart_parts {
+            let part_name  = resolve(&part_cfg.name, env);
+            let part_value = resolve(&part_cfg.value, env);
+            let part = if let Some(path) = part_value.strip_prefix('@') {
+                let bytes    = std::fs::read(path).with_context(|| format!("multipart: reading {path}"))?;
+                let filename = std::path::Path::new(path)
+                    .file_name().and_then(|n| n.to_str()).unwrap_or("file").to_string();
+                let mime = part_cfg.content_type.as_deref().unwrap_or("application/octet-stream");
+                reqwest::multipart::Part::bytes(bytes).file_name(filename).mime_str(mime)?
+            } else {
+                let mut p = reqwest::multipart::Part::text(part_value);
+                if let Some(ref ct) = part_cfg.content_type { p = p.mime_str(ct)?; }
+                p
+            };
+            form = form.part(part_name, part);
+        }
+        req = req.multipart(form);
+    } else if let Some(b) = body {
+        req = req.body(b.to_owned());
+    }
 
     let response = req.send().await
         .with_context(|| format!("request failed: {} {}", step.method, url))?;
@@ -1236,4 +1324,14 @@ fn fmt_opt(v: &Option<Value>) -> String {
 
 fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max { s.to_string() } else { format!("{}…", &s[..max]) }
+}
+
+fn run_file_step(path: &str, encoding: &str) -> Result<String> {
+    let bytes = std::fs::read(path).context(format!("reading file {path}"))?;
+    let encoded = match encoding {
+        "text" => String::from_utf8(bytes).context("file is not valid UTF-8")?,
+        "hex"  => bytes.iter().map(|b| format!("{b:02x}")).collect(),
+        _      => B64.encode(&bytes), // "base64" is the default
+    };
+    Ok(encoded)
 }

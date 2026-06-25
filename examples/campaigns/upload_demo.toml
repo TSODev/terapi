@@ -1,0 +1,120 @@
+# Upload Demo — File Loader & Multipart form-data
+#
+# Demonstrates:
+#   - kind = "file"  →  read a local file and store it as base64 / text / hex
+#   - [[steps.multipart_parts]]  →  send a multipart/form-data body
+#     - text parts (plain value or {{VAR}})
+#     - binary file parts  (@/path/to/file)
+#
+# Uses postman-echo.com — no API key required.
+# Run from the terapi project root:
+#
+#   terapi run examples/campaigns/upload_demo.toml
+
+[campaign]
+name        = "Upload Demo — File Loader & Multipart"
+description = "File Loader (base64/text/hex) then multipart/form-data with text and binary parts"
+
+[env]
+BASE_URL    = "https://postman-echo.com"
+SAMPLE_FILE = "examples/campaigns/users.json"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 1. File Loader — read the sample JSON file as base64 (default encoding)
+# ──────────────────────────────────────────────────────────────────────────────
+
+[[steps]]
+name          = "Load file as base64"
+kind          = "file"
+file_path     = "examples/campaigns/users.json"
+file_output   = "FILE_B64"
+# file_encoding = "base64"   # base64 is the default, shown here for clarity
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 2. File Loader — same file as plain UTF-8 text
+# ──────────────────────────────────────────────────────────────────────────────
+
+[[steps]]
+name          = "Load file as text"
+kind          = "file"
+file_path     = "examples/campaigns/users.json"
+file_output   = "FILE_TEXT"
+file_encoding = "text"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 3. POST the base64 content inside a JSON body
+#    {{FILE_B64}} resolves to the base64-encoded file content
+# ──────────────────────────────────────────────────────────────────────────────
+
+[[steps]]
+name   = "POST base64 in JSON body"
+method = "POST"
+url    = "{{BASE_URL}}/post"
+body   = '{"encoding":"base64","payload":"{{FILE_B64}}"}'
+
+[steps.headers]
+Content-Type = "application/json"
+
+assert = [
+  { on = "status", eq = 200 },
+  { on = "body.json.encoding", eq = "base64" },
+]
+
+[steps.extract]
+ECHOED_ENCODING = "json.encoding"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 4. Multipart/form-data — text parts only
+#    Each [[steps.multipart_parts]] entry becomes one form field.
+#    Values support {{VAR}} substitution.
+# ──────────────────────────────────────────────────────────────────────────────
+
+[[steps]]
+name   = "Multipart — text parts"
+method = "POST"
+url    = "{{BASE_URL}}/post"
+
+assert = [
+  { on = "status", eq = 200 },
+  { on = "body.form.username", eq = "terapi-user" },
+]
+
+[steps.extract]
+RECEIVED_USERNAME = "form.username"
+
+[[steps.multipart_parts]]
+name  = "username"
+value = "terapi-user"
+
+[[steps.multipart_parts]]
+name  = "description"
+value = "Uploaded by terapi {{ECHOED_ENCODING}}"
+
+[[steps.multipart_parts]]
+name  = "tool"
+value = "terapi"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 5. Multipart/form-data — text + binary @file part
+#    Prefix the value with "@" to send the raw bytes of a local file.
+#    The filename is derived from the path; content_type sets the MIME type.
+# ──────────────────────────────────────────────────────────────────────────────
+
+[[steps]]
+name   = "Multipart — binary file part"
+method = "POST"
+url    = "{{BASE_URL}}/post"
+
+assert = [
+  { on = "status", eq = 200 },
+  { on = "body.form.uploader", eq = "{{RECEIVED_USERNAME}}" },
+]
+
+[[steps.multipart_parts]]
+name  = "uploader"
+value = "{{RECEIVED_USERNAME}}"          # resolved from step 4
+
+[[steps.multipart_parts]]
+name         = "attachment"
+value        = "@examples/campaigns/users.json"
+content_type = "application/json"        # explicit MIME (optional — default: application/octet-stream)

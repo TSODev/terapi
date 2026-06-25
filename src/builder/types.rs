@@ -15,7 +15,7 @@ pub enum BuilderFocus {
     },
     CollectionBrowser { for_step: usize, col_cursor: usize, expanded: HashSet<String> },
     CampaignSettings { cursor: usize, mode: CampaignSettingsMode },
-    Variables { cursor: usize },
+    Variables { cursor: usize, mode: VariablesMode },
     Checker { results: Vec<CheckResult> },
     TomlPreview { scroll: usize },
     Run { scroll: usize },
@@ -57,6 +57,15 @@ pub enum ParamEditorMode {
     Browse,
     AddParam  { name: String, desc: String, default_val: String, field: u8 },
     EditParam { idx: usize, name: String, desc: String, default_val: String, field: u8 },
+}
+
+// ── Variables mode ────────────────────────────────────────────────────────────
+
+/// field: 0 = key, 1 = value
+#[derive(Debug, Clone)]
+pub enum VariablesMode {
+    Browse,
+    Edit { original_key: Option<String>, key: String, value: String, field: u8 },
 }
 
 // ── Campaign settings mode ────────────────────────────────────────────────────
@@ -101,6 +110,7 @@ pub const WHEN_OPS: &[(&str, bool)] = &[
 pub enum StepEditorMode {
     Browse,
     EditText { buffer: String },
+    EditBody,
     AddPairStage1 { target: PairTarget, buffer: String },
     AddPairStage2 { target: PairTarget, key: String, buffer: String },
     // Assertion creation flow
@@ -111,6 +121,8 @@ pub enum StepEditorMode {
     EditWhenVar   { buffer: String },
     EditWhenOp    { var: String, op: usize },
     EditWhenValue { var: String, op: usize, buffer: String },
+    // Multipart part add/edit flow: stage 0=name 1=value 2=content_type
+    AddMultipart  { idx: Option<usize>, name: String, value: String, content_type: String, stage: u8 },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -130,6 +142,10 @@ pub enum StepSection {
     TransformKind,
     TransformInput,
     TransformOutput,
+    FilePath,
+    FileOutput,
+    FileEncoding,
+    MultipartParts,
     LoadFromCollection,
 }
 
@@ -151,12 +167,16 @@ impl StepSection {
             StepSection::TransformKind      => "Kind",
             StepSection::TransformInput     => "Input",
             StepSection::TransformOutput    => "Output var",
+            StepSection::FilePath           => "File path",
+            StepSection::FileOutput         => "Output var",
+            StepSection::FileEncoding       => "Encoding",
+            StepSection::MultipartParts     => "Multipart parts",
             StepSection::LoadFromCollection => "[L] Load from collection",
         }
     }
 
     pub fn is_list(&self) -> bool {
-        matches!(self, StepSection::Headers | StepSection::Extract | StepSection::Assertions)
+        matches!(self, StepSection::Headers | StepSection::Extract | StepSection::Assertions | StepSection::MultipartParts)
     }
 }
 
@@ -169,6 +189,7 @@ pub enum BrickKind {
     Pause,
     Seed,
     Comment,
+    FileLoader,
     Connector,
     Output,
 }
@@ -176,24 +197,26 @@ pub enum BrickKind {
 impl BrickKind {
     pub fn label(&self) -> &'static str {
         match self {
-            BrickKind::Http      => "HTTP step",
-            BrickKind::Transform => "Transform",
-            BrickKind::Pause     => "Pause",
-            BrickKind::Seed      => "Seed",
-            BrickKind::Comment   => "Comment",
-            BrickKind::Connector => "Connector [IN]",
-            BrickKind::Output    => "Output [OUT]",
+            BrickKind::Http       => "HTTP step",
+            BrickKind::Transform  => "Transform",
+            BrickKind::Pause      => "Pause",
+            BrickKind::Seed       => "Seed",
+            BrickKind::Comment    => "Comment",
+            BrickKind::FileLoader => "File Loader",
+            BrickKind::Connector  => "Connector [IN]",
+            BrickKind::Output     => "Output [OUT]",
         }
     }
     pub fn description(&self) -> &'static str {
         match self {
-            BrickKind::Http      => "HTTP request",
-            BrickKind::Transform => "variable transform",
-            BrickKind::Pause     => "wait (ms)",
-            BrickKind::Seed      => "seed connector (inline)",
-            BrickKind::Comment   => "text note / separator",
-            BrickKind::Connector => "CSV / JSON input data source [[connectors]]",
-            BrickKind::Output    => "collect step responses to JSON [[outputs]]",
+            BrickKind::Http       => "HTTP request",
+            BrickKind::Transform  => "variable transform",
+            BrickKind::Pause      => "wait (ms)",
+            BrickKind::Seed       => "seed connector (inline)",
+            BrickKind::Comment    => "text note / separator",
+            BrickKind::FileLoader => "read file → variable (base64/text/hex)",
+            BrickKind::Connector  => "CSV / JSON input data source [[connectors]]",
+            BrickKind::Output     => "collect step responses to JSON [[outputs]]",
         }
     }
 }
@@ -204,6 +227,7 @@ pub const BRICK_KINDS: &[BrickKind] = &[
     BrickKind::Pause,
     BrickKind::Seed,
     BrickKind::Comment,
+    BrickKind::FileLoader,
     BrickKind::Connector,
     BrickKind::Output,
 ];

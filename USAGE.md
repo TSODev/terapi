@@ -1775,6 +1775,129 @@ Transforms within a step **chain** — each transform sees the outputs of previo
 
 Transform steps appear as `TRSF` in the campaign output, with extracted variables shown as `↳ VAR = value` like any other step.
 
+---
+
+### File Loader steps
+
+A `kind = "file"` step reads a local file and stores its content in a campaign variable — no HTTP request is made. Use it to embed binary payloads (images, PDFs, archives) in a JSON body as base64, to load template text, or to obtain a hex dump.
+
+```toml
+[[steps]]
+name          = "Load logo as base64"
+kind          = "file"
+file_path     = "assets/logo.png"
+file_output   = "LOGO_B64"      # variable that receives the encoded content
+file_encoding = "base64"        # "base64" (default) | "text" | "hex"
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `file_path` | string | — | Path to the file (relative to where `terapi run` is executed, or absolute). `{{VAR}}` supported. |
+| `file_output` | string | `FILE_DATA` | Variable name that receives the encoded content. |
+| `file_encoding` | string | `base64` | How to encode the file bytes: `base64`, `text` (UTF-8), or `hex`. |
+
+**Encodings:**
+
+| Encoding | Output | Use case |
+|----------|--------|----------|
+| `base64` | Base64 string | JSON bodies, data URIs, email attachments |
+| `text` | Raw UTF-8 string | Load config/template files into a variable |
+| `hex` | Lowercase hex string | Checksums, debug dumps, binary inspection |
+
+The step appears as `FILE` in the campaign output:
+
+```
+  ✓ Load logo as base64    FILE   -    3 ms
+      ↳ LOGO_B64 = iVBORw0KGgoAAAANS…
+```
+
+**Example — embed a file in a JSON body:**
+
+```toml
+[[steps]]
+name          = "Read avatar"
+kind          = "file"
+file_path     = "avatar.png"
+file_output   = "AVATAR_B64"
+file_encoding = "base64"
+
+[[steps]]
+name   = "Upload profile"
+method = "POST"
+url    = "{{BASE_URL}}/profile"
+body   = '{"avatar": "data:image/png;base64,{{AVATAR_B64}}"}'
+
+[steps.headers]
+Content-Type = "application/json"
+```
+
+---
+
+### Multipart form-data
+
+Add `[[steps.multipart_parts]]` subtables to any HTTP step to send a `multipart/form-data` body — the same format used by HTML file upload forms. Each subtable defines one part.
+
+```toml
+[[steps]]
+name   = "Upload a profile picture"
+method = "POST"
+url    = "{{BASE_URL}}/upload"
+
+[[steps.multipart_parts]]
+name  = "username"
+value = "{{USERNAME}}"          # plain text — {{VAR}} resolved at runtime
+
+[[steps.multipart_parts]]
+name         = "avatar"
+value        = "@assets/photo.jpg"     # "@" prefix → raw bytes of a local file
+content_type = "image/jpeg"            # explicit MIME (optional; default: application/octet-stream)
+```
+
+The `Content-Type: multipart/form-data` boundary header is added automatically — do **not** set it manually.
+
+**Fields per part:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | string | — | Form field name. Supports `{{VAR}}`. |
+| `value` | string | — | Field value (text) or `@/path/to/file` for a binary upload. Supports `{{VAR}}`. |
+| `content_type` | string | *(see below)* | MIME type for this part. Optional. |
+
+**`value` prefix rules:**
+
+| `value` starts with | Behaviour |
+|---------------------|-----------|
+| `@` | Raw bytes are read from the file path following `@`. The basename is sent as part filename metadata. |
+| anything else | Treated as a UTF-8 text value. |
+
+**Default `content_type`:**
+
+- Text parts (no `@` prefix): no Content-Type set (server treats it as `text/plain`)
+- File parts (`@` prefix): `application/octet-stream` unless overridden
+
+**Example — JSON metadata part alongside a binary document:**
+
+```toml
+[[steps]]
+name   = "Submit quarterly report"
+method = "POST"
+url    = "{{BASE_URL}}/reports"
+
+[[steps.multipart_parts]]
+name         = "metadata"
+value        = '{"title":"Q1 report","year":"{{YEAR}}"}'
+content_type = "application/json"
+
+[[steps.multipart_parts]]
+name         = "document"
+value        = "@reports/q1_2025.pdf"
+content_type = "application/pdf"
+```
+
+> **Note:** When `[[steps.multipart_parts]]` is present, any `body` field on the same step is ignored — use one or the other, not both.
+
+---
+
 ### Input connectors
 
 A `[[connectors]]` block tells the campaign how to build its iteration set. Without one, the campaign runs exactly once. With one, it runs once per row in the data source.
@@ -2027,6 +2150,7 @@ Ready-to-run campaigns in `examples/campaigns/` — no API key required:
 | `eu_capitals.toml` | Countries GraphQL + Open-Meteo | **4-step pipeline**: GraphQL seed (53 EU countries) → language transform → geocode capital → live weather; writes `examples/campaigns/eu_capitals_weather.json` |
 | `foreach_demo.toml` | JSONPlaceholder | **`foreach`**: GET /users → extract IDs with `*.id` wildcard → iterate over each user to fetch their todos |
 | `when_demo.toml` | JSONPlaceholder | **`when`**: `eq` / `ne` / `exists` — branches admin vs standard user; cascade automatique (step skippé → var non extraite → step suivant skippé) |
+| `upload_demo.toml` | postman-echo.com | **File Loader + multipart**: read a local file as base64/text → send in a JSON body; multipart text parts with `{{VAR}}`; multipart binary `@file` part with explicit MIME type |
 
 ```bash
 terapi run examples/campaigns/crud_demo.toml
@@ -2035,6 +2159,7 @@ terapi run examples/campaigns/transform_demo.toml
 terapi run examples/campaigns/json_connector_demo.toml
 terapi run examples/campaigns/seed_step_demo.toml
 terapi run examples/campaigns/eu_capitals.toml
+terapi run examples/campaigns/upload_demo.toml
 
 # itineraire_demo uses [[params]] — run with defaults or override:
 terapi run examples/campaigns/itineraire_demo.toml

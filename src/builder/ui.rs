@@ -9,7 +9,7 @@ use crate::campaign::{CampaignRunState, StepResult};
 
 use super::BuilderApp;
 use super::step_editor::{current_value, sections_for, sorted_keys};
-use super::types::{ASSERT_OPS, BRICK_KINDS, BuilderFocus, CampaignSettingsMode, CheckLevel, IoEditorMode, ParamEditorMode, StepEditorMode, StepSection, WHEN_OPS};
+use super::types::{ASSERT_OPS, BRICK_KINDS, BuilderFocus, CampaignSettingsMode, CheckLevel, IoEditorMode, ParamEditorMode, StepEditorMode, StepSection, VariablesMode, WHEN_OPS};
 
 pub fn render(frame: &mut Frame, app: &BuilderApp) {
     let area = frame.area();
@@ -265,6 +265,7 @@ fn step_badge(kind: &str) -> (&'static str, Color) {
         "pause"     => ("WAIT", Color::Indexed(242)),
         "seed"      => ("SEED", Color::Blue),
         "comment"   => ("#   ", Color::Indexed(238)),
+        "file"      => ("FILE", Color::Magenta),
         _           => ("HTTP", Color::Cyan),
     }
 }
@@ -272,6 +273,12 @@ fn step_badge(kind: &str) -> (&'static str, Color) {
 fn step_summary(step: &crate::campaign::Step) -> String {
     match step.kind.as_str() {
         "pause"     => format!("{}ms", step.wait_ms),
+        "file"      => {
+            let path = step.file_path.as_deref().unwrap_or("");
+            let out  = step.file_output.as_deref().unwrap_or("FILE_DATA");
+            let enc  = step.file_encoding.as_deref().unwrap_or("base64");
+            if path.is_empty() { format!("→ {} ({})", out, enc) } else { format!("{} → {} ({})", path, out, enc) }
+        }
         "transform" => {
             if let Some(t) = step.transforms.first() {
                 format!("{} → {}", t.kind, t.output)
@@ -314,7 +321,7 @@ fn render_context(frame: &mut Frame, app: &BuilderApp, area: Rect) {
             render_campaign_settings(frame, app, *cursor, mode, area),
         BuilderFocus::Checker { results } => render_checker(frame, results, area),
         BuilderFocus::TomlPreview { scroll } => render_toml_preview(frame, app, *scroll, area),
-        BuilderFocus::Variables { cursor } => render_variables(frame, app, *cursor, area),
+        BuilderFocus::Variables { cursor, mode } => render_variables(frame, app, *cursor, mode, area),
         BuilderFocus::Run { scroll } => render_run_view(frame, app, *scroll, area),
         BuilderFocus::ParamsEditor { cursor, mode }     => render_params_editor(frame, app, *cursor, mode, area),
         BuilderFocus::ConnectorsEditor { cursor, mode } => render_connectors_editor(frame, app, *cursor, mode, area),
@@ -543,7 +550,7 @@ fn render_toml_preview(frame: &mut Frame, app: &BuilderApp, scroll: usize, area:
     frame.render_widget(Paragraph::new(lines), inner);
 }
 
-fn render_variables(frame: &mut Frame, app: &BuilderApp, cursor: usize, area: Rect) {
+fn render_variables(frame: &mut Frame, app: &BuilderApp, cursor: usize, mode: &VariablesMode, area: Rect) {
     let block = Block::default()
         .title(" Variables [env] ")
         .borders(Borders::ALL)
@@ -555,31 +562,86 @@ fn render_variables(frame: &mut Frame, app: &BuilderApp, cursor: usize, area: Re
     let mut vars: Vec<(&String, &String)> = app.campaign.env.iter().collect();
     vars.sort_by_key(|(k, _)| k.as_str());
 
-    if vars.is_empty() {
-        let hint = Paragraph::new("No variables — a: add")
-            .style(Style::default().fg(Color::Indexed(242)));
-        frame.render_widget(hint, inner);
-        return;
+    let mut rows: Vec<ListItem> = Vec::new();
+
+    if vars.is_empty() && matches!(mode, VariablesMode::Browse) {
+        rows.push(ListItem::new(Line::from(Span::styled("No variables — a: add", Style::default().fg(Color::Indexed(242))))));
     }
 
-    let items: Vec<ListItem> = vars.iter().enumerate().map(|(i, (k, v))| {
-        let selected = i == cursor;
+    for (i, (k, v)) in vars.iter().enumerate() {
+        let selected = matches!(mode, VariablesMode::Browse) && i == cursor;
         let prefix = if selected { "▶ " } else { "  " };
         let key_style = Style::default().fg(Color::Yellow).add_modifier(if selected { Modifier::BOLD } else { Modifier::empty() });
         let val_style = Style::default().fg(if selected { Color::White } else { Color::Indexed(250) });
-        ListItem::new(Line::from(vec![
+        rows.push(ListItem::new(Line::from(vec![
             Span::styled(format!("{}{:<20}", prefix, k), key_style),
             Span::styled(v.as_str().to_string(), val_style),
-        ]))
-    }).collect();
+        ])));
+    }
 
-    let mut all = items;
-    all.push(ListItem::new(Line::from("")));
-    all.push(ListItem::new(Line::from(
-        Span::styled("a: add  d: del  Enter: edit  Esc: close", Style::default().fg(Color::Indexed(242)))
-    )));
+    if let VariablesMode::Edit { original_key, key: var_key, value: var_value, field } = mode {
+        rows.push(ListItem::new(Line::from("")));
+        let title = if original_key.is_some() { "── Edit variable ────────────────────" } else { "── New variable ─────────────────────" };
+        rows.push(ListItem::new(Line::from(Span::styled(title, Style::default().fg(Color::Cyan)))));
 
-    frame.render_widget(List::new(all), inner);
+        for (fi, label) in ["Key", "Value"].iter().enumerate() {
+            let fi = fi as u8;
+            let is_active = fi == *field;
+            let val = if fi == 0 { var_key.as_str() } else { var_value.as_str() };
+            let label_style = if is_active { Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::Indexed(242)) };
+            let val_span = if is_active {
+                Span::styled(format!("[ {}_]", val), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+            } else {
+                Span::styled(if val.is_empty() { "—".to_string() } else { val.to_string() }, Style::default().fg(Color::Indexed(250)))
+            };
+            rows.push(ListItem::new(Line::from(vec![
+                Span::styled(format!("  {:<8}", label), label_style),
+                val_span,
+            ])));
+        }
+        rows.push(ListItem::new(Line::from("")));
+        rows.push(ListItem::new(Line::from(Span::styled(
+            "Tab/Enter: next field / save  Esc: cancel",
+            Style::default().fg(Color::Indexed(242)),
+        ))));
+    } else {
+        rows.push(ListItem::new(Line::from("")));
+        rows.push(ListItem::new(Line::from(
+            Span::styled("a: add  d: del  Enter: edit  Esc: close", Style::default().fg(Color::Indexed(242)))
+        )));
+    }
+
+    frame.render_widget(List::new(rows), inner);
+}
+
+fn render_body_editor(frame: &mut Frame, app: &BuilderApp, area: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(0), Constraint::Length(2)])
+        .split(area);
+
+    let mut ta = app.description_textarea.clone();
+    ta.set_block(
+        Block::default()
+            .title(" Body — multi-line editor ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Yellow)),
+    );
+    ta.set_cursor_line_style(Style::default().add_modifier(Modifier::UNDERLINED));
+    frame.render_widget(&ta, chunks[0]);
+
+    let hints = vec![
+        Span::styled("Esc", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Span::raw(": save & close   "),
+        Span::styled("Enter", Style::default().fg(Color::Indexed(242))),
+        Span::raw(": new line   "),
+        Span::styled("Ctrl+H / Backspace", Style::default().fg(Color::Indexed(242))),
+        Span::raw(": delete"),
+    ];
+    frame.render_widget(
+        Paragraph::new(Line::from(hints)).style(Style::default().fg(Color::Indexed(242))),
+        chunks[1],
+    );
 }
 
 fn render_step_editor(
@@ -607,6 +669,12 @@ fn render_step_editor(
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
+
+    // Body textarea takes the full inner area
+    if matches!(mode, StepEditorMode::EditBody) {
+        render_body_editor(frame, app, inner);
+        return;
+    }
 
     // Split: description textarea (7 lines) + sections list
     let chunks = Layout::default()
@@ -647,6 +715,9 @@ fn render_step_editor(
                 StepEditorMode::AddAssertPath { .. } | StepEditorMode::AddAssertOp { .. } | StepEditorMode::AddAssertValue { .. }
                     if *section == StepSection::Assertions =>
                     Span::styled(format!("({} items)  +", list_count(app, step_idx, section)), Style::default().fg(Color::Indexed(242))),
+                StepEditorMode::AddMultipart { .. }
+                    if *section == StepSection::MultipartParts =>
+                    Span::styled(format!("({} parts)  +", list_count(app, step_idx, section)), Style::default().fg(Color::Indexed(242))),
                 StepEditorMode::EditWhenVar { .. } | StepEditorMode::EditWhenOp { .. } | StepEditorMode::EditWhenValue { .. }
                     if *section == StepSection::When =>
                     Span::styled("editing…", Style::default().fg(Color::Yellow)),
@@ -710,6 +781,22 @@ fn render_step_editor(
                         path, ASSERT_OPS[*op].0, buffer
                     ), Color::Yellow));
                 }
+                StepEditorMode::AddMultipart { name, value, content_type, stage, .. }
+                    if *section == StepSection::MultipartParts =>
+                {
+                    let (label, buf) = match stage {
+                        0 => ("Name        ", name),
+                        1 => ("Value/@file ", value),
+                        _ => ("Content-Type", content_type),
+                    };
+                    rows.push(sub_row(format!("{}: [ {}_]", label, buf), Color::Yellow));
+                    if *stage == 1 {
+                        rows.push(sub_row(
+                            "  Tip: prefix value with @ for binary file  (e.g. @/path/to/file.png)".into(),
+                            Color::Indexed(242),
+                        ));
+                    }
+                }
                 StepEditorMode::EditWhenVar { buffer } if *section == StepSection::When => {
                     rows.push(sub_row(format!("Var : [ {}_]", buffer), Color::Yellow));
                 }
@@ -752,6 +839,12 @@ fn render_step_editor(
             "←/→: operator  Enter: confirm  Esc: cancel",
         StepEditorMode::EditWhenValue { .. } =>
             "Value  Enter: save condition  Esc: cancel",
+        StepEditorMode::AddMultipart { stage, .. } => match stage {
+            0 => "Part name  Enter/Tab: next  Esc: cancel",
+            1 => "Value or @/path/to/file  Enter/Tab: next  Esc: cancel",
+            _ => "Content-Type (optional)  Enter: save  Esc: cancel",
+        },
+        StepEditorMode::EditBody => "", // full-screen, hints rendered by render_body_editor
     };
     rows.push(ListItem::new(Line::from(
         Span::styled(hints, Style::default().fg(Color::Indexed(242)))
@@ -823,7 +916,7 @@ fn value_span_for<'a>(app: &'a BuilderApp, step_idx: usize, section: &StepSectio
                 Style::default().fg(Color::Yellow).add_modifier(if is_cursor { Modifier::BOLD } else { Modifier::empty() }),
             )
         }
-        StepSection::TransformKind => {
+        StepSection::TransformKind | StepSection::FileEncoding => {
             Span::styled(
                 format!("[ {} ▾ ]", val),
                 Style::default().fg(Color::Yellow).add_modifier(if is_cursor { Modifier::BOLD } else { Modifier::empty() }),
@@ -848,9 +941,10 @@ fn value_span_for<'a>(app: &'a BuilderApp, step_idx: usize, section: &StepSectio
 fn list_count(app: &BuilderApp, step_idx: usize, section: &StepSection) -> usize {
     let step = &app.campaign.steps[step_idx];
     match section {
-        StepSection::Headers    => step.headers.len(),
-        StepSection::Extract    => step.extract.len(),
-        StepSection::Assertions => step.assert.len(),
+        StepSection::Headers        => step.headers.len(),
+        StepSection::Extract        => step.extract.len(),
+        StepSection::Assertions     => step.assert.len(),
+        StepSection::MultipartParts => step.multipart_parts.len(),
         _ => 0,
     }
 }
@@ -872,6 +966,20 @@ fn list_items_for(app: &BuilderApp, step_idx: usize, section: &StepSection) -> V
             step.assert.iter()
                 .map(|a| format!("{} {}", a.on, assertion_op_label(a)))
                 .collect()
+        }
+        StepSection::MultipartParts => {
+            step.multipart_parts.iter().map(|p| {
+                let label = if p.value.starts_with('@') {
+                    format!("{} = {} (file)", p.name, p.value)
+                } else {
+                    format!("{} = {}", p.name, p.value)
+                };
+                if let Some(ref ct) = p.content_type {
+                    format!("{} [{}]", label, ct)
+                } else {
+                    label
+                }
+            }).collect()
         }
         _ => vec![],
     }
@@ -1124,7 +1232,7 @@ fn render_output_step_picker(frame: &mut Frame, app: &BuilderApp, step_cursor: u
     rows.push(ListItem::new(Line::from("")));
 
     let steps: Vec<&crate::campaign::Step> = app.campaign.steps.iter()
-        .filter(|s| s.kind != "comment" && s.kind != "transform" && s.kind != "pause")
+        .filter(|s| s.kind != "comment" && s.kind != "transform" && s.kind != "pause" && s.kind != "file")
         .collect();
 
     if steps.is_empty() {
@@ -1564,6 +1672,8 @@ fn render_status(frame: &mut Frame, app: &BuilderApp, area: Rect) {
             "↑↓: choose  Enter: create  Esc: cancel",
         BuilderFocus::StepEditor { desc_active: true, .. } =>
             "Type comments  Enter: new line  Esc: save & close",
+        BuilderFocus::StepEditor { mode: StepEditorMode::EditBody, .. } =>
+            "Type body  Enter: new line  Esc: save & close",
         BuilderFocus::StepEditor { mode, .. } => match mode {
             StepEditorMode::Browse =>
                 "↑↓: field  ↑ at top: description  Enter: edit  ←/→: cycle  a/d: list  Esc: back",
@@ -1580,8 +1690,12 @@ fn render_status(frame: &mut Frame, app: &BuilderApp, area: Rect) {
             CampaignSettingsMode::EditText { .. } =>
                 "Type to edit  Enter: confirm  Esc: cancel",
         },
-        BuilderFocus::Checker { .. } | BuilderFocus::TomlPreview { .. } | BuilderFocus::Variables { .. } =>
+        BuilderFocus::Checker { .. } | BuilderFocus::TomlPreview { .. } =>
             "↑↓: navigate  Esc: close",
+        BuilderFocus::Variables { mode, .. } => match mode {
+            VariablesMode::Browse => "↑↓: navigate  a: add  d: del  Enter: edit  Esc: close",
+            VariablesMode::Edit { .. } => "Tab/Enter: next field / save  Esc: cancel",
+        },
         BuilderFocus::Run { .. } =>
             "↑↓: scroll  r: re-run  Esc: back to pipeline",
         BuilderFocus::ParamsEditor { mode, .. } => match mode {

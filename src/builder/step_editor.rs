@@ -27,6 +27,13 @@ pub fn sections_for(kind: &str) -> Vec<StepSection> {
             StepSection::TransformInput,
             StepSection::TransformOutput,
         ],
+        "file" => vec![
+            StepSection::Name,
+            StepSection::Description,
+            StepSection::FilePath,
+            StepSection::FileOutput,
+            StepSection::FileEncoding,
+        ],
         _ => vec![
             StepSection::Name,
             StepSection::Description,
@@ -34,6 +41,7 @@ pub fn sections_for(kind: &str) -> Vec<StepSection> {
             StepSection::Url,
             StepSection::Headers,
             StepSection::Body,
+            StepSection::MultipartParts,
             StepSection::Extract,
             StepSection::Assertions,
             StepSection::Foreach,
@@ -53,6 +61,25 @@ pub fn handle_key(
     mode: StepEditorMode,
     desc_active: bool,
 ) -> Result<()> {
+    // Body textarea captures all keys when in EditBody mode
+    if matches!(mode, StepEditorMode::EditBody) {
+        if key.code == KeyCode::Esc {
+            let text = app.description_textarea.lines().join("\n");
+            let step = &mut app.campaign.steps[step_idx];
+            step.body = if text.trim().is_empty() { None } else { Some(text) };
+            app.modified = true;
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
+        } else {
+            app.description_textarea.input(tui_textarea::Input::from(key));
+            app.focus = BuilderFocus::StepEditor {
+                step_idx, section_cursor, sub_cursor,
+                mode: StepEditorMode::EditBody,
+                desc_active: false,
+            };
+        }
+        return Ok(());
+    }
+
     // Description textarea captures all keys when active
     if desc_active {
         if key.code == KeyCode::Esc {
@@ -93,6 +120,9 @@ pub fn handle_key(
             handle_when_op(app, key, step_idx, section_cursor, sub_cursor, var, op),
         StepEditorMode::EditWhenValue { var, op, buffer } =>
             handle_when_value(app, key, step_idx, section_cursor, sub_cursor, var, op, buffer),
+        StepEditorMode::AddMultipart { idx, name, value, content_type, stage } =>
+            handle_add_multipart(app, key, step_idx, section_cursor, sub_cursor, idx, name, value, content_type, stage),
+        StepEditorMode::EditBody => Ok(()), // handled at the top of handle_key
     }
 }
 
@@ -178,8 +208,14 @@ fn handle_browse(
         }
         StepSection::Body => {
             if key.code == KeyCode::Enter {
-                let buf = app.campaign.steps[step_idx].body.clone().unwrap_or_default();
-                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { buffer: buf });
+                let body = app.campaign.steps[step_idx].body.clone().unwrap_or_default();
+                let lines: Vec<String> = body.lines().map(String::from).collect();
+                app.description_textarea = if lines.is_empty() {
+                    tui_textarea::TextArea::default()
+                } else {
+                    tui_textarea::TextArea::from(lines)
+                };
+                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditBody);
             }
         }
         StepSection::Foreach => {
@@ -207,6 +243,30 @@ fn handle_browse(
                     .map(|t| t.output.clone()).unwrap_or_default();
                 set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { buffer: buf });
             }
+        }
+        StepSection::FilePath => {
+            if key.code == KeyCode::Enter {
+                let buf = app.campaign.steps[step_idx].file_path.clone().unwrap_or_default();
+                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { buffer: buf });
+            }
+        }
+        StepSection::FileOutput => {
+            if key.code == KeyCode::Enter {
+                let buf = app.campaign.steps[step_idx].file_output.clone().unwrap_or_else(|| "FILE_DATA".into());
+                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { buffer: buf });
+            }
+        }
+        StepSection::FileEncoding => {
+            const FILE_ENCODINGS: &[&str] = &["base64", "text", "hex"];
+            let cur = app.campaign.steps[step_idx].file_encoding.clone().unwrap_or_else(|| "base64".into());
+            let idx = FILE_ENCODINGS.iter().position(|&x| x == cur.as_str()).unwrap_or(0);
+            let new_idx = match key.code {
+                KeyCode::Enter | KeyCode::Right => (idx + 1) % FILE_ENCODINGS.len(),
+                KeyCode::Left => (idx + FILE_ENCODINGS.len() - 1) % FILE_ENCODINGS.len(),
+                _ => return Ok(()),
+            };
+            app.campaign.steps[step_idx].file_encoding = Some(FILE_ENCODINGS[new_idx].to_string());
+            app.modified = true;
         }
 
         // ── Cycle fields ──────────────────────────────────────────────────────
@@ -288,6 +348,47 @@ fn handle_browse(
                 let step = &mut app.campaign.steps[step_idx];
                 if !step.assert.is_empty() {
                     step.assert.pop();
+                    app.modified = true;
+                }
+            }
+            _ => {}
+        },
+        StepSection::MultipartParts => match key.code {
+            KeyCode::Char('a') => {
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::AddMultipart {
+                        idx: None,
+                        name: String::new(), value: String::new(),
+                        content_type: String::new(), stage: 0,
+                    });
+            }
+            KeyCode::Enter => {
+                // Edit last part (or add if empty)
+                let step = &app.campaign.steps[step_idx];
+                if step.multipart_parts.is_empty() {
+                    set_focus(app, step_idx, section_cursor, sub_cursor,
+                        StepEditorMode::AddMultipart {
+                            idx: None,
+                            name: String::new(), value: String::new(),
+                            content_type: String::new(), stage: 0,
+                        });
+                } else {
+                    let last = step.multipart_parts.len() - 1;
+                    let p = &step.multipart_parts[last];
+                    set_focus(app, step_idx, section_cursor, sub_cursor,
+                        StepEditorMode::AddMultipart {
+                            idx: Some(last),
+                            name: p.name.clone(),
+                            value: p.value.clone(),
+                            content_type: p.content_type.clone().unwrap_or_default(),
+                            stage: 0,
+                        });
+                }
+            }
+            KeyCode::Char('d') => {
+                let step = &mut app.campaign.steps[step_idx];
+                if !step.multipart_parts.is_empty() {
+                    step.multipart_parts.pop();
                     app.modified = true;
                 }
             }
@@ -382,6 +483,8 @@ fn apply_text_edit(app: &mut BuilderApp, step_idx: usize, section: &StepSection,
                 ensure_transform_step(step);
                 step.transforms[0].output = value.to_string();
             }
+            StepSection::FilePath   => step.file_path   = if value.is_empty() { None } else { Some(value.to_string()) },
+            StepSection::FileOutput => step.file_output = if value.is_empty() { None } else { Some(value.to_string()) },
             _ => return,
         }
     }
@@ -735,8 +838,74 @@ pub fn current_value(app: &BuilderApp, step_idx: usize, section: &StepSection) -
             step.transforms.first().map(|t| t.input.clone()).unwrap_or_default(),
         StepSection::TransformOutput =>
             step.transforms.first().map(|t| t.output.clone()).unwrap_or_default(),
+        StepSection::FilePath    => step.file_path.clone().unwrap_or_default(),
+        StepSection::FileOutput  => step.file_output.clone().unwrap_or_else(|| "FILE_DATA".into()),
+        StepSection::FileEncoding=> step.file_encoding.clone().unwrap_or_else(|| "base64".into()),
+        StepSection::MultipartParts => format!("({} parts)", step.multipart_parts.len()),
         StepSection::LoadFromCollection => String::new(),
     }
+}
+
+// ── AddMultipart flow ─────────────────────────────────────────────────────────
+
+#[allow(clippy::too_many_arguments)]
+fn handle_add_multipart(
+    app: &mut BuilderApp,
+    key: KeyEvent,
+    step_idx: usize,
+    section_cursor: usize,
+    sub_cursor: usize,
+    idx: Option<usize>,
+    mut name: String,
+    mut value: String,
+    mut content_type: String,
+    stage: u8,
+) -> Result<()> {
+    match key.code {
+        KeyCode::Esc => {
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
+        }
+        KeyCode::Enter | KeyCode::Tab => {
+            match stage {
+                0 => set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::AddMultipart { idx, name, value, content_type, stage: 1 }),
+                1 => set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::AddMultipart { idx, name, value, content_type, stage: 2 }),
+                _ => {
+                    // stage 2 → save
+                    let ct = if content_type.trim().is_empty() { None } else { Some(content_type.trim().to_string()) };
+                    let part = crate::campaign::MultipartPart { name, value, content_type: ct };
+                    let step = &mut app.campaign.steps[step_idx];
+                    match idx {
+                        Some(i) if i < step.multipart_parts.len() => step.multipart_parts[i] = part,
+                        _ => step.multipart_parts.push(part),
+                    }
+                    app.modified = true;
+                    set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
+                }
+            }
+        }
+        KeyCode::Backspace => {
+            match stage {
+                0 => { name.pop(); }
+                1 => { value.pop(); }
+                _ => { content_type.pop(); }
+            }
+            set_focus(app, step_idx, section_cursor, sub_cursor,
+                StepEditorMode::AddMultipart { idx, name, value, content_type, stage });
+        }
+        KeyCode::Char(c) => {
+            match stage {
+                0 => name.push(c),
+                1 => value.push(c),
+                _ => content_type.push(c),
+            }
+            set_focus(app, step_idx, section_cursor, sub_cursor,
+                StepEditorMode::AddMultipart { idx, name, value, content_type, stage });
+        }
+        _ => {}
+    }
+    Ok(())
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────────

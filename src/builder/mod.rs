@@ -15,7 +15,7 @@ use std::io;
 use std::path::PathBuf;
 
 use crate::campaign::{Campaign, CampaignEvent, CampaignRunState, Meta};
-use types::{CampaignSettingsMode, IoEditorMode, ParamEditorMode, StepEditorMode};
+use types::{CampaignSettingsMode, IoEditorMode, ParamEditorMode, StepEditorMode, VariablesMode};
 use crate::event::{Event, EventHandler};
 use crate::storage::StoredCollection;
 use tokio::sync::mpsc;
@@ -99,7 +99,7 @@ impl BuilderApp {
             }
             BuilderFocus::Checker { .. }                  => self.handle_overlay_key(key),
             BuilderFocus::TomlPreview { scroll }          => self.handle_preview_key(key, scroll),
-            BuilderFocus::Variables { cursor }            => self.handle_variables_key(key, cursor),
+            BuilderFocus::Variables { cursor, mode }      => self.handle_variables_key(key, cursor, mode),
             BuilderFocus::Run { scroll }                  => self.handle_run_key(key, scroll),
             BuilderFocus::ParamsEditor { cursor, mode }     => self.handle_params_editor_key(key, cursor, mode),
             BuilderFocus::ConnectorsEditor { cursor, mode } => self.handle_connectors_key(key, cursor, mode),
@@ -161,7 +161,7 @@ impl BuilderApp {
                 self.focus = BuilderFocus::TomlPreview { scroll: 0 };
             }
             KeyCode::Char('v') => {
-                self.focus = BuilderFocus::Variables { cursor: 0 };
+                self.focus = BuilderFocus::Variables { cursor: 0, mode: VariablesMode::Browse };
             }
             KeyCode::Char('s') if key.modifiers.is_empty() => {
                 self.focus = BuilderFocus::CampaignSettings {
@@ -267,20 +267,101 @@ impl BuilderApp {
         Ok(())
     }
 
-    fn handle_variables_key(&mut self, key: crossterm::event::KeyEvent, cursor: usize) -> Result<()> {
+    fn handle_variables_key(&mut self, key: crossterm::event::KeyEvent, cursor: usize, mode: VariablesMode) -> Result<()> {
         use crossterm::event::KeyCode;
-        let var_count = self.campaign.env.len();
-        match key.code {
-            KeyCode::Esc  => { self.focus = BuilderFocus::Pipeline; }
-            KeyCode::Up   => {
-                let new = cursor.saturating_sub(1);
-                self.focus = BuilderFocus::Variables { cursor: new };
+
+        fn sorted_keys(env: &std::collections::HashMap<String, String>) -> Vec<String> {
+            let mut keys: Vec<String> = env.keys().cloned().collect();
+            keys.sort();
+            keys
+        }
+
+        match mode {
+            VariablesMode::Browse => {
+                let var_count = self.campaign.env.len();
+                match key.code {
+                    KeyCode::Esc => { self.focus = BuilderFocus::Pipeline; }
+                    KeyCode::Up  => {
+                        self.focus = BuilderFocus::Variables { cursor: cursor.saturating_sub(1), mode: VariablesMode::Browse };
+                    }
+                    KeyCode::Down => {
+                        let new = if var_count > 0 { (cursor + 1).min(var_count - 1) } else { 0 };
+                        self.focus = BuilderFocus::Variables { cursor: new, mode: VariablesMode::Browse };
+                    }
+                    KeyCode::Char('a') => {
+                        self.focus = BuilderFocus::Variables {
+                            cursor,
+                            mode: VariablesMode::Edit { original_key: None, key: String::new(), value: String::new(), field: 0 },
+                        };
+                    }
+                    KeyCode::Char('d') if var_count > 0 => {
+                        let keys = sorted_keys(&self.campaign.env);
+                        if let Some(k) = keys.get(cursor) {
+                            self.campaign.env.remove(k);
+                            self.modified = true;
+                            let new_count = self.campaign.env.len();
+                            let new_cursor = if new_count > 0 { cursor.min(new_count - 1) } else { 0 };
+                            self.focus = BuilderFocus::Variables { cursor: new_cursor, mode: VariablesMode::Browse };
+                        }
+                    }
+                    KeyCode::Enter if var_count > 0 => {
+                        let keys = sorted_keys(&self.campaign.env);
+                        if let Some(k) = keys.get(cursor) {
+                            let v = self.campaign.env.get(k).cloned().unwrap_or_default();
+                            self.focus = BuilderFocus::Variables {
+                                cursor,
+                                mode: VariablesMode::Edit {
+                                    original_key: Some(k.clone()),
+                                    key: k.clone(),
+                                    value: v,
+                                    field: 1, // start on value
+                                },
+                            };
+                        }
+                    }
+                    _ => {}
+                }
             }
-            KeyCode::Down => {
-                let new = if var_count > 0 { (cursor + 1).min(var_count - 1) } else { 0 };
-                self.focus = BuilderFocus::Variables { cursor: new };
+            VariablesMode::Edit { original_key, key: mut var_key, value: mut var_value, field } => {
+                match key.code {
+                    KeyCode::Esc => {
+                        self.focus = BuilderFocus::Variables { cursor, mode: VariablesMode::Browse };
+                    }
+                    KeyCode::Tab | KeyCode::Enter => {
+                        if field == 0 {
+                            self.focus = BuilderFocus::Variables {
+                                cursor,
+                                mode: VariablesMode::Edit { original_key, key: var_key, value: var_value, field: 1 },
+                            };
+                        } else {
+                            let trimmed_key = var_key.trim().to_string();
+                            if !trimmed_key.is_empty() {
+                                if let Some(ref old) = original_key {
+                                    if old != &trimmed_key {
+                                        self.campaign.env.remove(old);
+                                    }
+                                }
+                                self.campaign.env.insert(trimmed_key.clone(), var_value.trim().to_string());
+                                self.modified = true;
+                                let keys = sorted_keys(&self.campaign.env);
+                                let new_cursor = keys.iter().position(|k| k == &trimmed_key).unwrap_or(cursor);
+                                self.focus = BuilderFocus::Variables { cursor: new_cursor, mode: VariablesMode::Browse };
+                            } else {
+                                self.focus = BuilderFocus::Variables { cursor, mode: VariablesMode::Browse };
+                            }
+                        }
+                    }
+                    KeyCode::Backspace => {
+                        if field == 0 { var_key.pop(); } else { var_value.pop(); }
+                        self.focus = BuilderFocus::Variables { cursor, mode: VariablesMode::Edit { original_key, key: var_key, value: var_value, field } };
+                    }
+                    KeyCode::Char(c) => {
+                        if field == 0 { var_key.push(c); } else { var_value.push(c); }
+                        self.focus = BuilderFocus::Variables { cursor, mode: VariablesMode::Edit { original_key, key: var_key, value: var_value, field } };
+                    }
+                    _ => {}
+                }
             }
-            _ => {}
         }
         Ok(())
     }
@@ -717,7 +798,7 @@ impl BuilderApp {
     ) -> Result<()> {
         use crossterm::event::KeyCode;
         let steps: Vec<&str> = self.campaign.steps.iter()
-            .filter(|s| s.kind != "comment" && s.kind != "transform" && s.kind != "pause")
+            .filter(|s| s.kind != "comment" && s.kind != "transform" && s.kind != "pause" && s.kind != "file")
             .map(|s| s.name.as_str())
             .collect();
         let n = steps.len();
@@ -1089,6 +1170,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             foreach: None,
             when: None,
             description: String::new(),
+            file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
         },
         BrickKind::Transform => Step {
             name: "New transform".into(),
@@ -1106,6 +1188,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             foreach: None,
             when: None,
             description: String::new(),
+            file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
         },
         BrickKind::Pause => Step {
             name: "Pause".into(),
@@ -1123,6 +1206,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             foreach: None,
             when: None,
             description: String::new(),
+            file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
         },
         BrickKind::Seed => Step {
             name: "Seed".into(),
@@ -1140,6 +1224,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             foreach: None,
             when: None,
             description: String::new(),
+            file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
         },
         BrickKind::Comment => Step {
             name: "Comment text here".into(),
@@ -1157,6 +1242,28 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             foreach: None,
             when: None,
             description: String::new(),
+            file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
+        },
+        BrickKind::FileLoader => Step {
+            name: "Load file".into(),
+            kind: "file".into(),
+            method: String::new(),
+            url: String::new(),
+            headers: std::collections::HashMap::new(),
+            body: None,
+            wait_ms: 0,
+            env: None,
+            extract: std::collections::HashMap::new(),
+            assert: vec![],
+            transforms: vec![],
+            continue_on_error: None,
+            foreach: None,
+            when: None,
+            description: String::new(),
+            file_path: Some(String::new()),
+            file_output: Some("FILE_DATA".into()),
+            file_encoding: Some("base64".into()),
+            multipart_parts: vec![],
         },
         // Connector and Output are handled directly in handle_catalog_key — not steps
         BrickKind::Connector | BrickKind::Output => unreachable!(),
@@ -1254,8 +1361,28 @@ fn generate_toml(campaign: &Campaign, step_comments: &[String], header_comment: 
         if !step.url.is_empty() {
             out.push_str(&format!("url    = \"{}\"\n", step.url));
         }
+        if let Some(ref body) = step.body {
+            if !body.is_empty() {
+                if body.contains('\n') {
+                    // multi-line: TOML literal block string
+                    out.push_str(&format!("body   = '''\n{}\n'''\n", body));
+                } else {
+                    // single-line: literal string (avoids escaping double quotes in JSON)
+                    out.push_str(&format!("body   = '{}'\n", body.replace('\'', "\\'")));
+                }
+            }
+        }
         if step.wait_ms > 0 {
             out.push_str(&format!("wait_ms = {}\n", step.wait_ms));
+        }
+        if let Some(ref p) = step.file_path {
+            if !p.is_empty() { out.push_str(&format!("file_path     = \"{}\"\n", p)); }
+        }
+        if let Some(ref o) = step.file_output {
+            if o != "FILE_DATA" { out.push_str(&format!("file_output   = \"{}\"\n", o)); }
+        }
+        if let Some(ref e) = step.file_encoding {
+            if e != "base64" { out.push_str(&format!("file_encoding  = \"{}\"\n", e)); }
         }
         if let Some(foreach) = &step.foreach {
             out.push_str(&format!("foreach = \"{}\"\n", foreach));
@@ -1293,6 +1420,32 @@ fn generate_toml(campaign: &Campaign, step_comments: &[String], header_comment: 
         if !step.assert.is_empty() {
             let parts: Vec<String> = step.assert.iter().map(assertion_inline).collect();
             out.push_str(&format!("assert = [{}]\n", parts.join(", ")));
+        }
+        if !step.transforms.is_empty() {
+            let parts: Vec<String> = step.transforms.iter().map(|t| {
+                let mut fields = vec![
+                    format!("type = \"{}\"", t.kind),
+                    format!("input = \"{}\"", toml_escape(&t.input)),
+                    format!("output = \"{}\"", toml_escape(&t.output)),
+                ];
+                if let Some(ref p) = t.pattern   { fields.push(format!("pattern = \"{}\"",   toml_escape(p))); }
+                if t.group != 0                  { fields.push(format!("group = {}", t.group)); }
+                if let Some(ref f) = t.from      { fields.push(format!("from = \"{}\"",      toml_escape(f))); }
+                if let Some(ref to) = t.to       { fields.push(format!("to = \"{}\"",        toml_escape(to))); }
+                if let Some(ref d) = t.delimiter { fields.push(format!("delimiter = \"{}\"", toml_escape(d))); }
+                if t.index != 0                  { fields.push(format!("index = {}", t.index)); }
+                format!("{{ {} }}", fields.join(", "))
+            }).collect();
+            out.push_str(&format!("transforms = [\n{}\n]\n",
+                parts.iter().map(|p| format!("  {}", p)).collect::<Vec<_>>().join(",\n")));
+        }
+        for mp in &step.multipart_parts {
+            out.push_str("\n[[steps.multipart_parts]]\n");
+            out.push_str(&format!("name  = \"{}\"\n", toml_escape(&mp.name)));
+            out.push_str(&format!("value = \"{}\"\n", toml_escape(&mp.value)));
+            if let Some(ref ct) = mp.content_type {
+                out.push_str(&format!("content_type = \"{}\"\n", toml_escape(ct)));
+            }
         }
     }
 

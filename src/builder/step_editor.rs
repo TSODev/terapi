@@ -12,6 +12,9 @@ pub const TRANSFORM_KINDS: &[&str] = &[
 
 pub fn sections_for(kind: &str) -> Vec<StepSection> {
     match kind {
+        "comment" => vec![
+            StepSection::Name,
+        ],
         "pause" => vec![
             StepSection::Name,
             StepSection::WaitMs,

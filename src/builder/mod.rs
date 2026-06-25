@@ -15,7 +15,7 @@ use std::io;
 use std::path::PathBuf;
 
 use crate::campaign::{Campaign, Meta};
-use types::StepEditorMode;
+use types::{CampaignSettingsMode, StepEditorMode};
 use crate::event::{Event, EventHandler};
 use crate::storage::StoredCollection;
 use types::*;
@@ -28,6 +28,7 @@ pub struct BuilderApp {
     pub focus: BuilderFocus,
     pub modified: bool,
     pub stored_collections: Vec<StoredCollection>,
+    pub stored_env_names: Vec<String>,
     pub status_message: String,
 }
 
@@ -40,6 +41,11 @@ impl BuilderApp {
             empty_campaign("new_campaign")
         };
         let stored_collections = crate::storage::load_collections().unwrap_or_default();
+        let stored_env_names = crate::storage::load_envs()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|e| e.env.name)
+            .collect();
         Self {
             running: true,
             campaign,
@@ -48,6 +54,7 @@ impl BuilderApp {
             focus: BuilderFocus::Pipeline,
             modified: false,
             stored_collections,
+            stored_env_names,
             status_message: String::new(),
         }
     }
@@ -63,6 +70,9 @@ impl BuilderApp {
             }
             BuilderFocus::CollectionBrowser { for_step, col_cursor, expanded } => {
                 browser::handle_key(self, key, for_step, col_cursor, expanded)
+            }
+            BuilderFocus::CampaignSettings { cursor, mode } => {
+                self.handle_campaign_settings_key(key, cursor, mode)
             }
             BuilderFocus::Checker { .. }         => self.handle_overlay_key(key),
             BuilderFocus::TomlPreview { scroll } => self.handle_preview_key(key, scroll),
@@ -111,6 +121,12 @@ impl BuilderApp {
             }
             KeyCode::Char('v') => {
                 self.focus = BuilderFocus::Variables { cursor: 0 };
+            }
+            KeyCode::Char('s') if key.modifiers.is_empty() => {
+                self.focus = BuilderFocus::CampaignSettings {
+                    cursor: 0,
+                    mode: CampaignSettingsMode::Browse,
+                };
             }
             KeyCode::Char('w') => self.save()?,
             _ => {}
@@ -192,6 +208,112 @@ impl BuilderApp {
             _ => {}
         }
         Ok(())
+    }
+
+    // ── Campaign settings ─────────────────────────────────────────────────────
+
+    fn handle_campaign_settings_key(
+        &mut self,
+        key: crossterm::event::KeyEvent,
+        cursor: usize,
+        mode: CampaignSettingsMode,
+    ) -> Result<()> {
+        use crossterm::event::KeyCode;
+        const FIELDS: usize = 4; // Name, Description, Continue on error, Env
+
+        match mode {
+            CampaignSettingsMode::Browse => match key.code {
+                KeyCode::Esc => {
+                    self.focus = BuilderFocus::Pipeline;
+                }
+                KeyCode::Up => {
+                    let new = cursor.saturating_sub(1);
+                    self.focus = BuilderFocus::CampaignSettings { cursor: new, mode: CampaignSettingsMode::Browse };
+                }
+                KeyCode::Down => {
+                    let new = (cursor + 1).min(FIELDS - 1);
+                    self.focus = BuilderFocus::CampaignSettings { cursor: new, mode: CampaignSettingsMode::Browse };
+                }
+                KeyCode::Enter => match cursor {
+                    0 => {
+                        let buf = self.campaign.campaign.name.clone();
+                        self.focus = BuilderFocus::CampaignSettings { cursor, mode: CampaignSettingsMode::EditText { buffer: buf } };
+                    }
+                    1 => {
+                        let buf = self.campaign.campaign.description.clone();
+                        self.focus = BuilderFocus::CampaignSettings { cursor, mode: CampaignSettingsMode::EditText { buffer: buf } };
+                    }
+                    2 => {
+                        self.campaign.continue_on_error = !self.campaign.continue_on_error;
+                        self.modified = true;
+                        self.focus = BuilderFocus::CampaignSettings { cursor, mode: CampaignSettingsMode::Browse };
+                    }
+                    3 => {
+                        self.cycle_env(1);
+                        self.focus = BuilderFocus::CampaignSettings { cursor, mode: CampaignSettingsMode::Browse };
+                    }
+                    _ => {}
+                },
+                KeyCode::Char(' ') if cursor == 2 => {
+                    self.campaign.continue_on_error = !self.campaign.continue_on_error;
+                    self.modified = true;
+                    self.focus = BuilderFocus::CampaignSettings { cursor, mode: CampaignSettingsMode::Browse };
+                }
+                KeyCode::Right if cursor == 3 => {
+                    self.cycle_env(1);
+                    self.focus = BuilderFocus::CampaignSettings { cursor, mode: CampaignSettingsMode::Browse };
+                }
+                KeyCode::Left if cursor == 3 => {
+                    self.cycle_env(-1);
+                    self.focus = BuilderFocus::CampaignSettings { cursor, mode: CampaignSettingsMode::Browse };
+                }
+                _ => {}
+            },
+            CampaignSettingsMode::EditText { mut buffer } => match key.code {
+                KeyCode::Esc => {
+                    self.focus = BuilderFocus::CampaignSettings { cursor, mode: CampaignSettingsMode::Browse };
+                }
+                KeyCode::Enter => {
+                    match cursor {
+                        0 => { self.campaign.campaign.name = buffer.trim().to_string(); }
+                        1 => { self.campaign.campaign.description = buffer.trim().to_string(); }
+                        _ => {}
+                    }
+                    self.modified = true;
+                    self.focus = BuilderFocus::CampaignSettings { cursor, mode: CampaignSettingsMode::Browse };
+                }
+                KeyCode::Backspace => {
+                    buffer.pop();
+                    self.focus = BuilderFocus::CampaignSettings { cursor, mode: CampaignSettingsMode::EditText { buffer } };
+                }
+                KeyCode::Char(c) => {
+                    buffer.push(c);
+                    self.focus = BuilderFocus::CampaignSettings { cursor, mode: CampaignSettingsMode::EditText { buffer } };
+                }
+                _ => {}
+            },
+        }
+        Ok(())
+    }
+
+    fn cycle_env(&mut self, delta: i32) {
+        let envs = &self.stored_env_names;
+        if envs.is_empty() {
+            return;
+        }
+        let current_idx = if let Some(ref name) = self.campaign.env_file {
+            envs.iter().position(|e| e == name).map(|i| i as i32).unwrap_or(-1)
+        } else {
+            -1_i32
+        };
+        let n = envs.len() as i32;
+        let next = (current_idx + delta).rem_euclid(n + 1);
+        if next as usize == envs.len() {
+            self.campaign.env_file = None;
+        } else {
+            self.campaign.env_file = Some(envs[next as usize].clone());
+        }
+        self.modified = true;
     }
 
     // ── Persistence ───────────────────────────────────────────────────────────
@@ -336,6 +458,22 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             foreach: None,
             when: None,
         },
+        BrickKind::Comment => Step {
+            name: "Comment text here".into(),
+            kind: "comment".into(),
+            method: String::new(),
+            url: String::new(),
+            headers: std::collections::HashMap::new(),
+            body: None,
+            wait_ms: 0,
+            env: None,
+            extract: std::collections::HashMap::new(),
+            assert: vec![],
+            transforms: vec![],
+            continue_on_error: None,
+            foreach: None,
+            when: None,
+        },
     }
 }
 
@@ -354,6 +492,10 @@ fn generate_toml(campaign: &Campaign) -> String {
     }
 
     for step in &campaign.steps {
+        if step.kind == "comment" {
+            out.push_str(&format!("\n# {}\n", step.name));
+            continue;
+        }
         out.push_str("\n[[steps]]\n");
         out.push_str(&format!("name   = \"{}\"\n", step.name));
         if step.kind != "http" {

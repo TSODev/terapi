@@ -524,6 +524,26 @@ async fn run_single_step(
     effective: &HashMap<String, String>,
     effective_coe: bool,
 ) -> StepResult {
+    if step.kind == "comment" {
+        return StepResult {
+            name: step.name.clone(),
+            method: "SKIP".into(),
+            url: String::new(),
+            status: None,
+            duration_ms: 0,
+            success: true,
+            skipped: true,
+            non_blocking: true,
+            error: None,
+            extracted: HashMap::new(),
+            assertion_results: vec![],
+            body_json: None,
+            graphql: false,
+            request_headers: vec![],
+            request_body: None,
+        };
+    }
+
     if step.kind == "pause" {
         let t0 = Instant::now();
         tokio::time::sleep(std::time::Duration::from_millis(step.wait_ms)).await;

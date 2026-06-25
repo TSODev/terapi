@@ -8,18 +8,16 @@ use ratatui::{
 
 use super::BuilderApp;
 use super::step_editor::{current_value, sections_for, sorted_keys};
-use super::types::{BRICK_KINDS, BuilderFocus, CheckLevel, StepEditorMode, StepSection};
+use super::types::{BRICK_KINDS, BuilderFocus, CampaignSettingsMode, CheckLevel, StepEditorMode, StepSection};
 
 pub fn render(frame: &mut Frame, app: &BuilderApp) {
     let area = frame.area();
 
-    // Split into top (main) and bottom (status bar)
     let outer = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Min(0), Constraint::Length(2)])
         .split(area);
 
-    // Split main into left (pipeline) and right (context)
     let panels = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
@@ -33,10 +31,11 @@ pub fn render(frame: &mut Frame, app: &BuilderApp) {
 // ── Pipeline ─────────────────────────────────────────────────────────────────
 
 fn render_pipeline(frame: &mut Frame, app: &BuilderApp, area: Rect) {
+    let env_label = app.campaign.env_file.as_deref().unwrap_or("—");
     let title = if app.modified {
-        format!(" Pipeline · {} * ", app.campaign.campaign.name)
+        format!(" Pipeline · {} [{}] * ", app.campaign.campaign.name, env_label)
     } else {
-        format!(" Pipeline · {} ", app.campaign.campaign.name)
+        format!(" Pipeline · {} [{}] ", app.campaign.campaign.name, env_label)
     };
 
     let in_pipeline = matches!(app.focus, BuilderFocus::Pipeline);
@@ -55,21 +54,38 @@ fn render_pipeline(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     frame.render_widget(block, area);
 
     if app.campaign.steps.is_empty() {
-        let hint = Paragraph::new("Aucun step — n: ajouter")
+        let hint = Paragraph::new("No steps — n: add")
             .style(Style::default().fg(Color::Indexed(242)));
         frame.render_widget(hint, inner);
         return;
     }
 
     let mut items: Vec<ListItem> = Vec::new();
+    let mut step_number = 0usize; // only counts non-comment steps
     for (idx, step) in app.campaign.steps.iter().enumerate() {
         let selected = idx == app.cursor;
         let cursor_char = if selected { "▶ " } else { "  " };
 
+        if step.kind == "comment" {
+            let style = if selected {
+                Style::default().fg(Color::White).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::Indexed(238))
+            };
+            items.push(ListItem::new(Line::from(vec![
+                Span::styled(
+                    format!("{}# {}", cursor_char, truncate(&step.name, 42)),
+                    style,
+                ),
+            ])));
+            continue;
+        }
+
+        step_number += 1;
         let (badge, badge_color) = step_badge(&step.kind);
 
         let num_span = Span::styled(
-            format!("{cursor_char}[{}] ", idx + 1),
+            format!("{}[{}] ", cursor_char, step_number),
             if selected { Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD) }
             else         { Style::default().fg(Color::Indexed(242)) },
         );
@@ -96,7 +112,6 @@ fn render_pipeline(frame: &mut Frame, app: &BuilderApp, area: Rect) {
             num_span, badge_span, method_span, summary_span,
         ])));
 
-        // Secondary lines: foreach / when / assertions
         if let Some(foreach) = &step.foreach {
             items.push(ListItem::new(Line::from(vec![
                 Span::raw("         "),
@@ -124,13 +139,12 @@ fn render_pipeline(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         }
     }
 
-    // Footer: var count + check status
-    let var_count = app.campaign.env.len();
-    let footer = Span::styled(
-        format!("● {} var{}", var_count, if var_count != 1 { "s" } else { "" }),
-        Style::default().fg(Color::Indexed(242)),
-    );
-    items.push(ListItem::new(Line::from(vec![Span::raw(""), footer])));
+    let coe_flag = if app.campaign.continue_on_error {
+        Span::styled(" ↷ continue-on-error", Style::default().fg(Color::Yellow))
+    } else {
+        Span::raw("")
+    };
+    items.push(ListItem::new(Line::from(vec![Span::raw(""), coe_flag])));
 
     let list = List::new(items);
     frame.render_widget(list, inner);
@@ -141,6 +155,7 @@ fn step_badge(kind: &str) -> (&'static str, Color) {
         "transform" => ("TRSF", Color::Yellow),
         "pause"     => ("WAIT", Color::Indexed(242)),
         "seed"      => ("SEED", Color::Blue),
+        "comment"   => ("#   ", Color::Indexed(238)),
         _           => ("HTTP", Color::Cyan),
     }
 }
@@ -172,7 +187,7 @@ fn when_label(when: &crate::campaign::StepCondition) -> String {
         if exists { format!("⊘ if {} exists", when.var) }
         else       { format!("⊘ if {} not set", when.var) }
     } else {
-        format!("⊘ if {} non vide", when.var)
+        format!("⊘ if {} non-empty", when.var)
     }
 }
 
@@ -184,17 +199,19 @@ fn render_context(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         BuilderFocus::Catalog { cursor, .. } => render_catalog(frame, *cursor, area),
         BuilderFocus::StepEditor { step_idx, section_cursor, sub_cursor, mode } =>
             render_step_editor(frame, app, *step_idx, *section_cursor, *sub_cursor, mode, area),
-        BuilderFocus::Checker { results } => render_checker(frame, results, area),
-        BuilderFocus::TomlPreview { scroll } => render_toml_preview(frame, app, *scroll, area),
         BuilderFocus::CollectionBrowser { col_cursor, expanded, .. } =>
             render_collection_browser(frame, app, *col_cursor, expanded, area),
+        BuilderFocus::CampaignSettings { cursor, mode } =>
+            render_campaign_settings(frame, app, *cursor, mode, area),
+        BuilderFocus::Checker { results } => render_checker(frame, results, area),
+        BuilderFocus::TomlPreview { scroll } => render_toml_preview(frame, app, *scroll, area),
         BuilderFocus::Variables { cursor } => render_variables(frame, app, *cursor, area),
     }
 }
 
 fn render_pipeline_hint(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     let block = Block::default()
-        .title(" Aide ")
+        .title(" Help ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Indexed(242)));
 
@@ -203,18 +220,19 @@ fn render_pipeline_hint(frame: &mut Frame, app: &BuilderApp, area: Rect) {
 
     let step_count = app.campaign.steps.len();
     let lines = vec![
-        Line::from(Span::styled("Touches — Pipeline", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))),
+        Line::from(Span::styled("Keybindings — Pipeline", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))),
         Line::from(""),
-        hint_line("n",       "Nouveau step (fin de liste)"),
-        hint_line("i",       "Insérer step après le curseur"),
-        hint_line("Enter",   "Éditer le step sélectionné"),
-        hint_line("d",       "Supprimer le step sélectionné"),
-        hint_line("K / J",   "Déplacer le step haut / bas"),
+        hint_line("n",       "New step (append)"),
+        hint_line("i",       "Insert step after cursor"),
+        hint_line("Enter",   "Edit selected step"),
+        hint_line("d",       "Delete selected step"),
+        hint_line("K / J",   "Move step up / down"),
+        hint_line("s",       "Campaign settings"),
         hint_line("v",       "Variables [env]"),
-        hint_line("c",       "Checker — valider le pipeline"),
-        hint_line("p",       "Aperçu TOML"),
-        hint_line("w",       "Sauvegarder"),
-        hint_line("q",       "Quitter"),
+        hint_line("c",       "Check pipeline"),
+        hint_line("p",       "TOML preview"),
+        hint_line("w",       "Save"),
+        hint_line("q",       "Quit"),
         Line::from(""),
         Line::from(Span::styled(
             format!("{} step{}", step_count, if step_count != 1 { "s" } else { "" }),
@@ -228,7 +246,7 @@ fn render_pipeline_hint(frame: &mut Frame, app: &BuilderApp, area: Rect) {
 
 fn render_catalog(frame: &mut Frame, cursor: usize, area: Rect) {
     let block = Block::default()
-        .title(" Catalog — choisir une brique ")
+        .title(" Catalog — choose a brick ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Magenta));
 
@@ -251,7 +269,7 @@ fn render_catalog(frame: &mut Frame, cursor: usize, area: Rect) {
     }).collect();
 
     let hint = ListItem::new(Line::from(vec![
-        Span::styled("  ↑↓: choisir  Enter: créer  Esc: annuler", Style::default().fg(Color::Indexed(242))),
+        Span::styled("  ↑↓: choose  Enter: create  Esc: cancel", Style::default().fg(Color::Indexed(242))),
     ]));
 
     let mut all = items;
@@ -261,9 +279,102 @@ fn render_catalog(frame: &mut Frame, cursor: usize, area: Rect) {
     frame.render_widget(List::new(all), inner);
 }
 
+fn render_campaign_settings(
+    frame: &mut Frame,
+    app: &BuilderApp,
+    cursor: usize,
+    mode: &CampaignSettingsMode,
+    area: Rect,
+) {
+    let block = Block::default()
+        .title(" Campaign Settings ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let fields: &[(&str, usize)] = &[
+        ("Name",              0),
+        ("Description",       1),
+        ("Continue on error", 2),
+        ("Env",               3),
+    ];
+
+    let mut rows: Vec<ListItem> = Vec::new();
+    rows.push(ListItem::new(Line::from("")));
+
+    for &(label, idx) in fields {
+        let is_cursor = idx == cursor;
+        let cursor_char = if is_cursor { "▶ " } else { "  " };
+        let label_style = if is_cursor {
+            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::Indexed(242))
+        };
+
+        let value_span = if is_cursor {
+            match mode {
+                CampaignSettingsMode::EditText { buffer } => Span::styled(
+                    format!("[ {}_]", buffer),
+                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                ),
+                CampaignSettingsMode::Browse => settings_value_span(app, idx, is_cursor),
+            }
+        } else {
+            settings_value_span(app, idx, is_cursor)
+        };
+
+        rows.push(ListItem::new(Line::from(vec![
+            Span::styled(format!("{}{:<18}", cursor_char, label), label_style),
+            value_span,
+        ])));
+    }
+
+    rows.push(ListItem::new(Line::from("")));
+    let hints = match mode {
+        CampaignSettingsMode::Browse =>
+            "↑↓: field  Enter: edit/toggle  ←/→: cycle env  Esc: back",
+        CampaignSettingsMode::EditText { .. } =>
+            "Type to edit  Enter: confirm  Esc: cancel",
+    };
+    rows.push(ListItem::new(Line::from(
+        Span::styled(hints, Style::default().fg(Color::Indexed(242)))
+    )));
+
+    frame.render_widget(List::new(rows), inner);
+}
+
+fn settings_value_span(app: &BuilderApp, field_idx: usize, is_cursor: bool) -> Span<'static> {
+    let color = if is_cursor { Color::White } else { Color::Indexed(250) };
+    match field_idx {
+        0 => Span::styled(app.campaign.campaign.name.clone(), Style::default().fg(color)),
+        1 => {
+            let d = &app.campaign.campaign.description;
+            if d.is_empty() {
+                Span::styled("—", Style::default().fg(Color::Indexed(242)))
+            } else {
+                Span::styled(d.clone(), Style::default().fg(color))
+            }
+        }
+        2 => {
+            if app.campaign.continue_on_error {
+                Span::styled("[x] enabled", Style::default().fg(Color::Green))
+            } else {
+                Span::styled("[ ] disabled", Style::default().fg(Color::Indexed(242)))
+            }
+        }
+        3 => {
+            let env = app.campaign.env_file.as_deref().unwrap_or("— none —");
+            Span::styled(format!("[ {} ▾ ]", env), Style::default().fg(Color::Yellow))
+        }
+        _ => Span::raw(""),
+    }
+}
+
 fn render_checker(frame: &mut Frame, results: &[super::types::CheckResult], area: Rect) {
     let block = Block::default()
-        .title(" Check report ")
+        .title(" Check Report ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
 
@@ -278,20 +389,20 @@ fn render_checker(frame: &mut Frame, results: &[super::types::CheckResult], area
         };
         Line::from(vec![
             Span::styled(icon, Style::default().fg(color).add_modifier(Modifier::BOLD)),
-            Span::styled(&r.message, Style::default().fg(Color::White)),
+            Span::styled(r.message.clone(), Style::default().fg(Color::White)),
         ])
     }).collect();
 
     let mut all = lines;
     all.push(Line::from(""));
-    all.push(Line::from(Span::styled("Esc: fermer", Style::default().fg(Color::Indexed(242)))));
+    all.push(Line::from(Span::styled("Esc: close", Style::default().fg(Color::Indexed(242)))));
 
     frame.render_widget(Paragraph::new(all), inner);
 }
 
 fn render_toml_preview(frame: &mut Frame, app: &BuilderApp, scroll: usize, area: Rect) {
     let block = Block::default()
-        .title(" Aperçu TOML ")
+        .title(" TOML Preview ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
 
@@ -319,6 +430,13 @@ fn render_variables(frame: &mut Frame, app: &BuilderApp, cursor: usize, area: Re
     let mut vars: Vec<(&String, &String)> = app.campaign.env.iter().collect();
     vars.sort_by_key(|(k, _)| k.as_str());
 
+    if vars.is_empty() {
+        let hint = Paragraph::new("No variables — a: add")
+            .style(Style::default().fg(Color::Indexed(242)));
+        frame.render_widget(hint, inner);
+        return;
+    }
+
     let items: Vec<ListItem> = vars.iter().enumerate().map(|(i, (k, v))| {
         let selected = i == cursor;
         let prefix = if selected { "▶ " } else { "  " };
@@ -326,21 +444,14 @@ fn render_variables(frame: &mut Frame, app: &BuilderApp, cursor: usize, area: Re
         let val_style = Style::default().fg(if selected { Color::White } else { Color::Indexed(250) });
         ListItem::new(Line::from(vec![
             Span::styled(format!("{}{:<20}", prefix, k), key_style),
-            Span::styled(v.as_str(), val_style),
+            Span::styled(v.as_str().to_string(), val_style),
         ]))
     }).collect();
-
-    if vars.is_empty() {
-        let hint = Paragraph::new("Aucune variable — a: ajouter")
-            .style(Style::default().fg(Color::Indexed(242)));
-        frame.render_widget(hint, inner);
-        return;
-    }
 
     let mut all = items;
     all.push(ListItem::new(Line::from("")));
     all.push(ListItem::new(Line::from(
-        Span::styled("a: add  d: del  Enter: edit  Esc: fermer", Style::default().fg(Color::Indexed(242)))
+        Span::styled("a: add  d: del  Enter: edit  Esc: close", Style::default().fg(Color::Indexed(242)))
     )));
 
     frame.render_widget(List::new(all), inner);
@@ -357,7 +468,11 @@ fn render_step_editor(
 ) {
     let step = &app.campaign.steps[step_idx];
     let (badge, _badge_color) = step_badge(&step.kind);
-    let title = format!(" {} step — {} ", badge, step.name);
+    let title = if step.kind == "comment" {
+        format!(" # Comment — {} ", step.name)
+    } else {
+        format!(" {} step — {} ", badge, step.name)
+    };
 
     let block = Block::default()
         .title(title)
@@ -371,17 +486,11 @@ fn render_step_editor(
     let mut rows: Vec<ListItem> = Vec::new();
 
     for (i, section) in sections.iter().enumerate() {
-        // Visual separator before the action row
         if *section == StepSection::LoadFromCollection {
             rows.push(ListItem::new(Line::from("")));
         }
 
         let is_cursor = i == section_cursor;
-        let _base_style = if is_cursor {
-            Style::default().fg(Color::White).add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(Color::Indexed(250))
-        };
         let label_style = if is_cursor {
             Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
         } else {
@@ -391,7 +500,6 @@ fn render_step_editor(
         let cursor_char = if is_cursor { "▶ " } else { "  " };
         let label = format!("{}{:<17}", cursor_char, section.label());
 
-        // Determine what to show as the value
         let value_span = if is_cursor {
             match mode {
                 StepEditorMode::EditText { buffer } => {
@@ -414,7 +522,6 @@ fn render_step_editor(
             value_span_for(app, step_idx, section, is_cursor)
         };
 
-        // Hint for list sections or action row
         let hint_span = if is_cursor && section.is_list() && matches!(mode, StepEditorMode::Browse) {
             Span::styled("  a: add  d: del", Style::default().fg(Color::Indexed(242)))
         } else {
@@ -427,7 +534,6 @@ fn render_step_editor(
             hint_span,
         ])));
 
-        // Sub-items for list sections
         if section.is_list() {
             let items = list_items_for(app, step_idx, section);
             for item_str in &items {
@@ -441,14 +547,13 @@ fn render_step_editor(
             }
         }
 
-        // Input row for add-pair modes (shown below the active list section)
         if is_cursor {
             match mode {
                 StepEditorMode::AddPairStage1 { buffer, .. } => {
                     rows.push(ListItem::new(Line::from(vec![
                         Span::raw("     "),
                         Span::styled(
-                            format!("  Nom/clé : [ {}_]", buffer),
+                            format!("  Key : [ {}_]", buffer),
                             Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
                         ),
                     ])));
@@ -467,17 +572,16 @@ fn render_step_editor(
         }
     }
 
-    // Hints footer
     rows.push(ListItem::new(Line::from("")));
     let hints = match mode {
         StepEditorMode::Browse =>
-            "↑↓: champ  Enter: éditer  ←/→: cycle  a/d: liste  Esc: retour",
+            "↑↓: field  Enter: edit  ←/→: cycle  a/d: list  Esc: back",
         StepEditorMode::EditText { .. } =>
-            "Tapez pour modifier  Enter: valider  Esc: annuler",
+            "Type to edit  Enter: confirm  Esc: cancel",
         StepEditorMode::AddPairStage1 { .. } =>
-            "Nom/clé  Enter: suivant  Esc: annuler",
+            "Key name  Enter: next  Esc: cancel",
         StepEditorMode::AddPairStage2 { .. } =>
-            "Valeur  Enter: ajouter  Esc: annuler",
+            "Value  Enter: add  Esc: cancel",
     };
     rows.push(ListItem::new(Line::from(
         Span::styled(hints, Style::default().fg(Color::Indexed(242)))
@@ -568,7 +672,7 @@ fn render_collection_browser(
     area: Rect,
 ) {
     let block = Block::default()
-        .title(" Collections — choisir une requête ")
+        .title(" Collections — select a request ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Magenta));
 
@@ -576,7 +680,7 @@ fn render_collection_browser(
     frame.render_widget(block, area);
 
     if app.stored_collections.is_empty() {
-        let hint = Paragraph::new("Aucune collection — Esc: annuler")
+        let hint = Paragraph::new("No collections — Esc: cancel")
             .style(Style::default().fg(Color::Indexed(242)));
         frame.render_widget(hint, inner);
         return;
@@ -605,7 +709,7 @@ fn render_collection_browser(
             ])));
         } else {
             let cursor_mark = if is_cursor { "▶ " } else { "  " };
-            let method_color = method_color(&node.method);
+            let mc = method_color(&node.method);
             let label_style = if is_cursor {
                 Style::default().fg(Color::White).add_modifier(Modifier::BOLD)
             } else {
@@ -615,7 +719,7 @@ fn render_collection_browser(
                 Span::styled(format!("{cursor_mark}{indent}"), label_style),
                 Span::styled(
                     format!("{:<6} ", node.method),
-                    Style::default().fg(method_color),
+                    Style::default().fg(mc),
                 ),
                 Span::styled(node.label.clone(), label_style),
             ])));
@@ -625,7 +729,7 @@ fn render_collection_browser(
     items.push(ListItem::new(Line::from("")));
     items.push(ListItem::new(Line::from(
         Span::styled(
-            "↑↓: naviguer  Space: ouvrir/fermer  Enter: charger  Esc: annuler",
+            "↑↓: navigate  Space: expand/collapse  Enter: load  Esc: cancel",
             Style::default().fg(Color::Indexed(242)),
         ),
     )));
@@ -648,39 +752,44 @@ fn method_color(method: &str) -> Color {
 
 fn render_status(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     let focus_label = match &app.focus {
-        BuilderFocus::Pipeline          => "Builder › Pipeline",
-        BuilderFocus::Catalog { .. }    => "Builder › Catalog",
-        BuilderFocus::StepEditor { step_idx, .. } => {
-            let _ = step_idx; // used via format below
-            "Builder › Step editor"
-        }
+        BuilderFocus::Pipeline              => "Builder › Pipeline",
+        BuilderFocus::Catalog { .. }        => "Builder › Catalog",
+        BuilderFocus::StepEditor { .. }     => "Builder › Step editor",
         BuilderFocus::CollectionBrowser { .. } => "Builder › Collections",
-        BuilderFocus::Variables { .. }  => "Builder › Variables",
-        BuilderFocus::Checker { .. }    => "Builder › Checker",
-        BuilderFocus::TomlPreview { .. }=> "Builder › TOML preview",
+        BuilderFocus::CampaignSettings { .. }  => "Builder › Campaign settings",
+        BuilderFocus::Variables { .. }      => "Builder › Variables",
+        BuilderFocus::Checker { .. }        => "Builder › Check report",
+        BuilderFocus::TomlPreview { .. }    => "Builder › TOML preview",
     };
 
-    let hints = match &app.focus {
+    let hints: &str = match &app.focus {
         BuilderFocus::Pipeline =>
-            "n: new  i: insert  d: del  K/J: move  Enter: edit  v: vars  c: check  p: preview  w: save  q: quit",
+            "n: new  i: insert  d: del  K/J: move  Enter: edit  s: settings  v: vars  c: check  p: preview  w: save  q: quit",
         BuilderFocus::Catalog { .. } =>
-            "↑↓: choisir  Enter: créer  Esc: annuler",
+            "↑↓: choose  Enter: create  Esc: cancel",
         BuilderFocus::StepEditor { mode, .. } => match mode {
             StepEditorMode::Browse =>
-                "↑↓: champ  Enter: éditer  ←/→: cycle  a/d: liste  Esc: retour pipeline",
+                "↑↓: field  Enter: edit  ←/→: cycle  a/d: list  Esc: back to pipeline",
             StepEditorMode::EditText { .. } =>
-                "Tapez pour modifier  Enter: valider  Esc: annuler",
+                "Type to edit  Enter: confirm  Esc: cancel",
             _ =>
-                "Tapez  Enter: suivant/valider  Esc: annuler",
+                "Type  Enter: next/confirm  Esc: cancel",
         },
         BuilderFocus::CollectionBrowser { .. } =>
-            "↑↓: naviguer  Space: ouvrir/fermer  Enter: charger la requête  Esc: annuler",
+            "↑↓: navigate  Space: expand/collapse  Enter: load request  Esc: cancel",
+        BuilderFocus::CampaignSettings { mode, .. } => match mode {
+            CampaignSettingsMode::Browse =>
+                "↑↓: field  Enter: edit/toggle  ←/→: cycle env  Esc: back",
+            CampaignSettingsMode::EditText { .. } =>
+                "Type to edit  Enter: confirm  Esc: cancel",
+        },
         BuilderFocus::Checker { .. } | BuilderFocus::TomlPreview { .. } | BuilderFocus::Variables { .. } =>
-            "↑↓: naviguer  Esc: fermer",
+            "↑↓: navigate  Esc: close",
     };
 
+    let status_msg = if app.status_message.is_empty() { "" } else { &app.status_message };
     let modified_flag = if app.modified {
-        Span::styled(" [modifié]", Style::default().fg(Color::Yellow))
+        Span::styled(" [modified]", Style::default().fg(Color::Yellow))
     } else {
         Span::raw("")
     };
@@ -688,6 +797,11 @@ fn render_status(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     let line1 = Line::from(vec![
         Span::styled(focus_label, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
         modified_flag,
+        if !status_msg.is_empty() {
+            Span::styled(format!("  — {}", status_msg), Style::default().fg(Color::Green))
+        } else {
+            Span::raw("")
+        },
     ]);
     let line2 = Line::from(Span::styled(hints, Style::default().fg(Color::Indexed(242))));
 
@@ -702,6 +816,12 @@ fn generate_toml_preview(app: &BuilderApp) -> String {
     let mut out = String::new();
     let m = &app.campaign.campaign;
     out.push_str(&format!("[campaign]\nname        = \"{}\"\ndescription = \"{}\"\n", m.name, m.description));
+    if app.campaign.continue_on_error {
+        out.push_str("continue_on_error = true\n");
+    }
+    if let Some(ref env) = app.campaign.env_file {
+        out.push_str(&format!("env_file = \"{}\"\n", env));
+    }
 
     if !app.campaign.env.is_empty() {
         out.push_str("\n[env]\n");
@@ -713,6 +833,10 @@ fn generate_toml_preview(app: &BuilderApp) -> String {
     }
 
     for step in &app.campaign.steps {
+        if step.kind == "comment" {
+            out.push_str(&format!("\n# {}\n", step.name));
+            continue;
+        }
         out.push_str("\n[[steps]]\n");
         out.push_str(&format!("name   = \"{}\"\n", step.name));
         if step.kind != "http" {

@@ -13,9 +13,18 @@ pub enum BuilderFocus {
         mode: StepEditorMode,
     },
     CollectionBrowser { for_step: usize, col_cursor: usize, expanded: HashSet<String> },
+    CampaignSettings { cursor: usize, mode: CampaignSettingsMode },
     Variables { cursor: usize },
     Checker { results: Vec<CheckResult> },
     TomlPreview { scroll: usize },
+}
+
+// ── Campaign settings mode ────────────────────────────────────────────────────
+
+#[derive(Debug, Clone)]
+pub enum CampaignSettingsMode {
+    Browse,
+    EditText { buffer: String },
 }
 
 // ── Step editor ───────────────────────────────────────────────────────────────
@@ -87,6 +96,7 @@ pub enum BrickKind {
     Transform,
     Pause,
     Seed,
+    Comment,
 }
 
 impl BrickKind {
@@ -96,14 +106,16 @@ impl BrickKind {
             BrickKind::Transform => "Transform",
             BrickKind::Pause     => "Pause",
             BrickKind::Seed      => "Seed",
+            BrickKind::Comment   => "Comment",
         }
     }
     pub fn description(&self) -> &'static str {
         match self {
-            BrickKind::Http      => "requête HTTP",
-            BrickKind::Transform => "manipulation var",
-            BrickKind::Pause     => "attente (ms)",
-            BrickKind::Seed      => "amorce connector",
+            BrickKind::Http      => "HTTP request",
+            BrickKind::Transform => "variable transform",
+            BrickKind::Pause     => "wait (ms)",
+            BrickKind::Seed      => "seed connector",
+            BrickKind::Comment   => "text note / separator",
         }
     }
 }
@@ -113,6 +125,7 @@ pub const BRICK_KINDS: &[BrickKind] = &[
     BrickKind::Transform,
     BrickKind::Pause,
     BrickKind::Seed,
+    BrickKind::Comment,
 ];
 
 // ── Checker ───────────────────────────────────────────────────────────────────

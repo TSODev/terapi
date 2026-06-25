@@ -5,6 +5,76 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.8.0] — 2026-06-25 — Campaign Builder (`terapi build`)
+
+### Added
+
+- **`terapi build`** — new interactive TUI for authoring and editing campaign TOML files without leaving the terminal. `terapi build` opens a blank campaign; `terapi build <file.toml>` edits an existing one.
+
+- **Pipeline view** — left panel (40%) lists all steps in order with numbered badges (`HTTP` / `TRSF` / `WAIT` / `SEED` / `FILE` / `#`). Secondary lines below each step show `foreach` target, `when` condition, and assertion count. Navigation wraps through `[IN]` (connectors above step 0) and `[OUT]` (outputs below the last step).
+
+- **Brick catalog** — 8 step types selectable with `i` when browsing the pipeline:
+  - `HTTP` — URL, method, headers, body, assertions, extract, when, foreach
+  - `Transform` — template / regex / replace / split / trim / upper / lower
+  - `Pause` — `wait_ms` delay
+  - `Seed` — HTTP step whose response feeds a connector
+  - `Comment` — annotation-only, never executed
+  - `File Loader` — read a file and encode it as base64 / text / hex
+  - `Connector [IN]` — CSV or JSON data source; navigable as `[IN]` node
+  - `Output [OUT]` — write collected step responses to a JSON file; navigable as `[OUT]` node
+
+- **Step editor** — right panel (60%) shows all fields for the focused step type. Field sections: URL/method, headers (two-stage add), body (multi-line `tui-textarea`, yellow border, `Esc` to save), extract (key→dot-path pairs), assertions, `when` condition, `foreach`, `continue_on_error`. `Tab` / `Shift+Tab` cycle sections; `Enter` edits the focused field.
+
+- **`kind = "file"` — File Loader step** — reads a file from disk and stores its content in a campaign variable. Three encodings: `base64` (default), `text`, `hex`. `file_output` defaults to `FILE_DATA`. Cycles with `Space` in the encoding field. Badge: `FILE` (magenta).
+
+- **`[[steps.multipart_parts]]` — multipart form-data** — HTTP steps can declare a list of form parts (instead of `body`). Each part has `name`, `value`, and optional `content_type`. Prefix value with `@` to load a file as binary. `{{VAR}}` is resolved in both `name` and `value`.
+
+- **Collection browser** — `b` opens the full collection tree. Navigate with `↑`/`↓`, expand with `Enter`, load into the current step with `l` (populates method, URL, headers, body). Exit with `Esc`.
+
+- **Variables panel** (`v`) — full CRUD on the campaign `[env]` block: browse with `↑`/`↓`, add with `a`, edit (rename + value, `Tab` switches fields) with `Enter`, delete with `d`.
+
+- **Connectors editor** — dedicated editor for `[[connectors]]` entries (CSV / JSON). Reachable via the `[IN]` node in the pipeline. `a` add, `d` delete, `Enter` edit fields.
+
+- **Outputs editor** — dedicated editor for `[[outputs]]` entries. Reachable via the `[OUT]` node. `a` add, `d` delete; `from_step` field opens a step picker filtered to HTTP and Seed steps only.
+
+- **Campaign settings** (`s`) — edit campaign-level metadata: name, description, `continue_on_error`, `env_file`, and `[[params]]` entries.
+
+- **Run step** (`r` in Browse mode) — executes the currently focused HTTP/Seed step in isolation (merging campaign `[env]` + `env_file` variables). The right panel splits 55/45: step editor above, result preview below. Preview shows: colour-coded status code, elapsed time, resolved URL, transport error (if any), assertion results (`✓`/`✗`), extracted variable values, and the first 6 lines of the response body.
+
+- **JSON path autocomplete** — when editing an Extract value field, `Tab` opens an `ExtractPicker` overlay (magenta border). Paths are generated from the last run-step result: object keys, array indices (first 10), and `array.*.field` wildcard patterns. Type to filter; `↑`/`↓` navigate; `Enter` inserts the selected path; `Esc`/`Tab` return to the field editor.
+
+- **Checker** (`c`) — static pipeline validation with 10+ rules (colour-coded `OK` / `⚠ Warning` / `✗ Error`):
+  - Undefined `{{VAR}}` references (URL, headers, body, foreach, when, multipart values)
+  - Undefined `foreach` source variable
+  - Empty step names; duplicate step names
+  - File Loader: empty `file_path`
+  - HTTP steps: empty URL; multipart parts with empty name
+  - Transform steps: no transforms defined
+  - Output `from_step`: empty or no matching step name; empty `path`
+  - Connector `from_step`: set but no matching step name; path empty with no `from_step`
+
+- **TOML preview** (`p`) — shows the generated TOML for the current campaign with full syntax highlighting: `[[array.sections]]` → magenta bold; `[sections]` → cyan bold; string values → green; numbers and booleans → yellow; multi-line `'''…'''` blocks → green.
+
+- **Quit confirmation** — pressing `q` when the campaign has unsaved changes (`modified = true`) shows a centered overlay: `Save before quitting? [y] save & quit  [n] discard  [Esc] cancel`.
+
+- **Step operations** — `K`/`J` move the focused step up/down in the pipeline; `x` deletes; `i` inserts a new step from the catalog after the cursor.
+
+- **Save** (`w`) — writes the campaign TOML to its original path (when editing an existing file) or to `<terapi_dir>/campaigns/` (when building from scratch). Body fields serialized as TOML literal strings (`'...'` / `'''...'''`); transforms as inline table arrays.
+
+- **Example campaign** — `examples/campaigns/upload_demo.toml` — 5-step demo using postman-echo.com: File Loader (base64) → File Loader (text) → POST base64 in JSON body → POST multipart text parts → POST multipart `@file` binary part.
+
+### Changed
+
+- `campaign.rs` — `run_single_step` (private) is now exposed as `pub async fn run_step_preview(step, env) -> StepResult`, a thin public wrapper used by the builder's run-step feature.
+
+### Docs
+
+- `USAGE.md` — new Campaign Builder section (ASCII layout, catalog reference, all keybindings, step editor fields by type, checker rules table); new File Loader and multipart form-data sections.
+- `BUILDER.md` — content merged into `USAGE.md` and file removed from the repository.
+- `README.md` — replaced "Coming Soon — Campaign Builder" placeholder with shipped feature description; added `terapi build` to the usage block.
+
+---
+
 ## [0.7.8] — 2026-06-24
 
 ### Added

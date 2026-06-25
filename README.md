@@ -48,52 +48,6 @@
 
 ---
 
-## Campaign Builder
-
-`terapi build` — an interactive TUI campaign editor, built into the same binary. No extra install. Creating a campaign TOML by hand is powerful but tedious — the Builder turns it into a keyboard-driven experience:
-
-```
-┌─ Builder: my_campaign.toml * ────────────────────────────────────────────────┐
-│  ┌─ Pipeline · users [production] ─┐  ┌─ ✓ Run result ─────────────────────┐ │
-│  │  [CSV] contacts.csv             │  │  200  142 ms  /users                │ │
-│  │  [1] HTTP  GET   /health        │  │  ✓ status eq 200                    │ │
-│  │▶ [2] HTTP  POST  /users         │  │  ↳ USER_ID = 42                     │ │
-│  │       ? status eq 201           │  │                                     │ │
-│  │  [3] TRSF  upper → USERNAME     │  │  {                                  │ │
-│  │  [4] FILE  avatar.png → B64     │  │    "id": 42,                        │ │
-│  │       ↻ foreach: {{user_ids}}   │  │    "name": "Alice",                 │ │
-│  │       ⊘ if ROLE == "admin"      │  │    …                                │ │
-│  │  [5] WAIT  500ms                │  │  }                                  │ │
-│  │  [OUT] results.json             │  │                                     │ │
-│  └─────────────────────────────────┘  └─────────────────────────────────────┘ │
-│  Builder › Step editor  —  ↑↓: field  Enter: edit  r: run step  Esc: back    │
-└───────────────────────────────────────────────────────────────────────────────┘
-```
-
-```bash
-terapi build                        # blank campaign
-terapi build my_campaign.toml       # edit an existing file
-```
-
-**What's in the builder:**
-
-- **Numbered pipeline** — steps with badges (`HTTP` `TRSF` `WAIT` `SEED` `FILE` `#`) and inline hints (`↻` foreach, `⊘` when, `?` assertions)
-- **[IN] / [OUT] sections** — navigable connectors above steps and output blocks below
-- **Brick catalog** — HTTP, Transform, Pause, Seed, File Loader, Comment, Connector [IN], Output [OUT]
-- **Step editor** — all fields for every step type; multi-line body textarea; assertions, when, foreach guided entry
-- **Run step** (`r`) — execute the current step immediately; response shown in the right panel below the editor; status, assertions, extracted vars, body preview
-- **JSON path autocomplete** (`Tab` on Extract value) — after running a step, picks dot-paths from the response JSON
-- **Load from collection** (`L`) — browse existing collections and fill method/URL/headers/body in one keystroke
-- **Variables panel** (`v`) — full CRUD on the `[env]` block
-- **Checker** (`c`) — static validation: undefined `{{VAR}}`, empty URLs / file paths, invalid `from_step` references, duplicate step names
-- **TOML preview** (`p`) — syntax-highlighted live preview (`[section]` cyan, `[[array]]` magenta, strings green)
-- **Save** (`w`) — writes to the target file or `<terapi_dir>/campaigns/`
-- **Quit confirmation** — `y / n / Esc` prompt when there are unsaved changes
-
-> Full reference → [USAGE.md — Campaign builder](https://github.com/TSODev/terapi/blob/main/USAGE.md#campaign-builder)
-
----
-
 ## Installation
 
 ```bash
@@ -727,6 +681,52 @@ Press `s` to send — terapi fetches the token automatically first, then fires t
 Press `f` — terapi opens your browser on the authorization URL, starts a local TCP listener on the redirect port, captures the authorization code when the browser redirects back, exchanges it for a token, and caches it. Then press `s` to send.
 
 Auth config (all fields except the token itself) is saved in the collection TOML under `[auth]` with backward-compatible `#[serde(default)]`. The token is never written to disk — session only.
+
+---
+
+## Campaign Builder
+
+`terapi build` — an interactive TUI campaign editor, built into the same binary. No extra install. Creating a campaign TOML by hand is powerful but tedious — the Builder turns it into a keyboard-driven experience:
+
+```
+┌─ Builder: my_campaign.toml * ────────────────────────────────────────────────┐
+│  ┌─ Pipeline · users [production] ─┐  ┌─ ✓ Run result ─────────────────────┐ │
+│  │  [CSV] contacts.csv             │  │  200  142 ms  /users                │ │
+│  │  [1] HTTP  GET   /health        │  │  ✓ status eq 200                    │ │
+│  │▶ [2] HTTP  POST  /users         │  │  ↳ USER_ID = 42                     │ │
+│  │       ? status eq 201           │  │                                     │ │
+│  │  [3] TRSF  upper → USERNAME     │  │  {                                  │ │
+│  │  [4] FILE  avatar.png → B64     │  │    "id": 42,                        │ │
+│  │       ↻ foreach: {{user_ids}}   │  │    "name": "Alice",                 │ │
+│  │       ⊘ if ROLE == "admin"      │  │    …                                │ │
+│  │  [5] WAIT  500ms                │  │  }                                  │ │
+│  │  [OUT] results.json             │  │                                     │ │
+│  └─────────────────────────────────┘  └─────────────────────────────────────┘ │
+│  Builder › Step editor  —  ↑↓: field  Enter: edit  r: run step  Esc: back    │
+└───────────────────────────────────────────────────────────────────────────────┘
+```
+
+```bash
+terapi build                        # blank campaign
+terapi build my_campaign.toml       # edit an existing file
+```
+
+**What's in the builder:**
+
+- **Numbered pipeline** — steps with badges (`HTTP` `TRSF` `WAIT` `SEED` `FILE` `#`) and inline hints (`↻` foreach, `⊘` when, `?` assertions)
+- **[IN] / [OUT] sections** — navigable connectors above steps and output blocks below
+- **Brick catalog** — HTTP, Transform, Pause, Seed, File Loader, Comment, Connector [IN], Output [OUT]
+- **Step editor** — all fields for every step type; multi-line body textarea; assertions, when, foreach guided entry
+- **Run step** (`r`) — execute the current step immediately; response shown in the right panel below the editor; status, assertions, extracted vars, body preview
+- **JSON path autocomplete** (`Tab` on Extract value) — after running a step, picks dot-paths from the response JSON
+- **Load from collection** (`L`) — browse existing collections and fill method/URL/headers/body in one keystroke
+- **Variables panel** (`v`) — full CRUD on the `[env]` block
+- **Checker** (`c`) — static validation: undefined `{{VAR}}`, empty URLs / file paths, invalid `from_step` references, duplicate step names
+- **TOML preview** (`p`) — syntax-highlighted live preview (`[section]` cyan, `[[array]]` magenta, strings green)
+- **Save** (`w`) — writes to the target file or `<terapi_dir>/campaigns/`
+- **Quit confirmation** — `y / n / Esc` prompt when there are unsaved changes
+
+> Full reference → [USAGE.md — Campaign builder](https://github.com/TSODev/terapi/blob/main/USAGE.md#campaign-builder)
 
 ---
 

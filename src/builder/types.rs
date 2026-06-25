@@ -11,6 +11,7 @@ pub enum BuilderFocus {
         section_cursor: usize,
         sub_cursor: usize,
         mode: StepEditorMode,
+        desc_active: bool,
     },
     CollectionBrowser { for_step: usize, col_cursor: usize, expanded: HashSet<String> },
     CampaignSettings { cursor: usize, mode: CampaignSettingsMode },

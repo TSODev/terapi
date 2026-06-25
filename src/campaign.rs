@@ -71,6 +71,8 @@ pub struct StepCondition {
 #[derive(Debug, Deserialize, Clone)]
 pub struct Step {
     pub name: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
     #[serde(default = "default_http")]
     pub kind: String,
     #[serde(default)]

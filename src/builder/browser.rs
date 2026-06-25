@@ -96,6 +96,7 @@ pub fn handle_key(
                 section_cursor: 0,
                 sub_cursor: 0,
                 mode: StepEditorMode::Browse,
+                desc_active: false,
             };
         }
         KeyCode::Up => {
@@ -127,6 +128,7 @@ pub fn handle_key(
                         section_cursor: 0,
                         sub_cursor: 0,
                         mode: StepEditorMode::Browse,
+                        desc_active: false,
                     };
                 }
             }
@@ -163,7 +165,12 @@ fn load_into_step(app: &mut BuilderApp, step_idx: usize, addr: &BrowserAddr, lab
         if req.body.is_some() {
             step.body = req.body;
         }
+        if let Some(ref desc) = req.description {
+            if !desc.is_empty() {
+                step.description = desc.clone();
+            }
+        }
     }
     app.modified = true;
-    app.status_message = format!("Requête \"{}\" chargée dans le step", label);
+    app.status_message = format!("Request \"{}\" loaded into step", label);
 }

@@ -48,7 +48,27 @@ pub fn handle_key(
     section_cursor: usize,
     sub_cursor: usize,
     mode: StepEditorMode,
+    desc_active: bool,
 ) -> Result<()> {
+    // Description textarea captures all keys when active
+    if desc_active {
+        if key.code == KeyCode::Esc {
+            save_description(app, step_idx);
+            app.focus = BuilderFocus::StepEditor {
+                step_idx, section_cursor, sub_cursor,
+                mode: StepEditorMode::Browse,
+                desc_active: false,
+            };
+        } else {
+            app.description_textarea.input(tui_textarea::Input::from(key));
+            app.focus = BuilderFocus::StepEditor {
+                step_idx, section_cursor, sub_cursor, mode,
+                desc_active: true,
+            };
+        }
+        return Ok(());
+    }
+
     match mode {
         StepEditorMode::Browse =>
             handle_browse(app, key, step_idx, section_cursor, sub_cursor),
@@ -58,6 +78,14 @@ pub fn handle_key(
             handle_add_stage1(app, key, step_idx, section_cursor, sub_cursor, target, buffer),
         StepEditorMode::AddPairStage2 { target, key: pair_key, buffer } =>
             handle_add_stage2(app, key, step_idx, section_cursor, sub_cursor, target, pair_key, buffer),
+    }
+}
+
+fn save_description(app: &mut BuilderApp, step_idx: usize) {
+    let text = app.description_textarea.lines().join("\n");
+    if app.campaign.steps[step_idx].description != text {
+        app.campaign.steps[step_idx].description = text;
+        app.modified = true;
     }
 }
 
@@ -81,8 +109,24 @@ fn handle_browse(
             return Ok(());
         }
         KeyCode::Up => {
-            let c = section_cursor.saturating_sub(1);
-            set_focus(app, step_idx, c, 0, StepEditorMode::Browse);
+            if section_cursor == 0 {
+                // Enter description textarea
+                let desc = app.campaign.steps[step_idx].description.clone();
+                let lines: Vec<String> = desc.lines().map(String::from).collect();
+                app.description_textarea = if lines.is_empty() {
+                    tui_textarea::TextArea::default()
+                } else {
+                    tui_textarea::TextArea::from(lines)
+                };
+                app.focus = BuilderFocus::StepEditor {
+                    step_idx, section_cursor, sub_cursor,
+                    mode: StepEditorMode::Browse,
+                    desc_active: true,
+                };
+            } else {
+                let c = section_cursor.saturating_sub(1);
+                set_focus(app, step_idx, c, 0, StepEditorMode::Browse);
+            }
             return Ok(());
         }
         KeyCode::Down => {
@@ -407,7 +451,7 @@ pub fn current_value(app: &BuilderApp, step_idx: usize, section: &StepSection) -
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 fn set_focus(app: &mut BuilderApp, step_idx: usize, section_cursor: usize, sub_cursor: usize, mode: StepEditorMode) {
-    app.focus = BuilderFocus::StepEditor { step_idx, section_cursor, sub_cursor, mode };
+    app.focus = BuilderFocus::StepEditor { step_idx, section_cursor, sub_cursor, mode, desc_active: false };
 }
 
 pub fn sorted_keys(map: &std::collections::HashMap<String, String>) -> Vec<String> {

@@ -197,8 +197,8 @@ fn render_context(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     match &app.focus {
         BuilderFocus::Pipeline => render_pipeline_hint(frame, app, area),
         BuilderFocus::Catalog { cursor, .. } => render_catalog(frame, *cursor, area),
-        BuilderFocus::StepEditor { step_idx, section_cursor, sub_cursor, mode } =>
-            render_step_editor(frame, app, *step_idx, *section_cursor, *sub_cursor, mode, area),
+        BuilderFocus::StepEditor { step_idx, section_cursor, sub_cursor, mode, desc_active } =>
+            render_step_editor(frame, app, *step_idx, *section_cursor, *sub_cursor, mode, *desc_active, area),
         BuilderFocus::CollectionBrowser { col_cursor, expanded, .. } =>
             render_collection_browser(frame, app, *col_cursor, expanded, area),
         BuilderFocus::CampaignSettings { cursor, mode } =>
@@ -464,6 +464,7 @@ fn render_step_editor(
     section_cursor: usize,
     _sub_cursor: usize,
     mode: &StepEditorMode,
+    desc_active: bool,
     area: Rect,
 ) {
     let step = &app.campaign.steps[step_idx];
@@ -481,6 +482,15 @@ fn render_step_editor(
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
+
+    // Split: description textarea (7 lines) + sections list
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(7), Constraint::Min(0)])
+        .split(inner);
+
+    render_description_area(frame, app, step_idx, desc_active, chunks[0]);
+    let sections_area = chunks[1];
 
     let sections = sections_for(&step.kind);
     let mut rows: Vec<ListItem> = Vec::new();
@@ -587,7 +597,57 @@ fn render_step_editor(
         Span::styled(hints, Style::default().fg(Color::Indexed(242)))
     )));
 
-    frame.render_widget(List::new(rows), inner);
+    frame.render_widget(List::new(rows), sections_area);
+}
+
+fn render_description_area(
+    frame: &mut Frame,
+    app: &BuilderApp,
+    step_idx: usize,
+    desc_active: bool,
+    area: Rect,
+) {
+    let border_style = if desc_active {
+        Style::default().fg(Color::Yellow)
+    } else {
+        Style::default().fg(Color::Indexed(238))
+    };
+    let title = if desc_active {
+        " Description / Comments — Esc: done "
+    } else {
+        " Description / Comments — ↑ to edit "
+    };
+
+    let block = Block::default()
+        .title(title)
+        .borders(Borders::ALL)
+        .border_style(border_style);
+
+    if desc_active {
+        let mut ta = app.description_textarea.clone();
+        ta.set_block(block);
+        ta.set_style(Style::default().fg(Color::White));
+        ta.set_cursor_line_style(Style::default());
+        frame.render_widget(&ta, area);
+    } else {
+        let inner = block.inner(area);
+        frame.render_widget(block, area);
+        let desc = &app.campaign.steps[step_idx].description;
+        if desc.is_empty() {
+            frame.render_widget(
+                Paragraph::new("(empty)")
+                    .style(Style::default().fg(Color::Indexed(238))),
+                inner,
+            );
+        } else {
+            let lines: Vec<Line> = desc
+                .lines()
+                .take(5)
+                .map(|l| Line::from(Span::styled(l.to_string(), Style::default().fg(Color::Indexed(250)))))
+                .collect();
+            frame.render_widget(Paragraph::new(lines), inner);
+        }
+    }
 }
 
 fn value_span_for<'a>(app: &'a BuilderApp, step_idx: usize, section: &StepSection, is_cursor: bool) -> Span<'a> {
@@ -754,6 +814,7 @@ fn render_status(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     let focus_label = match &app.focus {
         BuilderFocus::Pipeline              => "Builder › Pipeline",
         BuilderFocus::Catalog { .. }        => "Builder › Catalog",
+        BuilderFocus::StepEditor { desc_active: true, .. } => "Builder › Step editor (description)",
         BuilderFocus::StepEditor { .. }     => "Builder › Step editor",
         BuilderFocus::CollectionBrowser { .. } => "Builder › Collections",
         BuilderFocus::CampaignSettings { .. }  => "Builder › Campaign settings",
@@ -767,9 +828,11 @@ fn render_status(frame: &mut Frame, app: &BuilderApp, area: Rect) {
             "n: new  i: insert  d: del  K/J: move  Enter: edit  s: settings  v: vars  c: check  p: preview  w: save  q: quit",
         BuilderFocus::Catalog { .. } =>
             "↑↓: choose  Enter: create  Esc: cancel",
+        BuilderFocus::StepEditor { desc_active: true, .. } =>
+            "Type to edit description  Enter: new line  Esc: save & close",
         BuilderFocus::StepEditor { mode, .. } => match mode {
             StepEditorMode::Browse =>
-                "↑↓: field  Enter: edit  ←/→: cycle  a/d: list  Esc: back to pipeline",
+                "↑↓: field  ↑ at top: description  Enter: edit  ←/→: cycle  a/d: list  Esc: back",
             StepEditorMode::EditText { .. } =>
                 "Type to edit  Enter: confirm  Esc: cancel",
             _ =>
@@ -836,6 +899,12 @@ fn generate_toml_preview(app: &BuilderApp) -> String {
         if step.kind == "comment" {
             out.push_str(&format!("\n# {}\n", step.name));
             continue;
+        }
+        if !step.description.is_empty() {
+            out.push('\n');
+            for line in step.description.lines() {
+                out.push_str(&format!("# {}\n", line));
+            }
         }
         out.push_str("\n[[steps]]\n");
         out.push_str(&format!("name   = \"{}\"\n", step.name));

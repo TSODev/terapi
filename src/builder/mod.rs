@@ -30,6 +30,7 @@ pub struct BuilderApp {
     pub stored_collections: Vec<StoredCollection>,
     pub stored_env_names: Vec<String>,
     pub status_message: String,
+    pub description_textarea: tui_textarea::TextArea<'static>,
 }
 
 impl BuilderApp {
@@ -56,6 +57,7 @@ impl BuilderApp {
             stored_collections,
             stored_env_names,
             status_message: String::new(),
+            description_textarea: tui_textarea::TextArea::default(),
         }
     }
 
@@ -65,8 +67,8 @@ impl BuilderApp {
             BuilderFocus::Catalog { cursor, insert_after } => {
                 self.handle_catalog_key(key, cursor, insert_after)
             }
-            BuilderFocus::StepEditor { step_idx, section_cursor, sub_cursor, mode } => {
-                step_editor::handle_key(self, key, step_idx, section_cursor, sub_cursor, mode)
+            BuilderFocus::StepEditor { step_idx, section_cursor, sub_cursor, mode, desc_active } => {
+                step_editor::handle_key(self, key, step_idx, section_cursor, sub_cursor, mode, desc_active)
             }
             BuilderFocus::CollectionBrowser { for_step, col_cursor, expanded } => {
                 browser::handle_key(self, key, for_step, col_cursor, expanded)
@@ -101,6 +103,7 @@ impl BuilderApp {
                     section_cursor: 0,
                     sub_cursor: 0,
                     mode: StepEditorMode::Browse,
+                    desc_active: false,
                 };
             }
             KeyCode::Char('n') => {
@@ -163,8 +166,13 @@ impl BuilderApp {
                 self.campaign.steps.insert(pos, step);
                 self.cursor = pos;
                 self.modified = true;
-                // TODO: open StepEditor for the newly created step
-                self.focus = BuilderFocus::Pipeline;
+                self.focus = BuilderFocus::StepEditor {
+                    step_idx: pos,
+                    section_cursor: 0,
+                    sub_cursor: 0,
+                    mode: StepEditorMode::Browse,
+                    desc_active: false,
+                };
             }
             _ => {}
         }
@@ -409,6 +417,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             continue_on_error: None,
             foreach: None,
             when: None,
+            description: String::new(),
         },
         BrickKind::Transform => Step {
             name: "New transform".into(),
@@ -425,6 +434,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             continue_on_error: None,
             foreach: None,
             when: None,
+            description: String::new(),
         },
         BrickKind::Pause => Step {
             name: "Pause".into(),
@@ -441,6 +451,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             continue_on_error: None,
             foreach: None,
             when: None,
+            description: String::new(),
         },
         BrickKind::Seed => Step {
             name: "Seed".into(),
@@ -457,6 +468,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             continue_on_error: None,
             foreach: None,
             when: None,
+            description: String::new(),
         },
         BrickKind::Comment => Step {
             name: "Comment text here".into(),
@@ -473,6 +485,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             continue_on_error: None,
             foreach: None,
             when: None,
+            description: String::new(),
         },
     }
 }
@@ -495,6 +508,12 @@ fn generate_toml(campaign: &Campaign) -> String {
         if step.kind == "comment" {
             out.push_str(&format!("\n# {}\n", step.name));
             continue;
+        }
+        if !step.description.is_empty() {
+            out.push('\n');
+            for line in step.description.lines() {
+                out.push_str(&format!("# {}\n", line));
+            }
         }
         out.push_str("\n[[steps]]\n");
         out.push_str(&format!("name   = \"{}\"\n", step.name));

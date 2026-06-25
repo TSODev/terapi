@@ -48,6 +48,44 @@
 
 ---
 
+## Coming soon — Campaign Builder
+
+`terapi build` — a dedicated TUI campaign editor, built into the same binary, no extra install.
+
+Building a campaign TOML by hand is powerful but tedious. The Builder turns it into an interactive, keyboard-driven experience:
+
+```
+┌─ Builder: mon_campaign.toml ─────────────────────────────────────────────────┐
+│  ┌─ Pipeline ──────────────────┐  ┌─ Step editor ──────────────────────────┐ │
+│  │  [1] HTTP  GET  /users      │  │  Name    [ Get users              ]    │ │
+│  │  [2] TRSF  upper → NAME     │  │  Method  [ GET ▾ ]                     │ │
+│  │▶ [3] HTTP  POST /notify     │  │  URL     [ {{BASE_URL}}/users     ]    │ │
+│  │       ⊘ if ROLE == "admin"  │  │  Extract  user_ids = data.*.id         │ │
+│  │       ? status == 201       │  │  Assert   status eq 200                │ │
+│  │  [4] WAIT  500ms            │  │  Foreach  [ {{user_ids}}          ]    │ │
+│  │                             │  │                                        │ │
+│  │  ● 2 vars · ✓ pipeline OK   │  │  [L] Load from collection              │ │
+│  └─────────────────────────────┘  └────────────────────────────────────────┘ │
+│  n: new  i: insert  d: delete  K/J: move  Enter: edit  c: check  v: vars  w: save │
+└───────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key features:**
+- **Numbered pipeline** — steps displayed as `[1]`, `[2]`… with badges (`HTTP`, `TRSF`, `WAIT`, `SEED`) and inline hints (foreach `↻`, condition `⊘`, assertions `?`)
+- **Brick catalog** — choose from HTTP step, Transform, Pause, Seed — each with guided field editing
+- **Load from collection** — when adding an HTTP step, browse your existing collections and load a request with all its fields and `{{VAR}}` placeholders already in place
+- **Pipeline operations** — append (`n`), insert (`i`), delete (`d`), move up/down (`K`/`J`)
+- **Variable manager** — edit the `[env]` block of the campaign interactively (`v`)
+- **Static checker** (`c`) — validates that every `{{VAR}}` is defined upstream, `foreach` targets an extracted var, `when` conditions are coherent, assertion syntax is valid
+- **Live TOML preview** (`p`) — see the generated TOML at any time, with syntax highlighting
+- **Save** (`w`) — writes the campaign file directly to your terapi campaigns directory
+
+The builder is part of `terapi` — no feature flags, no separate install. `terapi build` will just work.
+
+> Design document → [BUILDER.md](https://github.com/TSODev/terapi/blob/main/BUILDER.md)
+
+---
+
 ## Installation
 
 ```bash

@@ -48,41 +48,49 @@
 
 ---
 
-## Coming soon — Campaign Builder
+## Campaign Builder
 
-`terapi build` — a dedicated TUI campaign editor, built into the same binary, no extra install.
-
-Building a campaign TOML by hand is powerful but tedious. The Builder turns it into an interactive, keyboard-driven experience:
+`terapi build` — an interactive TUI campaign editor, built into the same binary. No extra install. Creating a campaign TOML by hand is powerful but tedious — the Builder turns it into a keyboard-driven experience:
 
 ```
-┌─ Builder: mon_campaign.toml ─────────────────────────────────────────────────┐
-│  ┌─ Pipeline ──────────────────┐  ┌─ Step editor ──────────────────────────┐ │
-│  │  [1] HTTP  GET  /users      │  │  Name    [ Get users              ]    │ │
-│  │  [2] TRSF  upper → NAME     │  │  Method  [ GET ▾ ]                     │ │
-│  │▶ [3] HTTP  POST /notify     │  │  URL     [ {{BASE_URL}}/users     ]    │ │
-│  │       ⊘ if ROLE == "admin"  │  │  Extract  user_ids = data.*.id         │ │
-│  │       ? status == 201       │  │  Assert   status eq 200                │ │
-│  │  [4] WAIT  500ms            │  │  Foreach  [ {{user_ids}}          ]    │ │
-│  │                             │  │                                        │ │
-│  │  ● 2 vars · ✓ pipeline OK   │  │  [L] Load from collection              │ │
-│  └─────────────────────────────┘  └────────────────────────────────────────┘ │
-│  n: new  i: insert  d: delete  K/J: move  Enter: edit  c: check  v: vars  w: save │
+┌─ Builder: my_campaign.toml * ────────────────────────────────────────────────┐
+│  ┌─ Pipeline · users [production] ─┐  ┌─ ✓ Run result ─────────────────────┐ │
+│  │  [CSV] contacts.csv             │  │  200  142 ms  /users                │ │
+│  │  [1] HTTP  GET   /health        │  │  ✓ status eq 200                    │ │
+│  │▶ [2] HTTP  POST  /users         │  │  ↳ USER_ID = 42                     │ │
+│  │       ? status eq 201           │  │                                     │ │
+│  │  [3] TRSF  upper → USERNAME     │  │  {                                  │ │
+│  │  [4] FILE  avatar.png → B64     │  │    "id": 42,                        │ │
+│  │       ↻ foreach: {{user_ids}}   │  │    "name": "Alice",                 │ │
+│  │       ⊘ if ROLE == "admin"      │  │    …                                │ │
+│  │  [5] WAIT  500ms                │  │  }                                  │ │
+│  │  [OUT] results.json             │  │                                     │ │
+│  └─────────────────────────────────┘  └─────────────────────────────────────┘ │
+│  Builder › Step editor  —  ↑↓: field  Enter: edit  r: run step  Esc: back    │
 └───────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Key features:**
-- **Numbered pipeline** — steps displayed as `[1]`, `[2]`… with badges (`HTTP`, `TRSF`, `WAIT`, `SEED`) and inline hints (foreach `↻`, condition `⊘`, assertions `?`)
-- **Brick catalog** — choose from HTTP step, Transform, Pause, Seed — each with guided field editing
-- **Load from collection** — when adding an HTTP step, browse your existing collections and load a request with all its fields and `{{VAR}}` placeholders already in place
-- **Pipeline operations** — append (`n`), insert (`i`), delete (`d`), move up/down (`K`/`J`)
-- **Variable manager** — edit the `[env]` block of the campaign interactively (`v`)
-- **Static checker** (`c`) — validates that every `{{VAR}}` is defined upstream, `foreach` targets an extracted var, `when` conditions are coherent, assertion syntax is valid
-- **Live TOML preview** (`p`) — see the generated TOML at any time, with syntax highlighting
-- **Save** (`w`) — writes the campaign file directly to your terapi campaigns directory
+```bash
+terapi build                        # blank campaign
+terapi build my_campaign.toml       # edit an existing file
+```
 
-The builder is part of `terapi` — no feature flags, no separate install. `terapi build` will just work.
+**What's in the builder:**
 
-> Design document → [BUILDER.md](https://github.com/TSODev/terapi/blob/main/BUILDER.md)
+- **Numbered pipeline** — steps with badges (`HTTP` `TRSF` `WAIT` `SEED` `FILE` `#`) and inline hints (`↻` foreach, `⊘` when, `?` assertions)
+- **[IN] / [OUT] sections** — navigable connectors above steps and output blocks below
+- **Brick catalog** — HTTP, Transform, Pause, Seed, File Loader, Comment, Connector [IN], Output [OUT]
+- **Step editor** — all fields for every step type; multi-line body textarea; assertions, when, foreach guided entry
+- **Run step** (`r`) — execute the current step immediately; response shown in the right panel below the editor; status, assertions, extracted vars, body preview
+- **JSON path autocomplete** (`Tab` on Extract value) — after running a step, picks dot-paths from the response JSON
+- **Load from collection** (`L`) — browse existing collections and fill method/URL/headers/body in one keystroke
+- **Variables panel** (`v`) — full CRUD on the `[env]` block
+- **Checker** (`c`) — static validation: undefined `{{VAR}}`, empty URLs / file paths, invalid `from_step` references, duplicate step names
+- **TOML preview** (`p`) — syntax-highlighted live preview (`[section]` cyan, `[[array]]` magenta, strings green)
+- **Save** (`w`) — writes to the target file or `<terapi_dir>/campaigns/`
+- **Quit confirmation** — `y / n / Esc` prompt when there are unsaved changes
+
+> Full reference → [USAGE.md — Campaign builder](https://github.com/TSODev/terapi/blob/main/USAGE.md#campaign-builder)
 
 ---
 
@@ -108,8 +116,10 @@ cargo build --release
 ## Usage
 
 ```bash
-terapi                        # launch TUI (empty)
-terapi --demo response.json   # launch TUI with a JSON file pre-loaded
+terapi                              # launch TUI
+terapi --demo response.json         # launch TUI with a JSON file pre-loaded
+terapi build                        # open campaign builder (blank)
+terapi build my_campaign.toml       # open campaign builder (existing file)
 terapi run campaign.toml            # run a campaign headlessly
 terapi run campaign.toml -p KEY=VAL # override a [[params]] value
 terapi run campaign.toml --silent   # run silently — exit 0/1 only (CI/cron)

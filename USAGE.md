@@ -28,6 +28,8 @@
   - [Continue on error](#continue-on-error)
   - [Pause steps](#pause-steps)
   - [Transform steps](#transform-steps)
+  - [File Loader steps](#file-loader-steps)
+  - [Multipart form-data](#multipart-form-data)
   - [Input connectors](#input-connectors)
     - [CSV connector](#csv-connector)
     - [JSON connector — from file](#json-connector--from-file)
@@ -35,6 +37,21 @@
   - [Output connectors](#output-connectors)
   - [Campaign examples](#campaign-examples)
   - [Silent mode (CI/cron)](#silent-mode-cicron)
+- [Campaign builder](#campaign-builder)
+  - [Invocation](#invocation)
+  - [Layout](#layout)
+  - [Pipeline view](#pipeline-view-1)
+  - [Catalog — brick types](#catalog--brick-types)
+  - [Step editor](#step-editor)
+  - [Running a step](#running-a-step)
+  - [JSON path autocomplete in Extract fields](#json-path-autocomplete-in-extract-fields)
+  - [Connectors \[IN\]](#connectors-in)
+  - [Outputs \[OUT\]](#outputs-out)
+  - [Variables panel](#variables-panel)
+  - [Checker](#checker)
+  - [TOML preview](#toml-preview)
+  - [Quit confirmation](#quit-confirmation)
+  - [Builder keybindings](#builder-keybindings)
 
 ---
 
@@ -2200,3 +2217,364 @@ Useful in CI pipelines or cron jobs where logs are noisy.
 - name: API smoke tests
   run: terapi run infra/smoke.toml --silent
 ```
+
+---
+
+## Campaign builder
+
+`terapi build` is an interactive TUI editor for creating and editing campaign TOML files without leaving the terminal. It is part of the same binary — no extra install.
+
+### Invocation
+
+```bash
+terapi build                        # blank campaign
+terapi build my_campaign.toml       # edit an existing file
+```
+
+If the target file does not yet exist it is created on first save (`w`).
+
+---
+
+### Layout
+
+```
+┌─ Builder: my_campaign.toml ──────────────────────────────────────────────────┐
+│                                                                               │
+│  ┌─ Pipeline · name [env] * ───────┐  ┌─ [context panel] ──────────────────┐ │
+│  │  [CSV] connector.csv            │  │                                     │ │
+│  │  # Section 1: auth              │  │  (Help / Catalog / Step editor /   │ │
+│  │  [1] HTTP  GET   /health        │  │   Collection browser /              │ │
+│  │▶ [2] HTTP  POST  /login         │  │   Campaign settings /               │ │
+│  │       ⊘ if ROLE == "admin"      │  │   Variables / Checker /             │ │
+│  │       ? status eq 200           │  │   TOML preview / Run result)        │ │
+│  │  [3] WAIT  500ms                │  │                                     │ │
+│  │  [4] FILE  /img.png → DATA      │  │                                     │ │
+│  │  [OUT] output.json              │  │                                     │ │
+│  └─────────────────────────────────┘  └─────────────────────────────────────┘ │
+│                                                                               │
+│  Builder › Step editor  —  ↑↓: field  Enter: edit  r: run step  Esc: back   │
+└───────────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Left (40%)** — pipeline, always visible; `▶` cursor on selected step; `*` in title when unsaved changes
+- **Right (60%)** — context panel, changes with active focus
+- **Status bar (2 lines)** — breadcrumb + status message / keybinding hints
+
+---
+
+### Pipeline view
+
+Each step occupies 1–3 lines depending on its content:
+
+```
+  [CSV] connector.csv              ← [IN] section (above steps)
+
+  # Section 1: authentication      ← comment step (no number)
+  [1] HTTP  GET    https://api.example.com/health
+  [2] TRSF  regex  → USER_ID
+  [3] HTTP  POST   /users/{{item}}
+       ↻ foreach: {{user_ids}}
+       ⊘ if ROLE == "admin"
+       ? status eq 201  ·  ? body.ok eq true
+  [4] WAIT  1000ms
+  [5] SEED  GET    /bootstrap
+  [6] FILE  /img.png → DATA (base64)
+  ↷ continue-on-error
+
+  [OUT] output.json                ← [OUT] section (below steps)
+```
+
+**Step badges:**
+
+| Badge  | Colour  | Kind                          |
+|--------|---------|-------------------------------|
+| `HTTP` | cyan    | standard HTTP request         |
+| `TRSF` | yellow  | transform (no HTTP)           |
+| `WAIT` | grey    | pause / sleep                 |
+| `SEED` | blue    | seed step (feeds a connector) |
+| `FILE` | magenta | file loader (base64/text/hex) |
+| `#`    | dark    | comment / section label       |
+
+Secondary lines (indented, greyed):
+- `↻ foreach: {{VAR}}` — iterating step
+- `⊘ if VAR == "val"` — conditional step
+- `? assertion…` — assertion hints (up to 2, then `+N more`)
+
+**[IN] / [OUT] navigation:** `↑` past step 0 enters the connectors section; `↓` past the last step enters the outputs section. In those sub-states `Enter` edits, `d` deletes, `Esc` returns.
+
+---
+
+### Catalog — brick types
+
+Press `n` (append) or `i` (insert after cursor) to open the catalog:
+
+| Brick | Badge | What it creates |
+|-------|-------|-----------------|
+| HTTP step | `HTTP` | standard `[[steps]]` with method/URL/headers/body/assertions |
+| Transform | `TRSF` | `kind = "transform"` step (no HTTP, reshapes variables) |
+| Pause | `WAIT` | `kind = "pause"` step — waits N milliseconds |
+| Seed | `SEED` | HTTP step that feeds a JSON connector |
+| Comment | `#` | TOML comment line between steps, skipped at runtime |
+| File Loader | `FILE` | `kind = "file"` — reads a file into a campaign variable |
+| Connector [IN] | — | `[[connectors]]` block (CSV or JSON data source) |
+| Output [OUT] | — | `[[outputs]]` block (collects step responses to a JSON file) |
+
+---
+
+### Step editor
+
+`Enter` or `e` on a step to open the step editor. `↑/↓` navigates fields, `Enter` edits, `←/→` cycles selector values, `a/d` add/delete list items, `Esc` returns to pipeline.
+
+**HTTP / Seed step fields:**
+
+| Field | Notes |
+|-------|-------|
+| Name | Free text |
+| Description | Step comment block (textarea, stored above `[[steps]]` in TOML) |
+| Method | GET / POST / PUT / PATCH / DELETE — cycle with `←/→` |
+| URL | Free text, `{{VAR}}` supported |
+| Headers | Key=value list; `a` opens two-stage entry (key → value) |
+| Body | `Enter` opens a full multi-line textarea (yellow border); `Esc` saves |
+| Multipart parts | `a` opens a three-stage form (name → value or `@/path` → content_type); `d` removes last |
+| Extract | Key=path list; value is a JSON dot-path (`data.*.id`); `Tab` opens JSON path picker |
+| Assertions | `a` opens a three-stage form (path → operator → value) |
+| Foreach | `{{VAR}}` that resolves to a JSON array |
+| When | Conditional; three-stage form (var → operator → value) |
+| Continue on error | Toggle — step failure is non-blocking |
+| [L] Load from collection | Opens collection browser → fills Method/URL/Headers/Body |
+
+**Transform step fields:** Name · Description · Kind (cycle) · Input · Output var
+
+**Pause step fields:** Name · Description · Wait (ms)
+
+**File Loader step fields:** Name · Description · File path · Output var · Encoding (base64 / text / hex — cycle)
+
+**Comment step fields:** Name only (the comment text)
+
+---
+
+### Running a step
+
+Press `r` in the step editor (Browse mode) to execute the current step immediately using the campaign `[env]` + `env_file` variables. No focus change required.
+
+The right panel splits: step editor on top (55%), run result below (45%):
+
+```
+┌─ ✓ Run result ─────────────────────────────────┐
+│  200  142 ms  https://api.example.com/users      │
+│  ✓ status eq 200                                 │
+│  ↳ USER_ID = 42                                  │
+│                                                  │
+│  {                                               │
+│    "id": 42,                                     │
+│    "name": "Alice",                              │
+│    …                                             │
+│  }                                               │
+└──────────────────────────────────────────────────┘
+```
+
+- Status code is colour-coded (green < 300, yellow 3xx, red 4xx/5xx)
+- Assertion results shown as `✓` / `✗`
+- Extracted variables shown as `↳ KEY = value`
+- First 6 lines of the JSON body previewed
+
+Works for all step types: HTTP, File Loader, Transform, Pause. Comment steps are excluded.
+
+---
+
+### JSON path autocomplete in Extract fields
+
+After running a step (`r`), the response JSON is available for autocomplete. When adding or editing an Extract value:
+
+1. `a` on the Extract field → enter the variable name → press `Enter`
+2. Type a partial path (or leave empty), then press **`Tab`**
+3. The path picker overlay opens (magenta border):
+
+```
+┌─ Extract path picker — Tab/Esc: close  ↑↓: navigate  Enter: insert ─┐
+│  filter: user█                                                        │
+│    user                                                               │
+│  ▶ user.name                                                          │
+│    user.email                                                         │
+│    users.*.id                                                         │
+└───────────────────────────────────────────────────────────────────────┘
+```
+
+- Type to filter paths (case-insensitive)
+- `↑/↓` navigate the list
+- `Enter` inserts the selected path and saves to `extract`
+- `Tab` or `Esc` returns to the value editor with the current filter as buffer
+
+Paths generated from the last run result: object fields, array indices (first 10), and `array.*.field` wildcards.
+
+---
+
+### Connectors [IN]
+
+Add from Catalog (`Connector [IN]`). Creates a `[[connectors]]` TOML block.
+
+Fields per connector: `kind` (CSV / JSON), `path`, `select` (column/array filter), `from_step` (for JSON connectors seeded from a Seed step).
+
+Navigate to the [IN] section with `↑` from step 0. `Enter` edits, `d` deletes, `Esc` returns to Pipeline.
+
+---
+
+### Outputs [OUT]
+
+Add from Catalog (`Output [OUT]`). Creates an `[[outputs]]` TOML block that writes step responses to a JSON file.
+
+Fields per output: `from_step` (selected via picker — only HTTP/Seed steps are listed), `path` (output file), `select` (dot-path into response body), `include_vars` (campaign variables to embed alongside the response).
+
+Navigate to the [OUT] section with `↓` from the last step. `Enter` reopens the picker, `d` deletes, `Esc` returns to Pipeline.
+
+---
+
+### Variables panel
+
+`v` from Pipeline. Manages the `[env]` section of the campaign.
+
+```
+┌─ Variables [env] ─────────────────────────────┐
+│  BASE_URL   https://api.example.com            │
+│▶ TOKEN      {{SECRET}}                         │
+│  TIMEOUT    30                                 │
+│                                                │
+│  a: add  d: del  Enter: edit  Esc: close       │
+└────────────────────────────────────────────────┘
+```
+
+`Enter` on a variable opens an inline edit form (key + value, `Tab` switches fields). Renaming the key is supported.
+
+---
+
+### Checker
+
+`c` from Pipeline. Static analysis of the pipeline — runs instantly, no HTTP requests.
+
+```
+  ✓  Pipeline OK — all variables resolved, all references valid
+  ✗  [3] {{TOKEN}} not defined by any upstream step
+  ⚠  [5] HTTP step: URL is empty
+  ✗  Output [1]: from_step "missing_step" does not match any step name
+  ⚠  Connector [1]: path is empty (and no from_step set)
+```
+
+**Rules checked:**
+
+| Level | Rule |
+|-------|------|
+| Error | `{{VAR}}` in url/body/headers/foreach/when/multipart not defined upstream |
+| Error | File Loader: `file_path` is empty |
+| Error | Output `from_step` references a non-existent step name |
+| Error | Connector `from_step` references a non-existent step name |
+| Warning | HTTP step: URL is empty |
+| Warning | Transform step: no transforms defined |
+| Warning | Multipart part: name is empty |
+| Warning | Connector: path is empty and no `from_step` set |
+| Warning | Output: path is empty |
+| Warning | Duplicate or empty step names |
+
+---
+
+### TOML preview
+
+`p` from Pipeline. Right panel shows the generated TOML with syntax highlighting, scrollable with `↑/↓`. `Esc` closes.
+
+Colour scheme:
+- `[section]` headers → **cyan bold**
+- `[[array.table]]` headers → **magenta bold**
+- String values → green
+- Numbers / booleans → yellow
+- Comments → grey
+- Multi-line `'''...'''` blocks → green
+
+Comment steps appear as `# text` lines between `[[steps]]` blocks. `continue_on_error` and `env_file` are included only when set.
+
+---
+
+### Quit confirmation
+
+When there are unsaved changes (`*` in the pipeline title), pressing `q` shows a confirmation overlay:
+
+```
+┌─ Unsaved changes ──────────────────────────────────┐
+│                                                     │
+│  Save before quitting?                              │
+│                                                     │
+│  [y] save & quit    [n] quit without saving   [Esc] │
+└─────────────────────────────────────────────────────┘
+```
+
+`y` saves then exits. `n` exits without saving. `Esc` cancels.
+
+---
+
+### Builder keybindings
+
+#### Pipeline
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Navigate steps (wraps into [IN] / [OUT]) |
+| `Enter` / `e` | Edit selected step |
+| `n` | New step (append) → Catalog |
+| `i` | Insert step after cursor → Catalog |
+| `d` | Delete selected step |
+| `K` / `J` | Move step up / down |
+| `r` | Run full campaign → Run view |
+| `s` | Campaign settings |
+| `v` | Variables panel |
+| `c` | Checker |
+| `p` | TOML preview |
+| `w` | Save |
+| `q` | Quit (confirmation if unsaved) |
+
+#### Step editor (Browse mode)
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Navigate fields |
+| `↑` at top | Enter description textarea |
+| `Enter` | Edit field / confirm |
+| `←` / `→` | Cycle selector (Method, Transform kind, Encoding) |
+| `a` / `d` | Add / delete in list fields (Headers, Extract, Assertions, Multipart) |
+| `r` | Run this step → show result below |
+| `L` | Open Collection browser (HTTP / Seed steps) |
+| `Esc` | Back to Pipeline |
+
+#### Body editor (yellow border)
+
+| Key | Action |
+|-----|--------|
+| Any key | Type / edit |
+| `Enter` | New line |
+| `Esc` | Save and close |
+
+#### Extract path picker (Tab)
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Navigate matching paths |
+| Type | Filter paths |
+| `Enter` | Insert selected path |
+| `Tab` / `Esc` | Close (returns to value editor) |
+
+#### Collection browser
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Navigate |
+| `Space` | Expand / collapse folder |
+| `Enter` | Load request into step |
+| `Esc` | Cancel |
+
+#### Variables panel
+
+| Key | Action |
+|-----|--------|
+| `↑` / `↓` | Navigate |
+| `a` | Add variable |
+| `d` | Delete selected |
+| `Enter` | Edit (key + value) |
+| `Tab` | Switch Key ↔ Value in edit form |
+| `Esc` | Close / cancel |

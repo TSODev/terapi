@@ -1,4 +1,5 @@
 pub mod types;
+mod browser;
 mod checker;
 mod editor;
 pub(super) mod step_editor;
@@ -60,10 +61,12 @@ impl BuilderApp {
             BuilderFocus::StepEditor { step_idx, section_cursor, sub_cursor, mode } => {
                 step_editor::handle_key(self, key, step_idx, section_cursor, sub_cursor, mode)
             }
+            BuilderFocus::CollectionBrowser { for_step, col_cursor, expanded } => {
+                browser::handle_key(self, key, for_step, col_cursor, expanded)
+            }
             BuilderFocus::Checker { .. }         => self.handle_overlay_key(key),
             BuilderFocus::TomlPreview { scroll } => self.handle_preview_key(key, scroll),
             BuilderFocus::Variables { cursor }   => self.handle_variables_key(key, cursor),
-            _                                    => self.handle_overlay_key(key),
         }
     }
 

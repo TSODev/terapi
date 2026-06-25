@@ -221,7 +221,15 @@ fn handle_browse(
         // ── Action ───────────────────────────────────────────────────────────
         StepSection::LoadFromCollection => {
             if matches!(key.code, KeyCode::Enter | KeyCode::Char('L')) {
-                app.status_message = "Collection browser — prochainement".into();
+                let mut expanded = std::collections::HashSet::new();
+                for ci in 0..app.stored_collections.len() {
+                    expanded.insert(format!("c{ci}"));
+                }
+                app.focus = BuilderFocus::CollectionBrowser {
+                    for_step: step_idx,
+                    col_cursor: 0,
+                    expanded,
+                };
             }
         }
 

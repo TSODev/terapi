@@ -186,8 +186,9 @@ fn render_context(frame: &mut Frame, app: &BuilderApp, area: Rect) {
             render_step_editor(frame, app, *step_idx, *section_cursor, *sub_cursor, mode, area),
         BuilderFocus::Checker { results } => render_checker(frame, results, area),
         BuilderFocus::TomlPreview { scroll } => render_toml_preview(frame, app, *scroll, area),
+        BuilderFocus::CollectionBrowser { col_cursor, expanded, .. } =>
+            render_collection_browser(frame, app, *col_cursor, expanded, area),
         BuilderFocus::Variables { cursor } => render_variables(frame, app, *cursor, area),
-        _ => render_placeholder(frame, area),
     }
 }
 
@@ -559,11 +560,88 @@ fn assertion_op_label(a: &crate::campaign::Assertion) -> String {
     String::new()
 }
 
-fn render_placeholder(frame: &mut Frame, area: Rect) {
+fn render_collection_browser(
+    frame: &mut Frame,
+    app: &BuilderApp,
+    col_cursor: usize,
+    expanded: &std::collections::HashSet<String>,
+    area: Rect,
+) {
     let block = Block::default()
+        .title(" Collections — choisir une requête ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Indexed(242)));
+        .border_style(Style::default().fg(Color::Magenta));
+
+    let inner = block.inner(area);
     frame.render_widget(block, area);
+
+    if app.stored_collections.is_empty() {
+        let hint = Paragraph::new("Aucune collection — Esc: annuler")
+            .style(Style::default().fg(Color::Indexed(242)));
+        frame.render_widget(hint, inner);
+        return;
+    }
+
+    let nodes = super::browser::flatten(&app.stored_collections, expanded);
+    let mut items: Vec<ListItem> = Vec::new();
+
+    for (i, node) in nodes.iter().enumerate() {
+        let is_cursor = i == col_cursor;
+        let indent = "  ".repeat(node.depth);
+
+        if node.is_folder {
+            let arrow = if node.is_expanded { "▼ " } else { "▶ " };
+            let cursor_mark = if is_cursor { "▶ " } else { "  " };
+            let style = if is_cursor {
+                Style::default().fg(Color::White).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::Indexed(250))
+            };
+            items.push(ListItem::new(Line::from(vec![
+                Span::styled(
+                    format!("{cursor_mark}{indent}{arrow}{}", node.label),
+                    style,
+                ),
+            ])));
+        } else {
+            let cursor_mark = if is_cursor { "▶ " } else { "  " };
+            let method_color = method_color(&node.method);
+            let label_style = if is_cursor {
+                Style::default().fg(Color::White).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::Indexed(250))
+            };
+            items.push(ListItem::new(Line::from(vec![
+                Span::styled(format!("{cursor_mark}{indent}"), label_style),
+                Span::styled(
+                    format!("{:<6} ", node.method),
+                    Style::default().fg(method_color),
+                ),
+                Span::styled(node.label.clone(), label_style),
+            ])));
+        }
+    }
+
+    items.push(ListItem::new(Line::from("")));
+    items.push(ListItem::new(Line::from(
+        Span::styled(
+            "↑↓: naviguer  Space: ouvrir/fermer  Enter: charger  Esc: annuler",
+            Style::default().fg(Color::Indexed(242)),
+        ),
+    )));
+
+    frame.render_widget(List::new(items), inner);
+}
+
+fn method_color(method: &str) -> Color {
+    match method {
+        "GET"    => Color::Green,
+        "POST"   => Color::Yellow,
+        "PUT"    => Color::Blue,
+        "PATCH"  => Color::Magenta,
+        "DELETE" => Color::Red,
+        _        => Color::Indexed(242),
+    }
 }
 
 // ── Status bar ────────────────────────────────────────────────────────────────
@@ -595,10 +673,10 @@ fn render_status(frame: &mut Frame, app: &BuilderApp, area: Rect) {
             _ =>
                 "Tapez  Enter: suivant/valider  Esc: annuler",
         },
+        BuilderFocus::CollectionBrowser { .. } =>
+            "↑↓: naviguer  Space: ouvrir/fermer  Enter: charger la requête  Esc: annuler",
         BuilderFocus::Checker { .. } | BuilderFocus::TomlPreview { .. } | BuilderFocus::Variables { .. } =>
             "↑↓: naviguer  Esc: fermer",
-        _ =>
-            "Esc: retour",
     };
 
     let modified_flag = if app.modified {

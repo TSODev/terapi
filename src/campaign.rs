@@ -110,6 +110,11 @@ pub struct Step {
     // Multipart form-data parts (HTTP step)
     #[serde(default)]
     pub multipart_parts: Vec<MultipartPart>,
+    // GraphQL step fields (kind = "graphql")
+    #[serde(default)]
+    pub graphql_query: Option<String>,
+    #[serde(default)]
+    pub graphql_variables: HashMap<String, String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -682,6 +687,89 @@ async fn run_single_step(
                 request_body: None,
             },
         };
+    }
+
+    // GraphQL step — build body from query + variables, then send as HTTP POST.
+    if step.kind == "graphql" {
+        let url = resolve(&step.url, effective);
+        let query = resolve(step.graphql_query.as_deref().unwrap_or(""), effective);
+        let vars_obj: serde_json::Map<String, serde_json::Value> = step.graphql_variables.iter()
+            .map(|(k, v)| (k.clone(), serde_json::Value::String(resolve(v, effective))))
+            .collect();
+        let mut body_map = serde_json::Map::new();
+        body_map.insert("query".into(), serde_json::Value::String(query));
+        if !vars_obj.is_empty() {
+            body_map.insert("variables".into(), serde_json::Value::Object(vars_obj));
+        }
+        let body_str = serde_json::to_string(&serde_json::Value::Object(body_map)).unwrap_or_default();
+        let mut gql_step = step.clone();
+        gql_step.method = if step.method.is_empty() { "POST".into() } else { step.method.clone() };
+        gql_step.headers.entry("Content-Type".into()).or_insert_with(|| "application/json".into());
+        let request_headers: Vec<(String, String)> = gql_step.headers.iter()
+            .map(|(k, v)| (k.clone(), resolve(v, effective)))
+            .collect();
+        let t0 = Instant::now();
+        match execute_step(client, &gql_step, &url, Some(&body_str), effective).await {
+            Ok(http) => {
+                let duration_ms = t0.elapsed().as_millis() as u64;
+                let assertion_results = if step.assert.is_empty() {
+                    vec![]
+                } else {
+                    evaluate_assertions(
+                        &step.assert, http.status,
+                        http.body_value.as_ref(), &http.resp_headers,
+                        duration_ms, effective,
+                    )
+                };
+                let http_ok   = http.status < 400;
+                let assert_ok = assertion_results.iter().all(|(_, ok)| *ok);
+                let success   = http_ok && assert_ok;
+                let fail_count = assertion_results.iter().filter(|(_, ok)| !ok).count();
+                let error = if !http_ok {
+                    Some(format!("HTTP {}", http.status))
+                } else if !assert_ok {
+                    Some(format!("{} assertion(s) failed", fail_count))
+                } else {
+                    None
+                };
+                return StepResult {
+                    name: step.name.clone(),
+                    method: "POST".into(),
+                    url,
+                    status: Some(http.status),
+                    duration_ms,
+                    success,
+                    skipped: false,
+                    non_blocking: effective_coe,
+                    error,
+                    extracted: if success { http.extracted } else { HashMap::new() },
+                    assertion_results,
+                    body_json: http.body_value,
+                    graphql: true,
+                    request_headers,
+                    request_body: Some(body_str),
+                };
+            }
+            Err(e) => {
+                return StepResult {
+                    name: step.name.clone(),
+                    method: "POST".into(),
+                    url,
+                    status: None,
+                    duration_ms: t0.elapsed().as_millis() as u64,
+                    success: false,
+                    skipped: false,
+                    non_blocking: effective_coe,
+                    error: Some(e.to_string()),
+                    extracted: HashMap::new(),
+                    assertion_results: vec![],
+                    body_json: None,
+                    graphql: true,
+                    request_headers,
+                    request_body: Some(body_str),
+                };
+            }
+        }
     }
 
     // HTTP step — capture the fully-resolved request snapshot for the TUI "Load in Request" feature.

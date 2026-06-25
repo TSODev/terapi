@@ -1245,6 +1245,27 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(),
+        },
+        BrickKind::GraphQL => Step {
+            name: "GraphQL query".into(),
+            kind: "graphql".into(),
+            method: "POST".into(),
+            url: String::new(),
+            headers: std::collections::HashMap::new(),
+            body: None,
+            wait_ms: 0,
+            env: None,
+            extract: std::collections::HashMap::new(),
+            assert: vec![],
+            transforms: vec![],
+            continue_on_error: None,
+            foreach: None,
+            when: None,
+            description: String::new(),
+            file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
+            graphql_query: Some("{\n  \n}".into()),
+            graphql_variables: std::collections::HashMap::new(),
         },
         BrickKind::Transform => Step {
             name: "New transform".into(),
@@ -1263,6 +1284,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(),
         },
         BrickKind::Pause => Step {
             name: "Pause".into(),
@@ -1281,6 +1303,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(),
         },
         BrickKind::Seed => Step {
             name: "Seed".into(),
@@ -1299,6 +1322,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(),
         },
         BrickKind::Comment => Step {
             name: "Comment text here".into(),
@@ -1317,6 +1341,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(),
         },
         BrickKind::FileLoader => Step {
             name: "Load file".into(),
@@ -1338,6 +1363,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             file_output: Some("FILE_DATA".into()),
             file_encoding: Some("base64".into()),
             multipart_parts: vec![],
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(),
         },
         // Connector and Output are handled directly in handle_catalog_key — not steps
         BrickKind::Connector | BrickKind::Output => unreachable!(),
@@ -1444,6 +1470,23 @@ fn generate_toml(campaign: &Campaign, step_comments: &[String], header_comment: 
                     // single-line: literal string (avoids escaping double quotes in JSON)
                     out.push_str(&format!("body   = '{}'\n", body.replace('\'', "\\'")));
                 }
+            }
+        }
+        if let Some(ref q) = step.graphql_query {
+            if !q.is_empty() {
+                if q.contains('\n') {
+                    out.push_str(&format!("graphql_query = '''\n{}\n'''\n", q));
+                } else {
+                    out.push_str(&format!("graphql_query = '{}'\n", q.replace('\'', "\\'")));
+                }
+            }
+        }
+        if !step.graphql_variables.is_empty() {
+            out.push_str("[steps.graphql_variables]\n");
+            let mut vars: Vec<_> = step.graphql_variables.iter().collect();
+            vars.sort_by_key(|(k, _)| k.as_str());
+            for (k, v) in vars {
+                out.push_str(&format!("{} = \"{}\"\n", k, toml_escape(v)));
             }
         }
         if step.wait_ms > 0 {

@@ -82,6 +82,7 @@ pub enum CampaignSettingsMode {
 pub enum PairTarget {
     Headers,
     Extract,
+    GraphqlVariables,
 }
 
 /// (label, needs_value)
@@ -125,6 +126,8 @@ pub enum StepEditorMode {
     AddMultipart  { idx: Option<usize>, name: String, value: String, content_type: String, stage: u8 },
     // JSON dot-path picker for Extract value fields (opened with Tab from AddPairStage2 Extract)
     ExtractPicker { key: String, paths: Vec<String>, filter: String, cursor: usize },
+    // GraphQL query editor (multi-line textarea)
+    EditGraphqlQuery,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -148,6 +151,8 @@ pub enum StepSection {
     FileOutput,
     FileEncoding,
     MultipartParts,
+    GraphqlQuery,
+    GraphqlVariables,
     LoadFromCollection,
 }
 
@@ -173,12 +178,14 @@ impl StepSection {
             StepSection::FileOutput         => "Output var",
             StepSection::FileEncoding       => "Encoding",
             StepSection::MultipartParts     => "Multipart parts",
+            StepSection::GraphqlQuery       => "GQL Query",
+            StepSection::GraphqlVariables   => "GQL Variables",
             StepSection::LoadFromCollection => "[L] Load from collection",
         }
     }
 
     pub fn is_list(&self) -> bool {
-        matches!(self, StepSection::Headers | StepSection::Extract | StepSection::Assertions | StepSection::MultipartParts)
+        matches!(self, StepSection::Headers | StepSection::Extract | StepSection::Assertions | StepSection::MultipartParts | StepSection::GraphqlVariables)
     }
 }
 
@@ -187,6 +194,7 @@ impl StepSection {
 #[derive(Debug, Clone, PartialEq)]
 pub enum BrickKind {
     Http,
+    GraphQL,
     Transform,
     Pause,
     Seed,
@@ -200,6 +208,7 @@ impl BrickKind {
     pub fn label(&self) -> &'static str {
         match self {
             BrickKind::Http       => "HTTP step",
+            BrickKind::GraphQL    => "GraphQL step",
             BrickKind::Transform  => "Transform",
             BrickKind::Pause      => "Pause",
             BrickKind::Seed       => "Seed",
@@ -212,6 +221,7 @@ impl BrickKind {
     pub fn description(&self) -> &'static str {
         match self {
             BrickKind::Http       => "HTTP request",
+            BrickKind::GraphQL    => "GraphQL query (POST, body built from query + variables)",
             BrickKind::Transform  => "variable transform",
             BrickKind::Pause      => "wait (ms)",
             BrickKind::Seed       => "seed connector (inline)",
@@ -225,6 +235,7 @@ impl BrickKind {
 
 pub const BRICK_KINDS: &[BrickKind] = &[
     BrickKind::Http,
+    BrickKind::GraphQL,
     BrickKind::Transform,
     BrickKind::Pause,
     BrickKind::Seed,

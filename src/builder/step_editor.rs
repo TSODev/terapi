@@ -35,6 +35,20 @@ pub fn sections_for(kind: &str) -> Vec<StepSection> {
             StepSection::FileOutput,
             StepSection::FileEncoding,
         ],
+        "graphql" => vec![
+            StepSection::Name,
+            StepSection::Description,
+            StepSection::Url,
+            StepSection::Headers,
+            StepSection::GraphqlQuery,
+            StepSection::GraphqlVariables,
+            StepSection::Extract,
+            StepSection::Assertions,
+            StepSection::Foreach,
+            StepSection::When,
+            StepSection::ContinueOnError,
+            StepSection::LoadFromCollection,
+        ],
         _ => vec![
             StepSection::Name,
             StepSection::Description,
@@ -75,6 +89,25 @@ pub fn handle_key(
             app.focus = BuilderFocus::StepEditor {
                 step_idx, section_cursor, sub_cursor,
                 mode: StepEditorMode::EditBody,
+                desc_active: false,
+            };
+        }
+        return Ok(());
+    }
+
+    // GraphQL query textarea captures all keys when in EditGraphqlQuery mode
+    if matches!(mode, StepEditorMode::EditGraphqlQuery) {
+        if key.code == KeyCode::Esc {
+            let text = app.description_textarea.lines().join("\n");
+            let step = &mut app.campaign.steps[step_idx];
+            step.graphql_query = if text.trim().is_empty() { None } else { Some(text) };
+            app.modified = true;
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
+        } else {
+            app.description_textarea.input(tui_textarea::Input::from(key));
+            app.focus = BuilderFocus::StepEditor {
+                step_idx, section_cursor, sub_cursor,
+                mode: StepEditorMode::EditGraphqlQuery,
                 desc_active: false,
             };
         }
@@ -126,6 +159,7 @@ pub fn handle_key(
         StepEditorMode::ExtractPicker { key: pair_key, paths, filter, cursor } =>
             handle_extract_picker(app, key, step_idx, section_cursor, sub_cursor, pair_key, paths, filter, cursor),
         StepEditorMode::EditBody => Ok(()), // handled at the top of handle_key
+        StepEditorMode::EditGraphqlQuery => Ok(()), // handled at the top of handle_key
     }
 }
 
@@ -402,6 +436,31 @@ fn handle_browse(
             _ => {}
         },
 
+        StepSection::GraphqlQuery => {
+            if matches!(key.code, KeyCode::Enter | KeyCode::Char('i')) {
+                let q = app.campaign.steps[step_idx].graphql_query.clone().unwrap_or_default();
+                app.description_textarea = tui_textarea::TextArea::new(
+                    q.lines().map(|l| l.to_string()).collect()
+                );
+                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditGraphqlQuery);
+            }
+        }
+        StepSection::GraphqlVariables => match key.code {
+            KeyCode::Char('a') => {
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::AddPairStage1 { target: PairTarget::GraphqlVariables, buffer: String::new() });
+            }
+            KeyCode::Char('d') => {
+                let keys = sorted_keys(&app.campaign.steps[step_idx].graphql_variables);
+                if let Some(k) = keys.last() {
+                    let k = k.clone();
+                    app.campaign.steps[step_idx].graphql_variables.remove(&k);
+                    app.modified = true;
+                }
+            }
+            _ => {}
+        },
+
         // ── Action ───────────────────────────────────────────────────────────
         StepSection::LoadFromCollection => {
             if matches!(key.code, KeyCode::Enter | KeyCode::Char('L')) {
@@ -567,8 +626,9 @@ fn handle_add_stage2(
         KeyCode::Enter => {
             let step = &mut app.campaign.steps[step_idx];
             match target {
-                PairTarget::Headers => { step.headers.insert(pair_key, buffer.trim().to_string()); }
-                PairTarget::Extract => { step.extract.insert(pair_key, buffer.trim().to_string()); }
+                PairTarget::Headers          => { step.headers.insert(pair_key, buffer.trim().to_string()); }
+                PairTarget::Extract          => { step.extract.insert(pair_key, buffer.trim().to_string()); }
+                PairTarget::GraphqlVariables => { step.graphql_variables.insert(pair_key, buffer.trim().to_string()); }
             }
             app.modified = true;
             set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
@@ -929,6 +989,8 @@ pub fn current_value(app: &BuilderApp, step_idx: usize, section: &StepSection) -
         StepSection::FileOutput  => step.file_output.clone().unwrap_or_else(|| "FILE_DATA".into()),
         StepSection::FileEncoding=> step.file_encoding.clone().unwrap_or_else(|| "base64".into()),
         StepSection::MultipartParts => format!("({} parts)", step.multipart_parts.len()),
+        StepSection::GraphqlQuery     => step.graphql_query.clone().unwrap_or_default(),
+        StepSection::GraphqlVariables => format!("({} vars)", step.graphql_variables.len()),
         StepSection::LoadFromCollection => String::new(),
     }
 }

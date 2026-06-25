@@ -305,6 +305,7 @@ fn step_badge(kind: &str) -> (&'static str, Color) {
         "seed"      => ("SEED", Color::Blue),
         "comment"   => ("#   ", Color::Indexed(238)),
         "file"      => ("FILE", Color::Magenta),
+        "graphql"   => ("GQL ", Color::Magenta),
         _           => ("HTTP", Color::Cyan),
     }
 }
@@ -324,6 +325,10 @@ fn step_summary(step: &crate::campaign::Step) -> String {
             } else {
                 step.name.clone()
             }
+        }
+        "graphql" => {
+            let url = &step.url;
+            if url.is_empty() { "no URL".into() } else { url.clone() }
         }
         _ => {
             let url = if step.url.len() > 30 { format!("…{}", &step.url[step.url.len().saturating_sub(27)..]) }
@@ -691,6 +696,36 @@ fn render_body_editor(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     );
 }
 
+fn render_graphql_query_editor(frame: &mut Frame, app: &BuilderApp, area: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(0), Constraint::Length(2)])
+        .split(area);
+
+    let mut ta = app.description_textarea.clone();
+    ta.set_block(
+        Block::default()
+            .title(" GQL Query — multi-line editor ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Magenta)),
+    );
+    ta.set_cursor_line_style(Style::default().add_modifier(Modifier::UNDERLINED));
+    frame.render_widget(&ta, chunks[0]);
+
+    let hints = vec![
+        Span::styled("Esc", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Span::raw(": save & close   "),
+        Span::styled("Enter", Style::default().fg(Color::Indexed(242))),
+        Span::raw(": new line   "),
+        Span::styled("Ctrl+H / Backspace", Style::default().fg(Color::Indexed(242))),
+        Span::raw(": delete"),
+    ];
+    frame.render_widget(
+        Paragraph::new(Line::from(hints)).style(Style::default().fg(Color::Indexed(242))),
+        chunks[1],
+    );
+}
+
 fn render_step_preview(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     if app.step_preview_running {
         let block = Block::default()
@@ -830,6 +865,12 @@ fn render_step_editor(
         return;
     }
 
+    // GraphQL query textarea takes the full inner area
+    if matches!(mode, StepEditorMode::EditGraphqlQuery) {
+        render_graphql_query_editor(frame, app, inner);
+        return;
+    }
+
     // Split: description textarea (7 lines) + sections list
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -886,6 +927,8 @@ fn render_step_editor(
                 Span::styled("  a: add  d: del", Style::default().fg(Color::Indexed(242)))
             } else if *section == StepSection::When {
                 Span::styled("  Enter: edit  d: clear", Style::default().fg(Color::Indexed(242)))
+            } else if *section == StepSection::GraphqlQuery {
+                Span::styled("  Enter: edit query", Style::default().fg(Color::Indexed(242)))
             } else {
                 Span::raw("")
             }
@@ -999,6 +1042,7 @@ fn render_step_editor(
             _ => "Content-Type (optional)  Enter: save  Esc: cancel",
         },
         StepEditorMode::EditBody => "", // full-screen, hints rendered by render_body_editor
+        StepEditorMode::EditGraphqlQuery => "", // full-screen, hints rendered by render_graphql_query_editor
         StepEditorMode::ExtractPicker { .. } => "", // overlay rendered below
     };
     rows.push(ListItem::new(Line::from(
@@ -1169,10 +1213,11 @@ fn value_span_for<'a>(app: &'a BuilderApp, step_idx: usize, section: &StepSectio
 fn list_count(app: &BuilderApp, step_idx: usize, section: &StepSection) -> usize {
     let step = &app.campaign.steps[step_idx];
     match section {
-        StepSection::Headers        => step.headers.len(),
-        StepSection::Extract        => step.extract.len(),
-        StepSection::Assertions     => step.assert.len(),
-        StepSection::MultipartParts => step.multipart_parts.len(),
+        StepSection::Headers          => step.headers.len(),
+        StepSection::Extract          => step.extract.len(),
+        StepSection::Assertions       => step.assert.len(),
+        StepSection::MultipartParts   => step.multipart_parts.len(),
+        StepSection::GraphqlVariables => step.graphql_variables.len(),
         _ => 0,
     }
 }
@@ -1193,6 +1238,11 @@ fn list_items_for(app: &BuilderApp, step_idx: usize, section: &StepSection) -> V
         StepSection::Assertions => {
             step.assert.iter()
                 .map(|a| format!("{} {}", a.on, assertion_op_label(a)))
+                .collect()
+        }
+        StepSection::GraphqlVariables => {
+            sorted_keys(&step.graphql_variables).into_iter()
+                .map(|k| format!("{} = {}", k, step.graphql_variables.get(&k).cloned().unwrap_or_default()))
                 .collect()
         }
         StepSection::MultipartParts => {
@@ -1902,6 +1952,8 @@ fn render_status(frame: &mut Frame, app: &BuilderApp, area: Rect) {
             "Type comments  Enter: new line  Esc: save & close",
         BuilderFocus::StepEditor { mode: StepEditorMode::EditBody, .. } =>
             "Type body  Enter: new line  Esc: save & close",
+        BuilderFocus::StepEditor { mode: StepEditorMode::EditGraphqlQuery, .. } =>
+            "Type GQL query  Enter: new line  Esc: save & close",
         BuilderFocus::StepEditor { mode, .. } => match mode {
             StepEditorMode::Browse =>
                 "↑↓: field  ↑ at top: description  Enter: edit  ←/→: cycle  a/d: list  r: run step  Esc: back",

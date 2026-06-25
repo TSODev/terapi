@@ -179,6 +179,12 @@ fn check_step_vars(
     for part in &step.multipart_parts {
         collect_vars(&part.value, &mut refs);
     }
+    if let Some(q) = &step.graphql_query {
+        collect_vars(q, &mut refs);
+    }
+    for v in step.graphql_variables.values() {
+        collect_vars(v, &mut refs);
+    }
 
     for var in refs {
         if !defined.contains(&var) {

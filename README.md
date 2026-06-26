@@ -211,6 +211,8 @@ The Campaigns tab lists all `.toml` campaign files found in `<terapi_dir>/campai
 
 ![terapi — Campaigns tab: step preview + parameter popup before run](https://raw.githubusercontent.com/TSODev/terapi/main/assets/screenshots/terapi-campaigns.png)
 
+![terapi — Campaigns tab: done state with per-step results](https://raw.githubusercontent.com/TSODev/terapi/main/assets/screenshots/terapi-campaigns-done.png)
+
 The right panel has three states:
 - **Idle** — campaign metadata (name, description, step list) and a `r` reminder
 - **Running** — each completed step appears immediately; `⟳ current step…` shows what is in flight
@@ -721,23 +723,7 @@ Auth config (all fields except the token itself) is saved in the collection TOML
 
 `terapi build` — an interactive TUI campaign editor, built into the same binary. No extra install. Creating a campaign TOML by hand is powerful but tedious — the Builder turns it into a keyboard-driven experience:
 
-```
-┌─ Builder: my_campaign.toml * ────────────────────────────────────────────────┐
-│  ┌─ Pipeline · users [production] ─┐  ┌─ ✓ Run result ─────────────────────┐ │
-│  │  [CSV] contacts.csv             │  │  200  142 ms  /users                │ │
-│  │  [1] HTTP  GET   /health        │  │  ✓ status eq 200                    │ │
-│  │▶ [2] HTTP  POST  /users         │  │  ↳ USER_ID = 42                     │ │
-│  │       ? status eq 201           │  │                                     │ │
-│  │  [3] TRSF  upper → USERNAME     │  │  {                                  │ │
-│  │  [4] FILE  avatar.png → B64     │  │    "id": 42,                        │ │
-│  │       ↻ foreach: {{user_ids}}   │  │    "name": "Alice",                 │ │
-│  │       ⊘ if ROLE == "admin"      │  │    …                                │ │
-│  │  [5] WAIT  500ms                │  │  }                                  │ │
-│  │  [OUT] results.json             │  │                                     │ │
-│  └─────────────────────────────────┘  └─────────────────────────────────────┘ │
-│  Builder › Step editor  —  ↑↓: field  Enter: edit  r: run step  Esc: back    │
-└───────────────────────────────────────────────────────────────────────────────┘
-```
+![terapi — Campaign Builder: pipeline + step editor](https://raw.githubusercontent.com/TSODev/terapi/main/assets/screenshots/terapi-builder.png)
 
 ```bash
 terapi build                        # blank campaign

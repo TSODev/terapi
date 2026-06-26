@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.9.3] — 2026-06-26
+
+### Changed
+- Updated crates.io description to better reflect current scope
+
+---
+
 ## [0.9.2] — 2026-06-26
 
 ### Added

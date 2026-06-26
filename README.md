@@ -55,9 +55,12 @@ terapi                              # launch TUI
 terapi --demo response.json         # launch TUI with a JSON file pre-loaded
 terapi build                        # open campaign builder (blank)
 terapi build my_campaign.toml       # open campaign builder (existing file)
-terapi run campaign.toml            # run a campaign headlessly
-terapi run campaign.toml -p KEY=VAL # override a [[params]] value
-terapi run campaign.toml --silent   # run silently — exit 0/1 only (CI/cron)
+terapi run campaign.toml                     # run a campaign headlessly
+terapi run campaign.toml -p KEY=VAL          # override a [[params]] value
+terapi run campaign.toml --silent            # exit 0/1 only (CI/cron)
+terapi run campaign.toml --only "Login"      # run only the named step(s)
+terapi run campaign.toml --format json       # machine-readable JSON output
+terapi run campaign.toml --format csv        # CSV output (one row per step)
 terapi import file.toml             # import a collection or campaign TOML
 terapi --version
 terapi --help

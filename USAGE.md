@@ -42,6 +42,8 @@
   - [Output connectors](#output-connectors)
   - [Campaign examples](#campaign-examples)
   - [Silent mode (CI/cron)](#silent-mode-cicron)
+  - [Step filter (--only)](#step-filter---only)
+  - [Output formats (--format)](#output-formats---format)
 - [Campaign builder](#campaign-builder)
   - [Invocation](#invocation)
   - [Layout](#layout)
@@ -2490,6 +2492,134 @@ Useful in CI pipelines or cron jobs where logs are noisy.
 # GitHub Actions example
 - name: API smoke tests
   run: terapi run infra/smoke.toml --silent
+```
+
+---
+
+### Step filter (`--only`)
+
+Run only the named step(s) and skip all others — without modifying the TOML:
+
+```bash
+terapi run campaign.toml --only "Login"
+terapi run campaign.toml --only "Login" --only "Get profile"
+```
+
+Skipped steps appear as `⊘ (skipped)` in the output and are not counted as failures. Because skipped steps do not extract variables, downstream steps that depend on those variables will receive unresolved `{{VAR}}` placeholders — exactly the same behaviour as `when = false`.
+
+Useful for:
+- Debugging a single failing step without running the full campaign
+- Quickly re-running an HTTP step after editing its URL or body
+- Running only assertions steps to verify the last run's data
+
+`--only` is combinable with `--format` and `-p`:
+
+```bash
+terapi run campaign.toml --only "Login" --format json
+```
+
+---
+
+### Output formats (`--format`)
+
+Control how the campaign result is presented. Default is `text` (existing behaviour).
+
+#### `--format json`
+
+Emits a single JSON object to stdout when the campaign finishes. Intermediate step output is suppressed — stdout stays clean for piping or redirection.
+
+```bash
+terapi run campaign.toml --format json
+terapi run campaign.toml --format json > results.json
+terapi run campaign.toml --format json | jq '.steps[] | select(.success == false)'
+```
+
+**Structure — single iteration (no connector):**
+
+```json
+{
+  "campaign": "Users API — smoke tests",
+  "success": false,
+  "duration_ms": 265,
+  "steps": [
+    {
+      "name": "Login",
+      "method": "POST",
+      "url": "https://api.example.com/auth/login",
+      "status": 200,
+      "success": true,
+      "skipped": false,
+      "elapsed_ms": 142,
+      "extracted": { "JWT": "eyJ...", "USER_ID": "42" },
+      "assertions": [
+        { "description": "status == 200", "passed": true }
+      ],
+      "error": null
+    },
+    {
+      "name": "Delete user",
+      "method": "DELETE",
+      "url": "https://api.example.com/users/42",
+      "status": 404,
+      "success": false,
+      "skipped": false,
+      "elapsed_ms": 34,
+      "extracted": {},
+      "assertions": [],
+      "error": "HTTP 404"
+    }
+  ]
+}
+```
+
+**Structure — multi-iteration (connector):**
+
+When the campaign uses a `[[connectors]]` block, results are grouped by iteration:
+
+```json
+{
+  "campaign": "Bulk invite",
+  "success": true,
+  "duration_ms": 840,
+  "iterations": [
+    { "index": 0, "steps": [ ... ] },
+    { "index": 1, "steps": [ ... ] }
+  ]
+}
+```
+
+Errors (campaign-level failures before any step runs) are emitted to **stderr** as a JSON object: `{"error": "..."}`. Exit code is `0` on full success, `1` if any step failed.
+
+#### `--format csv`
+
+Emits one CSV row per step to stdout (RFC 4180 quoting).
+
+```bash
+terapi run campaign.toml --format csv
+terapi run campaign.toml --format csv > results.csv
+```
+
+**Columns:**
+
+| Column | Content |
+|--------|---------|
+| `iteration` | Row index (0 for single-run campaigns) |
+| `name` | Step name |
+| `method` | HTTP method or step kind badge (`WAIT`, `TRSF`, `SRCH`, `FILE`, `SKIP`) |
+| `url` | Resolved URL (empty for non-HTTP steps) |
+| `status` | HTTP status code (empty if no response) |
+| `success` | `true` / `false` |
+| `skipped` | `true` if step was skipped (`when`, `--only`) |
+| `elapsed_ms` | Step duration in milliseconds |
+| `extracted` | JSON-encoded object of extracted variables (empty string if none) |
+| `error` | Error message (empty on success) |
+
+**Example output:**
+
+```
+iteration,name,method,url,status,success,skipped,elapsed_ms,extracted,error
+0,Login,POST,https://api.example.com/auth/login,200,true,false,142,"{""JWT"":""eyJ..."",""USER_ID"":""42""}",
+0,Delete user,DELETE,https://api.example.com/users/42,404,false,false,34,,HTTP 404
 ```
 
 ---

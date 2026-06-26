@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- `terapi run --only <step-name>` (repeatable) — run only the named step(s), skip all others; skipped steps appear as `⊘ (skipped)` without failing the pipeline; vars from skipped steps are absent (same semantics as `when = false`)
+- `terapi run --format json` — emit a single JSON object on stdout: `campaign`, `success`, `duration_ms`, `steps[]` (or `iterations[]` for connector campaigns); each step includes `name`, `method`, `url`, `status`, `success`, `skipped`, `elapsed_ms`, `extracted`, `assertions`, `error`
+- `terapi run --format csv` — emit one CSV row per step: `iteration,name,method,url,status,success,skipped,elapsed_ms,extracted,error`; `extracted` is JSON-encoded in the cell; safe quoting (RFC 4180)
+- `--only` and `--format` are combinable: `terapi run campaign.toml --only Login --format json`
+
 ### Fixed
 - Import Postman v2.1 — `urlencoded` body now properly percent-encoded (RFC 1866) and `Content-Type: application/x-www-form-urlencoded` injected automatically; no longer reported as a degradation
 

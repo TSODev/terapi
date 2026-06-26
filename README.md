@@ -209,19 +209,7 @@ After import, a report is printed:
 
 The Campaigns tab lists all `.toml` campaign files found in `<terapi_dir>/campaigns/` and lets you run them interactively without leaving the terminal.
 
-```
-┌─ Campaigns (2) ────────────────┐ ┌─ crud_demo ─────────────────────────────────────┐
-│▶ crud_demo         (6 steps)   │ │  ✓ Create post     POST   201    312ms           │
-│  transform_demo    (4 steps)   │ │  ✓ Read post       GET    200     98ms           │
-│                                │ │  ✓ Update post     PUT    200    105ms           │
-│                                │ │  ✓ Patch post      PATCH  200     87ms           │
-│                                │ │  ✓ Delete post     DELETE 200     91ms           │
-│                                │ │  ✓ Assert deleted  GET    404     77ms           │
-│                                │ │                                                  │
-│                                │ │  ✓  ALL PASSED  Steps: 6 ok / 0 failed  770ms   │
-│                                │ │  Esc to clear  r to re-run                       │
-└────────────────────────────────┘ └──────────────────────────────────────────────────┘
-```
+![terapi — Campaigns tab: step preview + parameter popup before run](https://raw.githubusercontent.com/TSODev/terapi/main/assets/screenshots/terapi-campaigns.png)
 
 The right panel has three states:
 - **Idle** — campaign metadata (name, description, step list) and a `r` reminder

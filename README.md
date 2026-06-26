@@ -7,26 +7,7 @@
 
 **Terminal + API** — a keyboard-driven TUI for exploring, testing, and automating REST and GraphQL APIs, without leaving your terminal.
 
-```
-┌─────────────────────────── terapi ────────────────────────────┐
-│  Collections  |  Request  |  Env  |  History  |  Campaigns     │
-├────────────────────────────────────────────────────────────────┤
-│ ┌─ URL ──────────────────────────────────────────────────────┐ │
-│ │ GET  https://api.example.com/users                         │ │
-│ └────────────────────────────────────────────────────────────┘ │
-│  Description | Headers | URL Params | Body | Auth | Options    │
-│ ┌─ JSON · Raw  r: toggle  -/=: resize ──────────────────────┐ │
-│ │ ▼ (root)          Object                                   │ │
-│ │   status          String   "success"                       │ │
-│ │   code            Number   200                             │ │
-│ │ ▼ data            Object                                   │ │
-│ │   ▶ user          Object   { id: 42, username: "tsodev" …} │ │
-│ └────────────────────────────────────────────────────────────┘ │
-├────────────────────────────────────────────────────────────────┤
-│ Request  ›  Body  ›  JSON             ● env: Production        │
-│ Tab: panels  ←/→: section  ↑/↓: cursor  Enter: fold  q: quit  │
-└────────────────────────────────────────────────────────────────┘
-```
+![terapi — GraphQL mode: query editor + JSON response tree](assets/screenshot-graphql.png)
 
 ## Why terapi?
 
@@ -650,6 +631,8 @@ Press `g` on the Request tab to activate GraphQL mode. The URL bar shows a magen
 **Collections** — press `S` to save. The TOML stores `graphql = true`, `graphql_query`, and `graphql_variables`. Loading a GQL request from Collections (`Enter` on the node) restores everything and activates GraphQL mode automatically. The node shows a magenta `GQL` badge in the tree.
 
 Press `g` again to return to REST mode (URL and headers are preserved).
+
+![terapi — SpaceX GraphQL query with JSON response tree](assets/screenshot-graphql.png)
 
 **Example GraphQL collections** in `examples/collections/`:
 - `rick-morty-graphql.toml` — Rick & Morty API — 6 folders, 17 requests: variables, pagination, multi-ID, aliases, filters, introspection

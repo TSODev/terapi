@@ -5,6 +5,40 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.8.3] — 2026-06-26
+
+### Added
+
+- **`kind = "loop"` step (pagination)** — new step type in the catalog (badge: `LOOP`, green). Repeats an HTTP request until an `until` condition is met, accumulating values from each response into a campaign variable.
+  - `until = {var, eq?, ne?, exists?, lt?, lte?}` — stop condition evaluated after each iteration (reuses `StepCondition`, extended with `lt`/`lte` for numeric page/total comparisons)
+  - `accumulate = {var, from}` — dot-path extraction (supports `*` wildcard) run on each response; results appended to a JSON array stored in `var`
+  - Safety cap: 1000 iterations max
+  - Campaign runner: `run_loop_step()` in `campaign.rs` — per-iteration env update + until check; accumulated array JSON-encoded into extracted vars
+  - Builder: full step editor with sections `URL`, `Method`, `Headers`, `Until — var`, `Until — condition` (cycle with `Enter`/`←`/`→`), `Accumulate — var`, `Accumulate — from`, `Extract (per-iter)`, `Continue on error`; `←`/`→` on `Until — condition` cycles `not exists → exists → == → != → <`
+  - TOML preview and save include `kind`, `until` (inline table), `accumulate` (inline table)
+  - Step summary in pipeline view: `<url> → <acc_var> until <until_var>`
+
+---
+
+## [0.8.2] — 2026-06-26
+
+### Added
+
+- **GraphQL step in builder** (`kind = "graphql"`) — new brick type in the catalog. Fields: URL, GraphQL query (multi-line textarea, `i`/`Esc`), variables (key/value list), headers, assertions, `when`, `foreach`, `continue_on_error`. Badge: `GQL` (magenta). TOML preview and save include `graphql_query` (literal block string) and `[steps.graphql_variables]`. Query and variable values are fully resolved before execution. Supported in `Checker` (undefined `{{VAR}}` references scanned).
+- **Extract item editing in builder** — pressing `Enter` on an extract entry opens edit mode with the value pre-filled; `←`/`→`/`Home`/`End`/`Delete` for cursor navigation within the value; `Enter` to confirm. Hint line updated: `a: add  d: del  Enter: edit  ↑↓: navigate`.
+- **Extract item navigation** — `↑`/`↓` navigate between extract entries (cyan `▶` cursor); `d` deletes the entry under the cursor (not always the last one).
+- **Cursor navigation in all text fields** — `←`/`→` move the insertion cursor within any text field in the step editor (`EditText` mode); `Home`/`End` jump to start/end; `Delete` removes the character under the cursor.
+
+### Fixed
+
+- **TOML preview missing extract / headers / body** — the TOML preview (`p`) used a separate `generate_toml_preview` function that omitted `body`, `headers`, `extract`, `transforms`, `graphql_query`, `graphql_variables`, and file fields. Preview now delegates to the same `generate_toml` used by the save command (`w`).
+- **TOML field ordering** — `when`, `assert`, and `transforms` were serialized after `[steps.extract]`, placing them inside the extract subtable (TOML spec violation). `[steps.graphql_variables]` was also emitted before scalar fields. All inline scalars (`when`/`assert`/`transforms`/`foreach`/`continue_on_error`/etc.) now appear before any `[subtable]` headers.
+- **Run step (`r`) ignores extracted variables from preceding steps** — the single-step preview only received base env (`env_file` + campaign `[env]`). Preceding steps are now executed in sequence to accumulate their extracted variables before the target step runs, so `{{VAR}}` references produced by earlier steps resolve correctly.
+- **`L` (load from collection) not working** — the shortcut only triggered when the cursor was on the `LoadFromCollection` section. Now available globally from any section in HTTP, GraphQL, and Seed step editors.
+- **Builder secondary text readability** — replaced `Indexed(242)` (near-invisible on black) with `Indexed(246)` throughout the builder UI; `Indexed(238)` hints raised to `Indexed(242)`; separator lines raised from `Indexed(236)` to `Indexed(240)`; `DarkGray` elements raised to `Indexed(244)`.
+
+---
+
 ## [0.8.1] — 2026-06-25
 
 ### Changed

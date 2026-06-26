@@ -49,6 +49,19 @@ pub fn sections_for(kind: &str) -> Vec<StepSection> {
             StepSection::ContinueOnError,
             StepSection::LoadFromCollection,
         ],
+        "loop" => vec![
+            StepSection::Name,
+            StepSection::Description,
+            StepSection::LoopMethod,
+            StepSection::LoopUrl,
+            StepSection::LoopHeaders,
+            StepSection::LoopUntilVar,
+            StepSection::LoopUntilCond,
+            StepSection::LoopAccumulateVar,
+            StepSection::LoopAccumulateFrom,
+            StepSection::LoopExtract,
+            StepSection::LoopContinueOnError,
+        ],
         _ => vec![
             StepSection::Name,
             StepSection::Description,
@@ -136,12 +149,12 @@ pub fn handle_key(
     match mode {
         StepEditorMode::Browse =>
             handle_browse(app, key, step_idx, section_cursor, sub_cursor),
-        StepEditorMode::EditText { buffer } =>
-            handle_edit_text(app, key, step_idx, section_cursor, sub_cursor, buffer),
+        StepEditorMode::EditText { buffer, cursor } =>
+            handle_edit_text(app, key, step_idx, section_cursor, sub_cursor, buffer, cursor),
         StepEditorMode::AddPairStage1 { target, buffer } =>
             handle_add_stage1(app, key, step_idx, section_cursor, sub_cursor, target, buffer),
-        StepEditorMode::AddPairStage2 { target, key: pair_key, buffer } =>
-            handle_add_stage2(app, key, step_idx, section_cursor, sub_cursor, target, pair_key, buffer),
+        StepEditorMode::AddPairStage2 { target, key: pair_key, buffer, cursor } =>
+            handle_add_stage2(app, key, step_idx, section_cursor, sub_cursor, target, pair_key, buffer, cursor),
         StepEditorMode::AddAssertPath { buffer } =>
             handle_assert_path(app, key, step_idx, section_cursor, sub_cursor, buffer),
         StepEditorMode::AddAssertOp { path, op } =>
@@ -195,8 +208,12 @@ fn handle_browse(
             return Ok(());
         }
         KeyCode::Up => {
+            // Within Extract: navigate items with sub_cursor before leaving the section
+            if section == StepSection::Extract && sub_cursor > 0 {
+                set_focus(app, step_idx, section_cursor, sub_cursor - 1, StepEditorMode::Browse);
+                return Ok(());
+            }
             if section_cursor == 0 {
-                // Enter comments textarea
                 let comment = app.step_comments.get(step_idx).cloned().unwrap_or_default();
                 let lines: Vec<String> = comment.lines().map(String::from).collect();
                 app.description_textarea = if lines.is_empty() {
@@ -216,6 +233,14 @@ fn handle_browse(
             return Ok(());
         }
         KeyCode::Down => {
+            // Within Extract: navigate items with sub_cursor before leaving the section
+            if section == StepSection::Extract {
+                let len = app.campaign.steps[step_idx].extract.len();
+                if sub_cursor + 1 < len {
+                    set_focus(app, step_idx, section_cursor, sub_cursor + 1, StepEditorMode::Browse);
+                    return Ok(());
+                }
+            }
             let c = (section_cursor + 1).min(n.saturating_sub(1));
             set_focus(app, step_idx, c, 0, StepEditorMode::Browse);
             return Ok(());
@@ -244,19 +269,19 @@ fn handle_browse(
         StepSection::Name => {
             if key.code == KeyCode::Enter {
                 let buf = app.campaign.steps[step_idx].name.clone();
-                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { buffer: buf });
+                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
             }
         }
         StepSection::Description => {
             if key.code == KeyCode::Enter {
                 let buf = app.campaign.steps[step_idx].description.clone();
-                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { buffer: buf });
+                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
             }
         }
         StepSection::Url => {
             if key.code == KeyCode::Enter {
                 let buf = app.campaign.steps[step_idx].url.clone();
-                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { buffer: buf });
+                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
             }
         }
         StepSection::Body => {
@@ -274,39 +299,39 @@ fn handle_browse(
         StepSection::Foreach => {
             if key.code == KeyCode::Enter {
                 let buf = app.campaign.steps[step_idx].foreach.clone().unwrap_or_default();
-                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { buffer: buf });
+                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
             }
         }
         StepSection::WaitMs => {
             if key.code == KeyCode::Enter {
                 let buf = app.campaign.steps[step_idx].wait_ms.to_string();
-                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { buffer: buf });
+                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
             }
         }
         StepSection::TransformInput => {
             if key.code == KeyCode::Enter {
                 let buf = app.campaign.steps[step_idx].transforms.first()
                     .map(|t| t.input.clone()).unwrap_or_default();
-                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { buffer: buf });
+                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
             }
         }
         StepSection::TransformOutput => {
             if key.code == KeyCode::Enter {
                 let buf = app.campaign.steps[step_idx].transforms.first()
                     .map(|t| t.output.clone()).unwrap_or_default();
-                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { buffer: buf });
+                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
             }
         }
         StepSection::FilePath => {
             if key.code == KeyCode::Enter {
                 let buf = app.campaign.steps[step_idx].file_path.clone().unwrap_or_default();
-                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { buffer: buf });
+                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
             }
         }
         StepSection::FileOutput => {
             if key.code == KeyCode::Enter {
                 let buf = app.campaign.steps[step_idx].file_output.clone().unwrap_or_else(|| "FILE_DATA".into());
-                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { buffer: buf });
+                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
             }
         }
         StepSection::FileEncoding => {
@@ -384,10 +409,28 @@ fn handle_browse(
             }
             KeyCode::Char('d') => {
                 let keys = sorted_keys(&app.campaign.steps[step_idx].extract);
-                if let Some(k) = keys.last() {
+                if let Some(k) = keys.get(sub_cursor) {
                     let k = k.clone();
                     app.campaign.steps[step_idx].extract.remove(&k);
                     app.modified = true;
+                    let new_len = app.campaign.steps[step_idx].extract.len();
+                    let new_sub = if new_len == 0 { 0 } else { sub_cursor.min(new_len - 1) };
+                    set_focus(app, step_idx, section_cursor, new_sub, StepEditorMode::Browse);
+                }
+            }
+            KeyCode::Enter => {
+                let keys = sorted_keys(&app.campaign.steps[step_idx].extract);
+                if let Some(k) = keys.get(sub_cursor) {
+                    let k = k.clone();
+                    let v = app.campaign.steps[step_idx].extract.get(&k).cloned().unwrap_or_default();
+                    let cursor = v.chars().count();
+                    set_focus(app, step_idx, section_cursor, sub_cursor,
+                        StepEditorMode::AddPairStage2 {
+                            target: PairTarget::Extract,
+                            key: k,
+                            buffer: v,
+                            cursor,
+                        });
                 }
             }
             _ => {}
@@ -473,6 +516,126 @@ fn handle_browse(
             _ => {}
         },
 
+        // ── Loop sections ─────────────────────────────────────────────────────
+        StepSection::LoopUrl => {
+            if key.code == KeyCode::Enter {
+                let buf = app.campaign.steps[step_idx].url.clone();
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
+            }
+        }
+        StepSection::LoopMethod => {
+            // cycle GET/POST/PUT/PATCH/DELETE
+            if matches!(key.code, KeyCode::Enter | KeyCode::Left | KeyCode::Right) {
+                let step = &mut app.campaign.steps[step_idx];
+                let methods = ["GET","POST","PUT","PATCH","DELETE"];
+                let idx = methods.iter().position(|&m| m == step.method).unwrap_or(0);
+                step.method = methods[if key.code == KeyCode::Left {
+                    (idx + methods.len() - 1) % methods.len()
+                } else {
+                    (idx + 1) % methods.len()
+                }].to_string();
+                app.modified = true;
+            }
+        }
+        StepSection::LoopHeaders => match key.code {
+            KeyCode::Char('a') => {
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::AddPairStage1 { target: PairTarget::Headers, buffer: String::new() });
+            }
+            KeyCode::Char('d') => {
+                let keys = sorted_keys(&app.campaign.steps[step_idx].headers);
+                if let Some(k) = keys.last() {
+                    let k = k.clone();
+                    app.campaign.steps[step_idx].headers.remove(&k);
+                    app.modified = true;
+                }
+            }
+            _ => {}
+        },
+        StepSection::LoopUntilVar => {
+            if key.code == KeyCode::Enter {
+                let buf = app.campaign.steps[step_idx].until.as_ref()
+                    .map(|u| u.var.clone()).unwrap_or_default();
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
+            }
+        }
+        StepSection::LoopUntilCond => {
+            // Cycle: exists=false | exists=true | eq="" | ne=""
+            if matches!(key.code, KeyCode::Enter | KeyCode::Left | KeyCode::Right) {
+                let step = &mut app.campaign.steps[step_idx];
+                let until = step.until.get_or_insert(crate::campaign::StepCondition {
+                    var: "CURSOR".into(), eq: None, ne: None, exists: Some(false), lt: None, lte: None,
+                });
+                // Determine current state index
+                let idx = if until.exists == Some(false) { 0 }
+                    else if until.exists == Some(true) { 1 }
+                    else if until.eq.is_some() { 2 }
+                    else if until.ne.is_some() { 3 }
+                    else if until.lt.is_some() { 4 }
+                    else { 0 };
+                let next = if key.code == KeyCode::Left { (idx + 4) % 5 } else { (idx + 1) % 5 };
+                until.eq = None; until.ne = None; until.exists = None; until.lt = None; until.lte = None;
+                match next {
+                    0 => until.exists = Some(false),
+                    1 => until.exists = Some(true),
+                    2 => until.eq     = Some(String::new()),
+                    3 => until.ne     = Some(String::new()),
+                    _ => until.lt     = Some(0.0),
+                }
+                app.modified = true;
+            }
+        }
+        StepSection::LoopAccumulateVar => {
+            if key.code == KeyCode::Enter {
+                let buf = app.campaign.steps[step_idx].accumulate.as_ref()
+                    .map(|a| a.var.clone()).unwrap_or_default();
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
+            }
+        }
+        StepSection::LoopAccumulateFrom => {
+            if key.code == KeyCode::Enter {
+                let buf = app.campaign.steps[step_idx].accumulate.as_ref()
+                    .map(|a| a.from.clone()).unwrap_or_default();
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
+            }
+        }
+        StepSection::LoopExtract => match key.code {
+            KeyCode::Char('a') => {
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::AddPairStage1 { target: PairTarget::Extract, buffer: String::new() });
+            }
+            KeyCode::Char('d') => {
+                let keys = sorted_keys(&app.campaign.steps[step_idx].extract);
+                if let Some(k) = keys.get(sub_cursor) {
+                    let k = k.clone();
+                    app.campaign.steps[step_idx].extract.remove(&k);
+                    app.modified = true;
+                }
+            }
+            KeyCode::Enter => {
+                let keys = sorted_keys(&app.campaign.steps[step_idx].extract);
+                if let Some(k) = keys.get(sub_cursor) {
+                    let k = k.clone();
+                    let v = app.campaign.steps[step_idx].extract.get(&k).cloned().unwrap_or_default();
+                    let cursor = v.chars().count();
+                    set_focus(app, step_idx, section_cursor, sub_cursor,
+                        StepEditorMode::AddPairStage2 { target: PairTarget::Extract, key: k, buffer: v, cursor });
+                }
+            }
+            _ => {}
+        },
+        StepSection::LoopContinueOnError => {
+            if matches!(key.code, KeyCode::Enter | KeyCode::Char(' ')) {
+                let cur = app.campaign.steps[step_idx].continue_on_error.unwrap_or(false);
+                app.campaign.steps[step_idx].continue_on_error = Some(!cur);
+                app.modified = true;
+            }
+        }
+
         // ── Action ───────────────────────────────────────────────────────────
         StepSection::LoadFromCollection => {
             if matches!(key.code, KeyCode::Enter | KeyCode::Char('L')) {
@@ -517,6 +680,7 @@ fn handle_edit_text(
     section_cursor: usize,
     sub_cursor: usize,
     mut buffer: String,
+    mut cursor: usize,
 ) -> Result<()> {
     let kind = app.campaign.steps[step_idx].kind.clone();
     let sections = sections_for(&kind);
@@ -525,21 +689,47 @@ fn handle_edit_text(
     match key.code {
         KeyCode::Esc => {
             set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
+            return Ok(());
         }
         KeyCode::Enter => {
             apply_text_edit(app, step_idx, &section, &buffer);
             set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
+            return Ok(());
+        }
+        KeyCode::Left => {
+            cursor = cursor.saturating_sub(1);
+        }
+        KeyCode::Right => {
+            cursor = (cursor + 1).min(buffer.chars().count());
+        }
+        KeyCode::Home => {
+            cursor = 0;
+        }
+        KeyCode::End => {
+            cursor = buffer.chars().count();
         }
         KeyCode::Backspace => {
-            buffer.pop();
-            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { buffer });
+            if cursor > 0 {
+                let byte_idx = buffer.char_indices().nth(cursor - 1).map(|(i, _)| i).unwrap_or(0);
+                buffer.remove(byte_idx);
+                cursor -= 1;
+            }
+        }
+        KeyCode::Delete => {
+            let len = buffer.chars().count();
+            if cursor < len {
+                let byte_idx = buffer.char_indices().nth(cursor).map(|(i, _)| i).unwrap_or(0);
+                buffer.remove(byte_idx);
+            }
         }
         KeyCode::Char(c) => {
-            buffer.push(c);
-            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { buffer });
+            let byte_idx = buffer.char_indices().nth(cursor).map(|(i, _)| i).unwrap_or(buffer.len());
+            buffer.insert(byte_idx, c);
+            cursor += 1;
         }
         _ => {}
     }
+    set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditText { buffer, cursor });
     Ok(())
 }
 
@@ -563,6 +753,26 @@ fn apply_text_edit(app: &mut BuilderApp, step_idx: usize, section: &StepSection,
             }
             StepSection::FilePath   => step.file_path   = if value.is_empty() { None } else { Some(value.to_string()) },
             StepSection::FileOutput => step.file_output = if value.is_empty() { None } else { Some(value.to_string()) },
+            // Loop sections
+            StepSection::LoopUrl    => step.url         = value.to_string(),
+            StepSection::LoopUntilVar => {
+                let u = step.until.get_or_insert(crate::campaign::StepCondition {
+                    var: String::new(), eq: None, ne: None, exists: Some(false), lt: None, lte: None,
+                });
+                u.var = value.to_string();
+            }
+            StepSection::LoopAccumulateVar => {
+                let a = step.accumulate.get_or_insert(crate::campaign::AccumulateConfig {
+                    var: String::new(), from: String::new(),
+                });
+                a.var = value.to_string();
+            }
+            StepSection::LoopAccumulateFrom => {
+                let a = step.accumulate.get_or_insert(crate::campaign::AccumulateConfig {
+                    var: String::new(), from: String::new(),
+                });
+                a.from = value.to_string();
+            }
             _ => return,
         }
     }
@@ -587,7 +797,7 @@ fn handle_add_stage1(
         KeyCode::Enter if !buffer.is_empty() => {
             let key_str = buffer.trim().to_string();
             set_focus(app, step_idx, section_cursor, sub_cursor,
-                StepEditorMode::AddPairStage2 { target, key: key_str, buffer: String::new() });
+                StepEditorMode::AddPairStage2 { target, key: key_str, buffer: String::new(), cursor: 0 });
         }
         KeyCode::Backspace => {
             buffer.pop();
@@ -613,6 +823,7 @@ fn handle_add_stage2(
     target: PairTarget,
     pair_key: String,
     mut buffer: String,
+    mut cursor: usize,
 ) -> Result<()> {
     // Tab on Extract value opens the JSON path picker (only when preview result exists)
     if key.code == KeyCode::Tab {
@@ -621,9 +832,8 @@ fn handle_add_stage2(
                 if let Some(ref body) = result.body_json {
                     let paths = collect_json_paths(body);
                     let filter = buffer.clone();
-                    let cursor = 0;
                     set_focus(app, step_idx, section_cursor, sub_cursor,
-                        StepEditorMode::ExtractPicker { key: pair_key, paths, filter, cursor });
+                        StepEditorMode::ExtractPicker { key: pair_key, paths, filter, cursor: 0 });
                     return Ok(());
                 }
             }
@@ -634,6 +844,7 @@ fn handle_add_stage2(
     match key.code {
         KeyCode::Esc => {
             set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
+            return Ok(());
         }
         KeyCode::Enter => {
             let step = &mut app.campaign.steps[step_idx];
@@ -644,19 +855,34 @@ fn handle_add_stage2(
             }
             app.modified = true;
             set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
+            return Ok(());
         }
+        KeyCode::Left  => { cursor = cursor.saturating_sub(1); }
+        KeyCode::Right => { cursor = (cursor + 1).min(buffer.chars().count()); }
+        KeyCode::Home  => { cursor = 0; }
+        KeyCode::End   => { cursor = buffer.chars().count(); }
         KeyCode::Backspace => {
-            buffer.pop();
-            set_focus(app, step_idx, section_cursor, sub_cursor,
-                StepEditorMode::AddPairStage2 { target, key: pair_key, buffer });
+            if cursor > 0 {
+                let byte_idx = buffer.char_indices().nth(cursor - 1).map(|(i, _)| i).unwrap_or(0);
+                buffer.remove(byte_idx);
+                cursor -= 1;
+            }
+        }
+        KeyCode::Delete => {
+            if cursor < buffer.chars().count() {
+                let byte_idx = buffer.char_indices().nth(cursor).map(|(i, _)| i).unwrap_or(0);
+                buffer.remove(byte_idx);
+            }
         }
         KeyCode::Char(c) => {
-            buffer.push(c);
-            set_focus(app, step_idx, section_cursor, sub_cursor,
-                StepEditorMode::AddPairStage2 { target, key: pair_key, buffer });
+            let byte_idx = buffer.char_indices().nth(cursor).map(|(i, _)| i).unwrap_or(buffer.len());
+            buffer.insert(byte_idx, c);
+            cursor += 1;
         }
         _ => {}
     }
+    set_focus(app, step_idx, section_cursor, sub_cursor,
+        StepEditorMode::AddPairStage2 { target, key: pair_key, buffer, cursor });
     Ok(())
 }
 
@@ -677,11 +903,12 @@ fn handle_extract_picker(
 
     match key.code {
         KeyCode::Esc | KeyCode::Tab => {
-            // Return to stage2 with the current filter as buffer
+            let len = filter.chars().count();
             set_focus(app, step_idx, section_cursor, sub_cursor,
                 StepEditorMode::AddPairStage2 {
                     target: PairTarget::Extract,
                     key: pair_key,
+                    cursor: len,
                     buffer: filter,
                 });
         }
@@ -708,13 +935,11 @@ fn handle_extract_picker(
         }
         KeyCode::Backspace => {
             filter.pop();
-            cursor = 0;
             set_focus(app, step_idx, section_cursor, sub_cursor,
                 StepEditorMode::ExtractPicker { key: pair_key, paths, filter, cursor: 0 });
         }
         KeyCode::Char(c) => {
             filter.push(c);
-            cursor = 0;
             set_focus(app, step_idx, section_cursor, sub_cursor,
                 StepEditorMode::ExtractPicker { key: pair_key, paths, filter, cursor: 0 });
         }
@@ -957,7 +1182,7 @@ fn handle_when_value(
 fn build_when(var: &str, op_idx: usize, value: &str) -> crate::campaign::StepCondition {
     let mut w = crate::campaign::StepCondition {
         var: var.to_string(),
-        eq: None, ne: None, exists: None,
+        eq: None, ne: None, exists: None, lt: None, lte: None,
     };
     match op_idx {
         0 => w.eq     = Some(value.to_string()),
@@ -1004,6 +1229,24 @@ pub fn current_value(app: &BuilderApp, step_idx: usize, section: &StepSection) -
         StepSection::GraphqlQuery     => step.graphql_query.clone().unwrap_or_default(),
         StepSection::GraphqlVariables => format!("({} vars)", step.graphql_variables.len()),
         StepSection::LoadFromCollection => String::new(),
+        // Loop sections
+        StepSection::LoopUrl            => step.url.clone(),
+        StepSection::LoopMethod         => step.method.clone(),
+        StepSection::LoopHeaders        => format!("({} items)", step.headers.len()),
+        StepSection::LoopExtract        => format!("({} items)", step.extract.len()),
+        StepSection::LoopContinueOnError =>
+            if step.continue_on_error.unwrap_or(false) { "[x]".into() } else { "[ ]".into() },
+        StepSection::LoopUntilVar       => step.until.as_ref().map(|u| u.var.clone()).unwrap_or_default(),
+        StepSection::LoopUntilCond      => step.until.as_ref().map(|u| {
+            if u.exists == Some(false) { "not exists".into() }
+            else if u.exists == Some(true) { "exists".into() }
+            else if let Some(eq) = &u.eq { format!("== \"{}\"", eq) }
+            else if let Some(ne) = &u.ne { format!("!= \"{}\"", ne) }
+            else if let Some(lt) = &u.lt { format!("< {}", lt) }
+            else { "not exists".into() }
+        }).unwrap_or_else(|| "not exists".into()),
+        StepSection::LoopAccumulateVar  => step.accumulate.as_ref().map(|a| a.var.clone()).unwrap_or_default(),
+        StepSection::LoopAccumulateFrom => step.accumulate.as_ref().map(|a| a.from.clone()).unwrap_or_default(),
     }
 }
 

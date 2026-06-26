@@ -61,7 +61,7 @@ fn render_quit_confirm(frame: &mut Frame, area: Rect) {
             Span::raw(" save & quit    "),
             Span::styled("[n]", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
             Span::raw(" quit without saving    "),
-            Span::styled("[Esc]", Style::default().fg(Color::DarkGray)),
+            Span::styled("[Esc]", Style::default().fg(Color::Indexed(244))),
             Span::raw(" cancel"),
         ]),
     ];
@@ -84,7 +84,7 @@ fn render_pipeline(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     let border_style = if in_pipeline {
         Style::default().fg(Color::Cyan)
     } else {
-        Style::default().fg(Color::DarkGray)
+        Style::default().fg(Color::Indexed(244))
     };
     let conn_cursor = if let BuilderFocus::PipelineConnectors { cursor } = app.focus { Some(cursor) } else { None };
     let out_cursor  = if let BuilderFocus::PipelineOutputs  { cursor } = app.focus { Some(cursor) } else { None };
@@ -110,15 +110,15 @@ fn render_pipeline(frame: &mut Frame, app: &BuilderApp, area: Rect) {
             ])));
         }
         items.push(ListItem::new(Line::from(
-            Span::styled("─".repeat(50), Style::default().fg(Color::Indexed(236))),
+            Span::styled("─".repeat(50), Style::default().fg(Color::Indexed(240))),
         )));
     }
 
     // ── Inputs section ────────────────────────────────────────────────────────
     if !app.campaign.connectors.is_empty() {
         items.push(ListItem::new(Line::from(vec![
-            Span::styled("── Inputs ", Style::default().fg(Color::Indexed(236))),
-            Span::styled("─".repeat(38), Style::default().fg(Color::Indexed(236))),
+            Span::styled("── Inputs ", Style::default().fg(Color::Indexed(240))),
+            Span::styled("─".repeat(38), Style::default().fg(Color::Indexed(240))),
         ])));
         for (ci, c) in app.campaign.connectors.iter().enumerate() {
             let selected = conn_cursor == Some(ci);
@@ -135,19 +135,19 @@ fn render_pipeline(frame: &mut Frame, app: &BuilderApp, area: Rect) {
                 Span::styled(format!("[{:<3}] ", c.kind.to_uppercase()), Style::default().fg(kind_color).add_modifier(if selected { Modifier::BOLD } else { Modifier::empty() })),
                 Span::styled(path_or_step, if selected { Style::default().fg(Color::White) } else { Style::default().fg(Color::Indexed(250)) }),
                 if let Some(ref s) = c.select {
-                    Span::styled(format!("  select:{}", s), Style::default().fg(Color::Indexed(242)))
+                    Span::styled(format!("  select:{}", s), Style::default().fg(Color::Indexed(246)))
                 } else { Span::raw("") },
-                if selected { Span::styled("  Enter:edit  d:del", Style::default().fg(Color::Indexed(238))) } else { Span::raw("") },
+                if selected { Span::styled("  Enter:edit  d:del", Style::default().fg(Color::Indexed(242))) } else { Span::raw("") },
             ])));
         }
         items.push(ListItem::new(Line::from(
-            Span::styled("─".repeat(48), Style::default().fg(Color::Indexed(236))),
+            Span::styled("─".repeat(48), Style::default().fg(Color::Indexed(240))),
         )));
     }
 
     if app.campaign.steps.is_empty() {
         items.push(ListItem::new(Line::from(
-            Span::styled("No steps — n: add from catalog", Style::default().fg(Color::Indexed(242))),
+            Span::styled("No steps — n: add from catalog", Style::default().fg(Color::Indexed(246))),
         )));
         frame.render_widget(List::new(items), inner);
         return;
@@ -162,7 +162,7 @@ fn render_pipeline(frame: &mut Frame, app: &BuilderApp, area: Rect) {
             let style = if selected {
                 Style::default().fg(Color::White).add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(Color::Indexed(238))
+                Style::default().fg(Color::Indexed(242))
             };
             items.push(ListItem::new(Line::from(vec![
                 Span::styled(
@@ -180,7 +180,7 @@ fn render_pipeline(frame: &mut Frame, app: &BuilderApp, area: Rect) {
                     let comment_style = if selected {
                         Style::default().fg(Color::Indexed(250)).add_modifier(Modifier::ITALIC)
                     } else {
-                        Style::default().fg(Color::Indexed(236))
+                        Style::default().fg(Color::Indexed(240))
                     };
                     items.push(ListItem::new(Line::from(vec![
                         Span::styled(
@@ -200,7 +200,7 @@ fn render_pipeline(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         let num_span = Span::styled(
             format!("{}[{}] ", cursor_char, step_number),
             if selected { Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD) }
-            else         { Style::default().fg(Color::Indexed(242)) },
+            else         { Style::default().fg(Color::Indexed(246)) },
         );
         let run_span = if let Some((icon, color)) = run_mark {
             Span::styled(format!("{} ", icon), Style::default().fg(color).add_modifier(Modifier::BOLD))
@@ -233,14 +233,14 @@ fn render_pipeline(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         if let Some(foreach) = &step.foreach {
             items.push(ListItem::new(Line::from(vec![
                 Span::raw("         "),
-                Span::styled(format!("↻ foreach: {}", foreach), Style::default().fg(Color::Indexed(242))),
+                Span::styled(format!("↻ foreach: {}", foreach), Style::default().fg(Color::Indexed(246))),
             ])));
         }
         if let Some(when) = &step.when {
             let label = when_label(when);
             items.push(ListItem::new(Line::from(vec![
                 Span::raw("         "),
-                Span::styled(label, Style::default().fg(Color::Indexed(242))),
+                Span::styled(label, Style::default().fg(Color::Indexed(246))),
             ])));
         }
         if !step.assert.is_empty() {
@@ -252,7 +252,7 @@ fn render_pipeline(frame: &mut Frame, app: &BuilderApp, area: Rect) {
             if n > 2 { label.push_str(&format!("  +{}", n - 2)); }
             items.push(ListItem::new(Line::from(vec![
                 Span::raw("         "),
-                Span::styled(label, Style::default().fg(Color::Indexed(242))),
+                Span::styled(label, Style::default().fg(Color::Indexed(246))),
             ])));
         }
     }
@@ -267,11 +267,11 @@ fn render_pipeline(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     // ── Outputs section ───────────────────────────────────────────────────────
     if !app.campaign.outputs.is_empty() {
         items.push(ListItem::new(Line::from(
-            Span::styled("─".repeat(48), Style::default().fg(Color::Indexed(236))),
+            Span::styled("─".repeat(48), Style::default().fg(Color::Indexed(240))),
         )));
         items.push(ListItem::new(Line::from(vec![
-            Span::styled("── Outputs ", Style::default().fg(Color::Indexed(236))),
-            Span::styled("─".repeat(37), Style::default().fg(Color::Indexed(236))),
+            Span::styled("── Outputs ", Style::default().fg(Color::Indexed(240))),
+            Span::styled("─".repeat(37), Style::default().fg(Color::Indexed(240))),
         ])));
         for (oi, o) in app.campaign.outputs.iter().enumerate() {
             let selected = out_cursor == Some(oi);
@@ -281,14 +281,14 @@ fn render_pipeline(frame: &mut Frame, app: &BuilderApp, area: Rect) {
                 Span::styled(prefix, if selected { Style::default().fg(Color::White).add_modifier(Modifier::BOLD) } else { Style::default() }),
                 Span::styled("[OUT] ", badge_style),
                 Span::styled(format!("{:<18}", truncate(&o.from_step, 18)), if selected { Style::default().fg(Color::White) } else { Style::default().fg(Color::Indexed(250)) }),
-                Span::styled("→ ", Style::default().fg(Color::Indexed(242))),
+                Span::styled("→ ", Style::default().fg(Color::Indexed(246))),
                 Span::styled(truncate(&o.path, 18), Style::default().fg(Color::Yellow)),
-                if selected { Span::styled("  Enter:edit  d:del", Style::default().fg(Color::Indexed(238))) } else { Span::raw("") },
+                if selected { Span::styled("  Enter:edit  d:del", Style::default().fg(Color::Indexed(242))) } else { Span::raw("") },
             ])));
             if !o.include_vars.is_empty() {
                 items.push(ListItem::new(Line::from(Span::styled(
                     format!("         vars: {}", o.include_vars.join(", ")),
-                    Style::default().fg(Color::Indexed(242)),
+                    Style::default().fg(Color::Indexed(246)),
                 ))));
             }
         }
@@ -301,11 +301,12 @@ fn render_pipeline(frame: &mut Frame, app: &BuilderApp, area: Rect) {
 fn step_badge(kind: &str) -> (&'static str, Color) {
     match kind {
         "transform" => ("TRSF", Color::Yellow),
-        "pause"     => ("WAIT", Color::Indexed(242)),
+        "pause"     => ("WAIT", Color::Indexed(246)),
         "seed"      => ("SEED", Color::Blue),
-        "comment"   => ("#   ", Color::Indexed(238)),
+        "comment"   => ("#   ", Color::Indexed(242)),
         "file"      => ("FILE", Color::Magenta),
         "graphql"   => ("GQL ", Color::Magenta),
+        "loop"      => ("LOOP", Color::Green),
         _           => ("HTTP", Color::Cyan),
     }
 }
@@ -329,6 +330,12 @@ fn step_summary(step: &crate::campaign::Step) -> String {
         "graphql" => {
             let url = &step.url;
             if url.is_empty() { "no URL".into() } else { url.clone() }
+        }
+        "loop" => {
+            let acc = step.accumulate.as_ref().map(|a| a.var.clone()).unwrap_or_default();
+            let until_var = step.until.as_ref().map(|u| u.var.clone()).unwrap_or_default();
+            if acc.is_empty() { format!("{} until {}", step.url, until_var) }
+            else { format!("{} → {} until {}", step.url, acc, until_var) }
         }
         _ => {
             let url = if step.url.len() > 30 { format!("…{}", &step.url[step.url.len().saturating_sub(27)..]) }
@@ -392,7 +399,7 @@ fn render_pipeline_hint(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     let block = Block::default()
         .title(" Help ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Indexed(242)));
+        .border_style(Style::default().fg(Color::Indexed(246)));
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -416,7 +423,7 @@ fn render_pipeline_hint(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         Line::from(""),
         Line::from(Span::styled(
             format!("{} step{}", step_count, if step_count != 1 { "s" } else { "" }),
-            Style::default().fg(Color::Indexed(242)),
+            Style::default().fg(Color::Indexed(246)),
         )),
     ];
 
@@ -441,7 +448,7 @@ fn render_catalog(frame: &mut Frame, cursor: usize, area: Rect) {
         } else {
             Style::default().fg(Color::Indexed(250))
         };
-        let desc_style = Style::default().fg(Color::Indexed(242));
+        let desc_style = Style::default().fg(Color::Indexed(246));
         ListItem::new(Line::from(vec![
             Span::styled(format!("{}{:<14}", prefix, brick.label()), style),
             Span::styled(brick.description(), desc_style),
@@ -449,7 +456,7 @@ fn render_catalog(frame: &mut Frame, cursor: usize, area: Rect) {
     }).collect();
 
     let hint = ListItem::new(Line::from(vec![
-        Span::styled("  ↑↓: choose  Enter: create  Esc: cancel", Style::default().fg(Color::Indexed(242))),
+        Span::styled("  ↑↓: choose  Enter: create  Esc: cancel", Style::default().fg(Color::Indexed(246))),
     ]));
 
     let mut all = items;
@@ -491,7 +498,7 @@ fn render_campaign_settings(
         let label_style = if is_cursor {
             Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(Color::Indexed(242))
+            Style::default().fg(Color::Indexed(246))
         };
 
         let value_span = if is_cursor {
@@ -520,7 +527,7 @@ fn render_campaign_settings(
             "Type to edit  Enter: confirm  Esc: cancel",
     };
     rows.push(ListItem::new(Line::from(
-        Span::styled(hints, Style::default().fg(Color::Indexed(242)))
+        Span::styled(hints, Style::default().fg(Color::Indexed(246)))
     )));
 
     frame.render_widget(List::new(rows), inner);
@@ -533,7 +540,7 @@ fn settings_value_span(app: &BuilderApp, field_idx: usize, is_cursor: bool) -> S
         1 => {
             let d = &app.campaign.campaign.description;
             if d.is_empty() {
-                Span::styled("—", Style::default().fg(Color::Indexed(242)))
+                Span::styled("—", Style::default().fg(Color::Indexed(246)))
             } else {
                 Span::styled(d.clone(), Style::default().fg(color))
             }
@@ -542,7 +549,7 @@ fn settings_value_span(app: &BuilderApp, field_idx: usize, is_cursor: bool) -> S
             if app.campaign.continue_on_error {
                 Span::styled("[x] enabled", Style::default().fg(Color::Green))
             } else {
-                Span::styled("[ ] disabled", Style::default().fg(Color::Indexed(242)))
+                Span::styled("[ ] disabled", Style::default().fg(Color::Indexed(246)))
             }
         }
         3 => {
@@ -551,7 +558,7 @@ fn settings_value_span(app: &BuilderApp, field_idx: usize, is_cursor: bool) -> S
         }
         4 => {
             let n = app.campaign.params.len();
-            if n == 0 { Span::styled("(none)  Enter: manage", Style::default().fg(Color::Indexed(242))) }
+            if n == 0 { Span::styled("(none)  Enter: manage", Style::default().fg(Color::Indexed(246))) }
             else       { Span::styled(format!("({})  Enter: manage", n), Style::default().fg(Color::Cyan)) }
         }
         _ => Span::raw(""),
@@ -581,7 +588,7 @@ fn render_checker(frame: &mut Frame, results: &[super::types::CheckResult], area
 
     let mut all = lines;
     all.push(Line::from(""));
-    all.push(Line::from(Span::styled("Esc: close", Style::default().fg(Color::Indexed(242)))));
+    all.push(Line::from(Span::styled("Esc: close", Style::default().fg(Color::Indexed(246)))));
 
     frame.render_widget(Paragraph::new(all), inner);
 }
@@ -617,7 +624,7 @@ fn render_variables(frame: &mut Frame, app: &BuilderApp, cursor: usize, mode: &V
     let mut rows: Vec<ListItem> = Vec::new();
 
     if vars.is_empty() && matches!(mode, VariablesMode::Browse) {
-        rows.push(ListItem::new(Line::from(Span::styled("No variables — a: add", Style::default().fg(Color::Indexed(242))))));
+        rows.push(ListItem::new(Line::from(Span::styled("No variables — a: add", Style::default().fg(Color::Indexed(246))))));
     }
 
     for (i, (k, v)) in vars.iter().enumerate() {
@@ -640,7 +647,7 @@ fn render_variables(frame: &mut Frame, app: &BuilderApp, cursor: usize, mode: &V
             let fi = fi as u8;
             let is_active = fi == *field;
             let val = if fi == 0 { var_key.as_str() } else { var_value.as_str() };
-            let label_style = if is_active { Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::Indexed(242)) };
+            let label_style = if is_active { Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::Indexed(246)) };
             let val_span = if is_active {
                 Span::styled(format!("[ {}_]", val), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
             } else {
@@ -654,12 +661,12 @@ fn render_variables(frame: &mut Frame, app: &BuilderApp, cursor: usize, mode: &V
         rows.push(ListItem::new(Line::from("")));
         rows.push(ListItem::new(Line::from(Span::styled(
             "Tab/Enter: next field / save  Esc: cancel",
-            Style::default().fg(Color::Indexed(242)),
+            Style::default().fg(Color::Indexed(246)),
         ))));
     } else {
         rows.push(ListItem::new(Line::from("")));
         rows.push(ListItem::new(Line::from(
-            Span::styled("a: add  d: del  Enter: edit  Esc: close", Style::default().fg(Color::Indexed(242)))
+            Span::styled("a: add  d: del  Enter: edit  Esc: close", Style::default().fg(Color::Indexed(246)))
         )));
     }
 
@@ -685,13 +692,13 @@ fn render_body_editor(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     let hints = vec![
         Span::styled("Esc", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
         Span::raw(": save & close   "),
-        Span::styled("Enter", Style::default().fg(Color::Indexed(242))),
+        Span::styled("Enter", Style::default().fg(Color::Indexed(246))),
         Span::raw(": new line   "),
-        Span::styled("Ctrl+H / Backspace", Style::default().fg(Color::Indexed(242))),
+        Span::styled("Ctrl+H / Backspace", Style::default().fg(Color::Indexed(246))),
         Span::raw(": delete"),
     ];
     frame.render_widget(
-        Paragraph::new(Line::from(hints)).style(Style::default().fg(Color::Indexed(242))),
+        Paragraph::new(Line::from(hints)).style(Style::default().fg(Color::Indexed(246))),
         chunks[1],
     );
 }
@@ -715,13 +722,13 @@ fn render_graphql_query_editor(frame: &mut Frame, app: &BuilderApp, area: Rect) 
     let hints = vec![
         Span::styled("Esc", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
         Span::raw(": save & close   "),
-        Span::styled("Enter", Style::default().fg(Color::Indexed(242))),
+        Span::styled("Enter", Style::default().fg(Color::Indexed(246))),
         Span::raw(": new line   "),
-        Span::styled("Ctrl+H / Backspace", Style::default().fg(Color::Indexed(242))),
+        Span::styled("Ctrl+H / Backspace", Style::default().fg(Color::Indexed(246))),
         Span::raw(": delete"),
     ];
     frame.render_widget(
-        Paragraph::new(Line::from(hints)).style(Style::default().fg(Color::Indexed(242))),
+        Paragraph::new(Line::from(hints)).style(Style::default().fg(Color::Indexed(246))),
         chunks[1],
     );
 }
@@ -731,7 +738,7 @@ fn render_step_preview(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         let block = Block::default()
             .title(" Run result ")
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Indexed(242)));
+            .border_style(Style::default().fg(Color::Indexed(246)));
         let inner = block.inner(area);
         frame.render_widget(block, area);
         frame.render_widget(
@@ -775,9 +782,9 @@ fn render_step_preview(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     lines.push(Line::from(vec![
         Span::styled(status_str, Style::default().fg(status_color).add_modifier(Modifier::BOLD)),
         Span::raw("  "),
-        Span::styled(format!("{} ms", result.duration_ms), Style::default().fg(Color::Indexed(242))),
+        Span::styled(format!("{} ms", result.duration_ms), Style::default().fg(Color::Indexed(246))),
         Span::raw("  "),
-        Span::styled(url_display, Style::default().fg(Color::Indexed(242))),
+        Span::styled(url_display, Style::default().fg(Color::Indexed(246))),
     ]));
 
     // Error
@@ -819,13 +826,13 @@ fn render_step_preview(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         for line in body_str.lines().take(6) {
             lines.push(Line::from(Span::styled(
                 line.to_string(),
-                Style::default().fg(Color::Indexed(242)),
+                Style::default().fg(Color::Indexed(246)),
             )));
         }
         if total > 6 {
             lines.push(Line::from(Span::styled(
                 format!("… ({} more lines)", total - 6),
-                Style::default().fg(Color::Indexed(238)),
+                Style::default().fg(Color::Indexed(242)),
             )));
         }
     }
@@ -838,7 +845,7 @@ fn render_step_editor(
     app: &BuilderApp,
     step_idx: usize,
     section_cursor: usize,
-    _sub_cursor: usize,
+    sub_cursor: usize,
     mode: &StepEditorMode,
     desc_active: bool,
     area: Rect,
@@ -892,7 +899,7 @@ fn render_step_editor(
         let label_style = if is_cursor {
             Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(Color::Indexed(242))
+            Style::default().fg(Color::Indexed(246))
         };
 
         let cursor_char = if is_cursor { "▶ " } else { "  " };
@@ -900,19 +907,24 @@ fn render_step_editor(
 
         let value_span = if is_cursor {
             match mode {
-                StepEditorMode::EditText { buffer } => Span::styled(
-                    format!("[ {}_]", buffer),
-                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
-                ),
+                StepEditorMode::EditText { buffer, cursor } => {
+                    let cursor = (*cursor).min(buffer.chars().count());
+                    let before: String = buffer.chars().take(cursor).collect();
+                    let after: String  = buffer.chars().skip(cursor).collect();
+                    Span::styled(
+                        format!("[ {}▌{}]", before, after),
+                        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                    )
+                }
                 StepEditorMode::AddPairStage1 { .. } | StepEditorMode::AddPairStage2 { .. }
                     if section.is_list() =>
-                    Span::styled(format!("({} items)", list_count(app, step_idx, section)), Style::default().fg(Color::Indexed(242))),
+                    Span::styled(format!("({} items)", list_count(app, step_idx, section)), Style::default().fg(Color::Indexed(246))),
                 StepEditorMode::AddAssertPath { .. } | StepEditorMode::AddAssertOp { .. } | StepEditorMode::AddAssertValue { .. }
                     if *section == StepSection::Assertions =>
-                    Span::styled(format!("({} items)  +", list_count(app, step_idx, section)), Style::default().fg(Color::Indexed(242))),
+                    Span::styled(format!("({} items)  +", list_count(app, step_idx, section)), Style::default().fg(Color::Indexed(246))),
                 StepEditorMode::AddMultipart { .. }
                     if *section == StepSection::MultipartParts =>
-                    Span::styled(format!("({} parts)  +", list_count(app, step_idx, section)), Style::default().fg(Color::Indexed(242))),
+                    Span::styled(format!("({} parts)  +", list_count(app, step_idx, section)), Style::default().fg(Color::Indexed(246))),
                 StepEditorMode::EditWhenVar { .. } | StepEditorMode::EditWhenOp { .. } | StepEditorMode::EditWhenValue { .. }
                     if *section == StepSection::When =>
                     Span::styled("editing…", Style::default().fg(Color::Yellow)),
@@ -923,12 +935,19 @@ fn render_step_editor(
         };
 
         let hint_span = if is_cursor && matches!(mode, StepEditorMode::Browse) {
-            if section.is_list() {
-                Span::styled("  a: add  d: del", Style::default().fg(Color::Indexed(242)))
+            if matches!(section, StepSection::Extract | StepSection::LoopExtract) {
+                let has_items = !app.campaign.steps[step_idx].extract.is_empty();
+                if has_items {
+                    Span::styled("  a: add  d: del  Enter: edit  ↑↓: navigate", Style::default().fg(Color::Indexed(246)))
+                } else {
+                    Span::styled("  a: add", Style::default().fg(Color::Indexed(246)))
+                }
+            } else if section.is_list() {
+                Span::styled("  a: add  d: del", Style::default().fg(Color::Indexed(246)))
             } else if *section == StepSection::When {
-                Span::styled("  Enter: edit  d: clear", Style::default().fg(Color::Indexed(242)))
+                Span::styled("  Enter: edit  d: clear", Style::default().fg(Color::Indexed(246)))
             } else if *section == StepSection::GraphqlQuery {
-                Span::styled("  Enter: edit query", Style::default().fg(Color::Indexed(242)))
+                Span::styled("  Enter: edit query", Style::default().fg(Color::Indexed(246)))
             } else {
                 Span::raw("")
             }
@@ -944,12 +963,17 @@ fn render_step_editor(
 
         if section.is_list() {
             let items = list_items_for(app, step_idx, section);
-            for item_str in &items {
+            for (item_idx, item_str) in items.iter().enumerate() {
+                let item_active = is_cursor && item_idx == sub_cursor;
                 rows.push(ListItem::new(Line::from(vec![
                     Span::raw("     "),
                     Span::styled(
-                        format!("  {}", item_str),
-                        Style::default().fg(if is_cursor { Color::Indexed(250) } else { Color::Indexed(242) }),
+                        format!("{} {}", if item_active { "▶" } else { " " }, item_str),
+                        if item_active {
+                            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+                        } else {
+                            Style::default().fg(if is_cursor { Color::Indexed(250) } else { Color::Indexed(246) })
+                        },
                     ),
                 ])));
             }
@@ -960,8 +984,11 @@ fn render_step_editor(
                 StepEditorMode::AddPairStage1 { buffer, .. } => {
                     rows.push(sub_row(format!("Key : [ {}_]", buffer), Color::Yellow));
                 }
-                StepEditorMode::AddPairStage2 { key, buffer, .. } => {
-                    rows.push(sub_row(format!("{} : [ {}_]", key, buffer), Color::Yellow));
+                StepEditorMode::AddPairStage2 { key, buffer, cursor, .. } => {
+                    let cur = (*cursor).min(buffer.chars().count());
+                    let before: String = buffer.chars().take(cur).collect();
+                    let after: String  = buffer.chars().skip(cur).collect();
+                    rows.push(sub_row(format!("{} : [ {}▌{}]", key, before, after), Color::Yellow));
                 }
                 StepEditorMode::AddAssertPath { buffer } if *section == StepSection::Assertions => {
                     rows.push(sub_row(format!("Path : [ {}_]", buffer), Color::Yellow));
@@ -990,7 +1017,7 @@ fn render_step_editor(
                     if *stage == 1 {
                         rows.push(sub_row(
                             "  Tip: prefix value with @ for binary file  (e.g. @/path/to/file.png)".into(),
-                            Color::Indexed(242),
+                            Color::Indexed(246),
                         ));
                     }
                 }
@@ -1046,7 +1073,7 @@ fn render_step_editor(
         StepEditorMode::ExtractPicker { .. } => "", // overlay rendered below
     };
     rows.push(ListItem::new(Line::from(
-        Span::styled(hints, Style::default().fg(Color::Indexed(242)))
+        Span::styled(hints, Style::default().fg(Color::Indexed(246)))
     )));
 
     frame.render_widget(List::new(rows), sections_area);
@@ -1089,7 +1116,7 @@ fn render_extract_picker(
 
     frame.render_widget(
         Paragraph::new(Line::from(vec![
-            Span::styled("filter: ", Style::default().fg(Color::Indexed(242))),
+            Span::styled("filter: ", Style::default().fg(Color::Indexed(246))),
             Span::styled(filter, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
             Span::styled("█", Style::default().fg(Color::Magenta)),
         ])),
@@ -1109,7 +1136,7 @@ fn render_extract_picker(
             } else {
                 ListItem::new(Line::from(vec![
                     Span::raw("  "),
-                    Span::styled(path.as_str(), Style::default().fg(Color::Indexed(242))),
+                    Span::styled(path.as_str(), Style::default().fg(Color::Indexed(246))),
                 ]))
             }
         })
@@ -1117,7 +1144,7 @@ fn render_extract_picker(
 
     if items.is_empty() {
         frame.render_widget(
-            Paragraph::new(Span::styled("(no matches)", Style::default().fg(Color::Indexed(238)))),
+            Paragraph::new(Span::styled("(no matches)", Style::default().fg(Color::Indexed(242)))),
             list_area,
         );
     } else {
@@ -1135,7 +1162,7 @@ fn render_description_area(
     let border_style = if desc_active {
         Style::default().fg(Color::Yellow)
     } else {
-        Style::default().fg(Color::Indexed(238))
+        Style::default().fg(Color::Indexed(242))
     };
     let title = if desc_active {
         " Comments — Esc: done "
@@ -1161,7 +1188,7 @@ fn render_description_area(
         if comment.is_empty() {
             frame.render_widget(
                 Paragraph::new("(none — ↑ to add)")
-                    .style(Style::default().fg(Color::Indexed(238))),
+                    .style(Style::default().fg(Color::Indexed(242))),
                 inner,
             );
         } else {
@@ -1170,7 +1197,7 @@ fn render_description_area(
                 .take(5)
                 .map(|l| Line::from(Span::styled(
                     format!("# {}", l),
-                    Style::default().fg(Color::Indexed(242)).add_modifier(Modifier::ITALIC),
+                    Style::default().fg(Color::Indexed(246)).add_modifier(Modifier::ITALIC),
                 )))
                 .collect();
             frame.render_widget(Paragraph::new(lines), inner);
@@ -1202,7 +1229,7 @@ fn value_span_for<'a>(app: &'a BuilderApp, step_idx: usize, section: &StepSectio
             Span::styled("Enter / L", Style::default().fg(Color::Cyan))
         }
         _ if val.is_empty() => {
-            Span::styled("—", Style::default().fg(Color::Indexed(242)))
+            Span::styled("—", Style::default().fg(Color::Indexed(246)))
         }
         _ => {
             Span::styled(truncate(&val, 38), Style::default().fg(color))
@@ -1259,6 +1286,16 @@ fn list_items_for(app: &BuilderApp, step_idx: usize, section: &StepSection) -> V
                 }
             }).collect()
         }
+        StepSection::LoopHeaders => {
+            sorted_keys(&step.headers).into_iter()
+                .map(|k| format!("{}: {}", k, step.headers.get(&k).cloned().unwrap_or_default()))
+                .collect()
+        }
+        StepSection::LoopExtract => {
+            sorted_keys(&step.extract).into_iter()
+                .map(|k| format!("{} = {}", k, step.extract.get(&k).cloned().unwrap_or_default()))
+                .collect()
+        }
         _ => vec![],
     }
 }
@@ -1290,7 +1327,7 @@ fn render_collection_browser(
 
     if app.stored_collections.is_empty() {
         let hint = Paragraph::new("No collections — Esc: cancel")
-            .style(Style::default().fg(Color::Indexed(242)));
+            .style(Style::default().fg(Color::Indexed(246)));
         frame.render_widget(hint, inner);
         return;
     }
@@ -1339,7 +1376,7 @@ fn render_collection_browser(
     items.push(ListItem::new(Line::from(
         Span::styled(
             "↑↓: navigate  Space: expand/collapse  Enter: load  Esc: cancel",
-            Style::default().fg(Color::Indexed(242)),
+            Style::default().fg(Color::Indexed(246)),
         ),
     )));
 
@@ -1353,7 +1390,7 @@ fn method_color(method: &str) -> Color {
         "PUT"    => Color::Blue,
         "PATCH"  => Color::Magenta,
         "DELETE" => Color::Red,
-        _        => Color::Indexed(242),
+        _        => Color::Indexed(246),
     }
 }
 
@@ -1377,7 +1414,7 @@ fn render_params_editor(
     let mut rows: Vec<ListItem> = Vec::new();
     rows.push(ListItem::new(Line::from(Span::styled(
         "Parameters passed at runtime (terapi run … --param KEY=val)",
-        Style::default().fg(Color::Indexed(242)),
+        Style::default().fg(Color::Indexed(246)),
     ))));
     rows.push(ListItem::new(Line::from("")));
 
@@ -1385,7 +1422,7 @@ fn render_params_editor(
 
     if params.is_empty() && matches!(mode, ParamEditorMode::Browse) {
         rows.push(ListItem::new(Line::from(
-            Span::styled("No parameters — a: add", Style::default().fg(Color::Indexed(242))),
+            Span::styled("No parameters — a: add", Style::default().fg(Color::Indexed(246))),
         )));
     }
 
@@ -1402,7 +1439,7 @@ fn render_params_editor(
             Span::styled(format!("{}{:<20}", prefix, p.name), name_style),
             Span::styled(truncate(default_str, 20), Style::default().fg(Color::Yellow)),
             if !p.description.is_empty() {
-                Span::styled(format!("  {}", truncate(&p.description, 24)), Style::default().fg(Color::Indexed(242)))
+                Span::styled(format!("  {}", truncate(&p.description, 24)), Style::default().fg(Color::Indexed(246)))
             } else {
                 Span::raw("")
             },
@@ -1439,7 +1476,7 @@ fn render_params_editor(
 
     rows.push(ListItem::new(Line::from("")));
     rows.push(ListItem::new(Line::from(
-        Span::styled(hint, Style::default().fg(Color::Indexed(242))),
+        Span::styled(hint, Style::default().fg(Color::Indexed(246))),
     )));
 
     frame.render_widget(List::new(rows), inner);
@@ -1470,7 +1507,7 @@ fn param_form_rows(
         let label_style = if is_active {
             Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(Color::Indexed(242))
+            Style::default().fg(Color::Indexed(246))
         };
         let value_span = if is_active {
             Span::styled(
@@ -1505,7 +1542,7 @@ fn render_output_step_picker(frame: &mut Frame, app: &BuilderApp, step_cursor: u
     let mut rows: Vec<ListItem> = Vec::new();
     rows.push(ListItem::new(Line::from(Span::styled(
         "Select the step whose response will be collected in the output:",
-        Style::default().fg(Color::Indexed(242)),
+        Style::default().fg(Color::Indexed(246)),
     ))));
     rows.push(ListItem::new(Line::from("")));
 
@@ -1539,7 +1576,7 @@ fn render_output_step_picker(frame: &mut Frame, app: &BuilderApp, step_cursor: u
                 Span::styled(method_str, Style::default().fg(Color::Yellow)),
                 Span::styled(truncate(&step.name, 28), style),
                 if !step.url.is_empty() {
-                    Span::styled(format!("  {}", truncate(&step.url, 18)), Style::default().fg(Color::Indexed(242)))
+                    Span::styled(format!("  {}", truncate(&step.url, 18)), Style::default().fg(Color::Indexed(246)))
                 } else { Span::raw("") },
             ])));
         }
@@ -1548,7 +1585,7 @@ fn render_output_step_picker(frame: &mut Frame, app: &BuilderApp, step_cursor: u
     // Show already-filled fields as preview
     if !f1.is_empty() || !f2.is_empty() || !f3.is_empty() {
         rows.push(ListItem::new(Line::from("")));
-        rows.push(ListItem::new(Line::from(Span::styled("── Current values ─────────────────", Style::default().fg(Color::Indexed(236))))));
+        rows.push(ListItem::new(Line::from(Span::styled("── Current values ─────────────────", Style::default().fg(Color::Indexed(240))))));
         if !f1.is_empty() { rows.push(ListItem::new(Line::from(Span::styled(format!("  Path:         {}", f1), Style::default().fg(Color::Indexed(250)))))); }
         if !f2.is_empty() { rows.push(ListItem::new(Line::from(Span::styled(format!("  Select:       {}", f2), Style::default().fg(Color::Indexed(250)))))); }
         if !f3.is_empty() { rows.push(ListItem::new(Line::from(Span::styled(format!("  Include vars: {}", f3), Style::default().fg(Color::Indexed(250)))))); }
@@ -1557,7 +1594,7 @@ fn render_output_step_picker(frame: &mut Frame, app: &BuilderApp, step_cursor: u
     rows.push(ListItem::new(Line::from("")));
     rows.push(ListItem::new(Line::from(Span::styled(
         "↑↓: navigate  Enter: select  Esc: cancel",
-        Style::default().fg(Color::Indexed(242)),
+        Style::default().fg(Color::Indexed(246)),
     ))));
 
     frame.render_widget(List::new(rows), inner);
@@ -1576,13 +1613,13 @@ fn render_connectors_editor(frame: &mut Frame, app: &BuilderApp, cursor: usize, 
     let mut rows: Vec<ListItem> = Vec::new();
     rows.push(ListItem::new(Line::from(Span::styled(
         "type: csv (iterate rows) | json (iterate array)",
-        Style::default().fg(Color::Indexed(242)),
+        Style::default().fg(Color::Indexed(246)),
     ))));
     rows.push(ListItem::new(Line::from("")));
 
     let connectors = &app.campaign.connectors;
     if connectors.is_empty() && matches!(mode, IoEditorMode::Browse) {
-        rows.push(ListItem::new(Line::from(Span::styled("No connectors — a: add", Style::default().fg(Color::Indexed(242))))));
+        rows.push(ListItem::new(Line::from(Span::styled("No connectors — a: add", Style::default().fg(Color::Indexed(246))))));
     }
 
     for (i, c) in connectors.iter().enumerate() {
@@ -1598,7 +1635,7 @@ fn render_connectors_editor(frame: &mut Frame, app: &BuilderApp, cursor: usize, 
             Span::styled(format!("{}{:<6}", prefix, c.kind), Style::default().fg(kind_color).add_modifier(if is_cursor { Modifier::BOLD } else { Modifier::empty() })),
             Span::styled(path_or_step, Style::default().fg(Color::Indexed(250))),
             if let Some(ref s) = c.select {
-                Span::styled(format!("  select:{}", s), Style::default().fg(Color::Indexed(242)))
+                Span::styled(format!("  select:{}", s), Style::default().fg(Color::Indexed(246)))
             } else { Span::raw("") },
         ])));
     }
@@ -1613,7 +1650,7 @@ fn render_connectors_editor(frame: &mut Frame, app: &BuilderApp, cursor: usize, 
             let fi = fi as u8;
             let is_active = fi == *field;
             let val = match fi { 0 => f0.as_str(), 1 => f1.as_str(), 2 => f2.as_str(), _ => f3.as_str() };
-            let label_style = if is_active { Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::Indexed(242)) };
+            let label_style = if is_active { Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::Indexed(246)) };
             let val_span = if fi == 0 {
                 Span::styled(format!("[ {} ▾ ]  ←/→", f0), Style::default().fg(Color::Yellow).add_modifier(if is_active { Modifier::BOLD } else { Modifier::empty() }))
             } else if is_active {
@@ -1629,13 +1666,13 @@ fn render_connectors_editor(frame: &mut Frame, app: &BuilderApp, cursor: usize, 
         rows.push(ListItem::new(Line::from("")));
         rows.push(ListItem::new(Line::from(Span::styled(
             "field 0: ←/→ cycle type  Tab/Enter: next  Esc: cancel",
-            Style::default().fg(Color::Indexed(242)),
+            Style::default().fg(Color::Indexed(246)),
         ))));
     } else {
         rows.push(ListItem::new(Line::from("")));
         rows.push(ListItem::new(Line::from(Span::styled(
             "↑↓: navigate  Enter: edit  a: add  d: del  Esc: back",
-            Style::default().fg(Color::Indexed(242)),
+            Style::default().fg(Color::Indexed(246)),
         ))));
     }
 
@@ -1655,13 +1692,13 @@ fn render_outputs_editor(frame: &mut Frame, app: &BuilderApp, cursor: usize, mod
     let mut rows: Vec<ListItem> = Vec::new();
     rows.push(ListItem::new(Line::from(Span::styled(
         "Collect step responses into a JSON file",
-        Style::default().fg(Color::Indexed(242)),
+        Style::default().fg(Color::Indexed(246)),
     ))));
     rows.push(ListItem::new(Line::from("")));
 
     let outputs = &app.campaign.outputs;
     if outputs.is_empty() && matches!(mode, IoEditorMode::Browse) {
-        rows.push(ListItem::new(Line::from(Span::styled("No outputs — a: add", Style::default().fg(Color::Indexed(242))))));
+        rows.push(ListItem::new(Line::from(Span::styled("No outputs — a: add", Style::default().fg(Color::Indexed(246))))));
     }
 
     for (i, o) in outputs.iter().enumerate() {
@@ -1670,16 +1707,16 @@ fn render_outputs_editor(frame: &mut Frame, app: &BuilderApp, cursor: usize, mod
         let name_style = Style::default().fg(if is_cursor { Color::White } else { Color::Indexed(250) }).add_modifier(if is_cursor { Modifier::BOLD } else { Modifier::empty() });
         rows.push(ListItem::new(Line::from(vec![
             Span::styled(format!("{}{:<18}", prefix, o.from_step), name_style),
-            Span::styled("→ ", Style::default().fg(Color::Indexed(242))),
+            Span::styled("→ ", Style::default().fg(Color::Indexed(246))),
             Span::styled(truncate(&o.path, 28), Style::default().fg(Color::Yellow)),
             if let Some(ref s) = o.select {
-                Span::styled(format!("  [{}]", s), Style::default().fg(Color::Indexed(242)))
+                Span::styled(format!("  [{}]", s), Style::default().fg(Color::Indexed(246)))
             } else { Span::raw("") },
         ])));
         if !o.include_vars.is_empty() {
             rows.push(ListItem::new(Line::from(Span::styled(
                 format!("     vars: {}", o.include_vars.join(", ")),
-                Style::default().fg(Color::Indexed(242)),
+                Style::default().fg(Color::Indexed(246)),
             ))));
         }
     }
@@ -1694,7 +1731,7 @@ fn render_outputs_editor(frame: &mut Frame, app: &BuilderApp, cursor: usize, mod
             let fi = fi as u8;
             let is_active = fi == *field;
             let val = vals[fi as usize];
-            let label_style = if is_active { Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::Indexed(242)) };
+            let label_style = if is_active { Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD) } else { Style::default().fg(Color::Indexed(246)) };
             let val_span = if is_active {
                 Span::styled(format!("[ {}_]", val), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
             } else {
@@ -1704,19 +1741,19 @@ fn render_outputs_editor(frame: &mut Frame, app: &BuilderApp, cursor: usize, mod
             rows.push(ListItem::new(Line::from(vec![
                 Span::styled(format!("  {:<16}", label), label_style),
                 val_span,
-                if !desc.is_empty() { Span::styled(format!("  ({})", desc), Style::default().fg(Color::Indexed(238))) } else { Span::raw("") },
+                if !desc.is_empty() { Span::styled(format!("  ({})", desc), Style::default().fg(Color::Indexed(242))) } else { Span::raw("") },
             ])));
         }
         rows.push(ListItem::new(Line::from("")));
         rows.push(ListItem::new(Line::from(Span::styled(
             "Tab/Enter: next field  Esc: cancel",
-            Style::default().fg(Color::Indexed(242)),
+            Style::default().fg(Color::Indexed(246)),
         ))));
     } else {
         rows.push(ListItem::new(Line::from("")));
         rows.push(ListItem::new(Line::from(Span::styled(
             "↑↓: navigate  Enter: edit  a: add  d: del  Esc: back",
-            Style::default().fg(Color::Indexed(242)),
+            Style::default().fg(Color::Indexed(246)),
         ))));
     }
 
@@ -1729,7 +1766,7 @@ fn render_run_view(frame: &mut Frame, app: &BuilderApp, scroll: usize, area: Rec
     let (title, border_color, step_results, current_step, done) = match &app.run_state {
         CampaignRunState::Idle => {
             let block = Block::default().title(" Run ").borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Indexed(242)));
+                .border_style(Style::default().fg(Color::Indexed(246)));
             frame.render_widget(block, area);
             return;
         }
@@ -1782,7 +1819,7 @@ fn render_run_results(
     for sr in results {
         // Step header line
         let (icon, icon_color) = if sr.skipped {
-            ("⊘", Color::Indexed(242))
+            ("⊘", Color::Indexed(246))
         } else if sr.success {
             ("✓", Color::Green)
         } else {
@@ -1803,7 +1840,7 @@ fn render_run_results(
                 Style::default().fg(if sr.success { Color::White } else { Color::Red }),
             ),
             Span::styled(status_str, Style::default().fg(status_color(sr.status))),
-            Span::styled(dur_str, Style::default().fg(Color::Indexed(242))),
+            Span::styled(dur_str, Style::default().fg(Color::Indexed(246))),
         ]));
 
         // Error message if any
@@ -1821,7 +1858,7 @@ fn render_run_results(
             let (a_icon, a_color) = if *passed { ("  ✓", Color::Green) } else { ("  ✗", Color::Red) };
             lines.push(Line::from(vec![
                 Span::styled(format!("{} ", a_icon), Style::default().fg(a_color)),
-                Span::styled(truncate(desc, 52), Style::default().fg(Color::Indexed(242))),
+                Span::styled(truncate(desc, 52), Style::default().fg(Color::Indexed(246))),
             ]));
         }
 
@@ -1847,7 +1884,7 @@ fn render_run_results(
         lines.push(Line::from(vec![
             Span::styled("⟳ ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
             Span::styled(name, Style::default().fg(Color::Yellow)),
-            Span::styled(" …", Style::default().fg(Color::Indexed(242))),
+            Span::styled(" …", Style::default().fg(Color::Indexed(246))),
         ]));
         lines.push(Line::from(""));
     }
@@ -1876,7 +1913,7 @@ fn render_run_results(
     if done {
         lines.push(Line::from(Span::styled(
             "r: re-run  Esc: back to pipeline",
-            Style::default().fg(Color::Indexed(242)),
+            Style::default().fg(Color::Indexed(246)),
         )));
     }
 
@@ -1892,19 +1929,19 @@ fn run_marker_for(run_state: &CampaignRunState, step_idx: usize) -> Option<(&'st
         CampaignRunState::Running { step_results, current_step, .. } => {
             if step_idx < step_results.len() {
                 let sr = &step_results[step_idx];
-                Some(if sr.skipped { ("⊘", Color::Indexed(242)) }
+                Some(if sr.skipped { ("⊘", Color::Indexed(246)) }
                      else if sr.success { ("✓", Color::Green) }
                      else { ("✗", Color::Red) })
             } else if current_step.is_some() && step_idx == step_results.len() {
                 Some(("⟳", Color::Yellow))
             } else {
-                Some(("·", Color::Indexed(236)))
+                Some(("·", Color::Indexed(240)))
             }
         }
         CampaignRunState::Done { results, .. } => {
             let flat: Vec<&StepResult> = results.iter().flat_map(|r| r.steps.iter()).collect();
             flat.get(step_idx).map(|sr| {
-                if sr.skipped { ("⊘", Color::Indexed(242)) }
+                if sr.skipped { ("⊘", Color::Indexed(246)) }
                 else if sr.success { ("✓", Color::Green) }
                 else { ("✗", Color::Red) }
             })
@@ -1917,7 +1954,7 @@ fn status_color(status: Option<u16>) -> Color {
         Some(s) if s < 300 => Color::Green,
         Some(s) if s < 400 => Color::Yellow,
         Some(_) => Color::Red,
-        None => Color::Indexed(242),
+        None => Color::Indexed(246),
     }
 }
 
@@ -2024,7 +2061,7 @@ fn render_status(frame: &mut Frame, app: &BuilderApp, area: Rect) {
             Span::raw("")
         },
     ]);
-    let line2 = Line::from(Span::styled(hints, Style::default().fg(Color::Indexed(242))));
+    let line2 = Line::from(Span::styled(hints, Style::default().fg(Color::Indexed(246))));
 
     let status = Paragraph::new(vec![line1, line2])
         .block(Block::default().borders(Borders::TOP));
@@ -2060,7 +2097,7 @@ fn highlight_toml(text: &str) -> Vec<Line<'static>> {
         if trimmed.starts_with('#') {
             lines.push(Line::from(Span::styled(
                 raw.to_string(),
-                Style::default().fg(Color::Indexed(242)),
+                Style::default().fg(Color::Indexed(246)),
             )));
             continue;
         }
@@ -2100,7 +2137,7 @@ fn highlight_toml(text: &str) -> Vec<Line<'static>> {
             lines.push(Line::from(vec![
                 Span::raw(indent),
                 Span::styled(key.to_string(), Style::default().fg(Color::White)),
-                Span::styled(" = ", Style::default().fg(Color::Indexed(242))),
+                Span::styled(" = ", Style::default().fg(Color::Indexed(246))),
                 Span::styled(value.to_string(), val_style),
             ]));
             continue;
@@ -2109,7 +2146,7 @@ fn highlight_toml(text: &str) -> Vec<Line<'static>> {
         // Fallback (continuation of inline tables, etc.)
         lines.push(Line::from(Span::styled(
             raw.to_string(),
-            Style::default().fg(Color::Indexed(242)),
+            Style::default().fg(Color::Indexed(246)),
         )));
     }
 
@@ -2125,124 +2162,14 @@ fn toml_value_style(value: &str) -> Style {
     } else if value.starts_with(|c: char| c.is_ascii_digit() || c == '-') {
         Style::default().fg(Color::Yellow)
     } else if value.starts_with('[') || value.starts_with('{') {
-        Style::default().fg(Color::Indexed(242))
+        Style::default().fg(Color::Indexed(246))
     } else {
         Style::default().fg(Color::White)
     }
 }
 
 fn generate_toml_preview(app: &BuilderApp) -> String {
-    let mut out = String::new();
-    if !app.header_comment.is_empty() {
-        for line in app.header_comment.lines() {
-            out.push_str(&format!("# {}\n", line));
-        }
-        out.push('\n');
-    }
-    let m = &app.campaign.campaign;
-    out.push_str(&format!("[campaign]\nname        = \"{}\"\ndescription = \"{}\"\n", m.name, m.description));
-    if app.campaign.continue_on_error {
-        out.push_str("continue_on_error = true\n");
-    }
-    if let Some(ref env) = app.campaign.env_file {
-        out.push_str(&format!("env_file = \"{}\"\n", env));
-    }
-
-    for p in &app.campaign.params {
-        out.push_str("\n[[params]]\n");
-        out.push_str(&format!("name        = \"{}\"\n", p.name));
-        if !p.description.is_empty() {
-            out.push_str(&format!("description = \"{}\"\n", p.description));
-        }
-        if let Some(ref d) = p.default {
-            out.push_str(&format!("default     = \"{}\"\n", d));
-        }
-    }
-
-    if !app.campaign.env.is_empty() {
-        out.push_str("\n[env]\n");
-        let mut vars: Vec<_> = app.campaign.env.iter().collect();
-        vars.sort_by_key(|(k, _)| k.as_str());
-        for (k, v) in vars {
-            out.push_str(&format!("{} = \"{}\"\n", k, v));
-        }
-    }
-
-    for (i, step) in app.campaign.steps.iter().enumerate() {
-        if step.kind == "comment" {
-            out.push_str(&format!("\n# {}\n", step.name));
-            continue;
-        }
-        let comment = app.step_comments.get(i).map(|s| s.as_str()).unwrap_or("");
-        if !comment.is_empty() {
-            out.push('\n');
-            for line in comment.lines() {
-                out.push_str(&format!("# {}\n", line));
-            }
-        }
-        out.push_str("\n[[steps]]\n");
-        out.push_str(&format!("name   = \"{}\"\n", step.name));
-        if !step.description.is_empty() {
-            let esc = step.description.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n");
-            out.push_str(&format!("description = \"{}\"\n", esc));
-        }
-        if step.kind != "http" {
-            out.push_str(&format!("kind   = \"{}\"\n", step.kind));
-        }
-        if !step.method.is_empty() {
-            out.push_str(&format!("method = \"{}\"\n", step.method));
-        }
-        if !step.url.is_empty() {
-            out.push_str(&format!("url    = \"{}\"\n", step.url));
-        }
-        if step.wait_ms > 0 {
-            out.push_str(&format!("wait_ms = {}\n", step.wait_ms));
-        }
-        if let Some(foreach) = &step.foreach {
-            out.push_str(&format!("foreach = \"{}\"\n", foreach));
-        }
-        if let Some(env) = &step.env {
-            out.push_str(&format!("env    = \"{}\"\n", env));
-        }
-        if let Some(coe) = step.continue_on_error {
-            out.push_str(&format!("continue_on_error = {}\n", coe));
-        }
-        if let Some(when) = &step.when {
-            let mut w = format!("when   = {{var = \"{}\"", when.var);
-            if let Some(eq) = &when.eq { w.push_str(&format!(", eq = \"{}\"", eq)); }
-            if let Some(ne) = &when.ne { w.push_str(&format!(", ne = \"{}\"", ne)); }
-            if let Some(b)  = when.exists { w.push_str(&format!(", exists = {}", b)); }
-            w.push_str("}\n");
-            out.push_str(&w);
-        }
-        if !step.assert.is_empty() {
-            let parts: Vec<String> = step.assert.iter().map(|a| {
-                let mut ps = vec![format!("on = \"{}\"", a.on)];
-                if let Some(v) = &a.eq { ps.push(format!("eq = {}", preview_val(v))); }
-                if let Some(v) = &a.ne { ps.push(format!("ne = {}", preview_val(v))); }
-                if let Some(v) = &a.lt  { ps.push(format!("lt = {}", v)); }
-                if let Some(v) = &a.lte { ps.push(format!("lte = {}", v)); }
-                if let Some(v) = &a.gt  { ps.push(format!("gt = {}", v)); }
-                if let Some(v) = &a.gte { ps.push(format!("gte = {}", v)); }
-                if let Some(v) = &a.contains { ps.push(format!("contains = \"{}\"", v)); }
-                if let Some(v) = &a.matches  { ps.push(format!("matches = \"{}\"", v)); }
-                if let Some(b) = &a.exists { ps.push(format!("exists = {}", b)); }
-                format!("{{{}}}", ps.join(", "))
-            }).collect();
-            out.push_str(&format!("assert = [{}]\n", parts.join(", ")));
-        }
-    }
-
-    out
-}
-
-fn preview_val(v: &serde_json::Value) -> String {
-    match v {
-        serde_json::Value::Number(n) => n.to_string(),
-        serde_json::Value::Bool(b)   => b.to_string(),
-        serde_json::Value::String(s) => format!("\"{}\"", s),
-        other                        => format!("\"{}\"", other),
-    }
+    super::generate_toml(&app.campaign, &app.step_comments, &app.header_comment)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

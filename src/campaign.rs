@@ -67,6 +67,16 @@ pub struct StepCondition {
     pub ne: Option<String>,
     #[serde(default)]
     pub exists: Option<bool>,
+    #[serde(default)]
+    pub lt: Option<f64>,
+    #[serde(default)]
+    pub lte: Option<f64>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct AccumulateConfig {
+    pub var: String,
+    pub from: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -115,6 +125,11 @@ pub struct Step {
     pub graphql_query: Option<String>,
     #[serde(default)]
     pub graphql_variables: HashMap<String, String>,
+    // Loop step fields (kind = "loop")
+    #[serde(default)]
+    pub until: Option<StepCondition>,
+    #[serde(default)]
+    pub accumulate: Option<AccumulateConfig>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -260,12 +275,54 @@ pub fn load(path: &str) -> Result<Campaign> {
 
 // ── single-step preview (used by the builder's Run Step feature) ──────────────
 
-pub async fn run_step_preview(step: Step, env: HashMap<String, String>) -> StepResult {
+// Run preceding steps to accumulate extracted variables, then run the target step.
+pub async fn run_step_preview_with_context(
+    steps: Vec<Step>,
+    target_idx: usize,
+    base_env: HashMap<String, String>,
+) -> StepResult {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()
         .unwrap_or_else(|_| reqwest::Client::new());
-    run_single_step(&client, &step, &env, false).await
+    let (tx, _rx) = mpsc::unbounded_channel::<CampaignEvent>();
+    let mut env = base_env;
+    for step in steps.iter().take(target_idx) {
+        if step.kind == "loop" {
+            let (result, new_vars) = run_loop_step(&client, step, &env, true, &tx).await;
+            env.extend(new_vars);
+            let _ = result;
+        } else {
+            let result = run_single_step(&client, step, &env, true).await;
+            env.extend(result.extracted);
+        }
+    }
+    if let Some(step) = steps.get(target_idx) {
+        if step.kind == "loop" {
+            let (result, _) = run_loop_step(&client, step, &env, false, &tx).await;
+            result
+        } else {
+            run_single_step(&client, step, &env, false).await
+        }
+    } else {
+        StepResult {
+            name: String::new(),
+            method: String::new(),
+            url: String::new(),
+            status: None,
+            duration_ms: 0,
+            success: false,
+            skipped: false,
+            non_blocking: false,
+            error: Some("step not found".into()),
+            extracted: HashMap::new(),
+            assertion_results: vec![],
+            body_json: None,
+            graphql: false,
+            request_headers: vec![],
+            request_body: None,
+        }
+    }
 }
 
 // ── streaming runner (core) ───────────────────────────────────────────────────
@@ -968,6 +1025,21 @@ async fn run_steps_streaming(
             continue;
         }
 
+        // ── loop step ─────────────────────────────────────────────────────────
+        if step.kind == "loop" {
+            let _ = tx.send(CampaignEvent::StepStarted { name: step.name.clone() });
+            let (loop_result, loop_extracted) =
+                run_loop_step(client, step, &effective, effective_coe, tx).await;
+            if loop_result.success {
+                extracted.extend(loop_extracted);
+            }
+            let failed = !loop_result.success;
+            let _ = tx.send(CampaignEvent::StepDone(loop_result.clone()));
+            results.push(loop_result);
+            if failed && !effective_coe { break; }
+            continue;
+        }
+
         // ── normal step ───────────────────────────────────────────────────────
         let _ = tx.send(CampaignEvent::StepStarted { name: step.name.clone() });
         let result = run_single_step(client, step, &effective, effective_coe).await;
@@ -984,6 +1056,124 @@ async fn run_steps_streaming(
     }
 
     results
+}
+
+// ── loop step ─────────────────────────────────────────────────────────────────
+
+async fn run_loop_step(
+    client: &reqwest::Client,
+    step: &Step,
+    base_env: &HashMap<String, String>,
+    effective_coe: bool,
+    tx: &mpsc::UnboundedSender<CampaignEvent>,
+) -> (StepResult, HashMap<String, String>) {
+    const MAX_ITERATIONS: usize = 1000;
+    let mut iter_env = base_env.clone();
+    let mut accumulated: Vec<Value> = Vec::new();
+    let mut iter_count = 0usize;
+    let mut last_url = String::new();
+    let t0 = std::time::Instant::now();
+
+    // Build an HTTP-only step (strip loop-specific fields for execution)
+    let mut http_step = step.clone();
+    http_step.kind   = "http".into();
+    http_step.until  = None;
+    http_step.accumulate = None;
+
+    loop {
+        if iter_count >= MAX_ITERATIONS {
+            let _ = tx.send(CampaignEvent::Warning(
+                format!("step '{}': reached max {} iterations, stopping", step.name, MAX_ITERATIONS)
+            ));
+            break;
+        }
+
+        let result = run_single_step(client, &http_step, &iter_env, true).await;
+        last_url = result.url.clone();
+
+        // Accumulate values from this iteration
+        if let Some(ref acc) = step.accumulate {
+            if let Some(ref body) = result.body_json {
+                if let Some(val) = extract_value_at(body, &acc.from) {
+                    match val {
+                        Value::Array(arr) => accumulated.extend(arr),
+                        other             => accumulated.push(other),
+                    }
+                }
+            }
+        }
+
+        // Propagate extracted vars for next iteration
+        iter_env.extend(result.extracted);
+        iter_count += 1;
+
+        if !result.success {
+            let duration_ms = t0.elapsed().as_millis() as u64;
+            let mut outer_extracted = HashMap::new();
+            if let Some(ref acc) = step.accumulate {
+                outer_extracted.insert(acc.var.clone(), Value::Array(accumulated).to_string());
+            }
+            return (StepResult {
+                name: step.name.clone(),
+                method: "LOOP".into(),
+                url: last_url,
+                status: result.status,
+                duration_ms,
+                success: false,
+                skipped: false,
+                non_blocking: effective_coe,
+                error: result.error,
+                extracted: outer_extracted.clone(),
+                assertion_results: vec![],
+                body_json: None,
+                graphql: false,
+                request_headers: vec![],
+                request_body: None,
+            }, outer_extracted);
+        }
+
+        // Check until condition
+        if let Some(ref until) = step.until {
+            if evaluate_until_condition(until, &iter_env) {
+                break;
+            }
+        } else {
+            // No until condition — run exactly once (safety)
+            break;
+        }
+    }
+
+    let duration_ms = t0.elapsed().as_millis() as u64;
+    let mut outer_extracted: HashMap<String, String> = HashMap::new();
+
+    // Store accumulated array
+    if let Some(ref acc) = step.accumulate {
+        outer_extracted.insert(acc.var.clone(), Value::Array(accumulated).to_string());
+    }
+
+    // Also expose last-iteration extracted vars
+    outer_extracted.extend(iter_env.into_iter().filter(|(k, _)| !base_env.contains_key(k)));
+
+    let body_json = outer_extracted.get(step.accumulate.as_ref().map(|a| a.var.as_str()).unwrap_or(""))
+        .and_then(|s| serde_json::from_str(s).ok());
+
+    (StepResult {
+        name: step.name.clone(),
+        method: "LOOP".into(),
+        url: last_url,
+        status: None,
+        duration_ms,
+        success: true,
+        skipped: false,
+        non_blocking: effective_coe,
+        error: None,
+        extracted: outer_extracted.clone(),
+        assertion_results: vec![],
+        body_json,
+        graphql: false,
+        request_headers: vec![],
+        request_body: None,
+    }, outer_extracted)
 }
 
 // ── transform step ────────────────────────────────────────────────────────────
@@ -1241,16 +1431,17 @@ fn evaluate_assertions(
 /// Compact label for an assertion — used in the TUI idle preview.
 fn evaluate_when_condition(cond: &StepCondition, env: &HashMap<String, String>) -> bool {
     let value = env.get(&cond.var).map(|s| s.as_str()).unwrap_or("");
-    if let Some(ref eq) = cond.eq {
-        return value == resolve(eq, env).as_str();
-    }
-    if let Some(ref ne) = cond.ne {
-        return value != resolve(ne, env).as_str();
-    }
-    if let Some(exists) = cond.exists {
-        return env.contains_key(&cond.var) == exists;
-    }
+    if let Some(ref eq) = cond.eq  { return value == resolve(eq, env).as_str(); }
+    if let Some(ref ne) = cond.ne  { return value != resolve(ne, env).as_str(); }
+    if let Some(exists) = cond.exists { return env.contains_key(&cond.var) == exists; }
+    if let Some(lt)  = cond.lt  { return value.parse::<f64>().map_or(false, |n| n < lt);  }
+    if let Some(lte) = cond.lte { return value.parse::<f64>().map_or(false, |n| n <= lte); }
     !value.is_empty()
+}
+
+// Same logic for loop `until` condition — true means "stop".
+fn evaluate_until_condition(cond: &StepCondition, env: &HashMap<String, String>) -> bool {
+    evaluate_when_condition(cond, env)
 }
 
 pub fn when_label(cond: &StepCondition) -> String {

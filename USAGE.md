@@ -29,6 +29,7 @@
   - [Pause steps](#pause-steps)
   - [Transform steps](#transform-steps)
   - [File Loader steps](#file-loader-steps)
+  - [Loop steps (pagination)](#loop-steps-pagination)
   - [Multipart form-data](#multipart-form-data)
   - [Input connectors](#input-connectors)
     - [CSV connector](#csv-connector)
@@ -1115,6 +1116,7 @@ Des collections prêtes à l'emploi sont disponibles dans `examples/collections/
 | `graphql.toml` | Countries API, Rick & Morty (POST GraphQL) | 2 | ~10 | Aucune |
 | `rick-morty-graphql.toml` | Rick & Morty API — personnages, épisodes, lieux, filtres, pagination, introspection | 6 | 17 | Aucune |
 | `countries-graphql.toml` | Countries API — pays, continents, langues, filtres, introspection | 5 | 19 | Aucune |
+| `spacex-graphql.toml` | SpaceX — company, rockets, dragons, ships, launches, roadster, cores, capsules, missions | 8 | ~20 | Aucune |
 | `sncf.toml` | SNCF — gares, horaires, itinéraires, perturbations | 6 | 20 | Basic `{{SNCF_TOKEN}}` |
 | `france-geo.toml` | API Géo + IGN — communes, départements, régions, géocodage | 4 | 19 | Aucune |
 | `france-eau.toml` | Hub'Eau — hydrométrie, qualité rivières et nappes | 3 | 19 | Aucune |
@@ -1353,6 +1355,9 @@ A campaign is a directed pipeline. Data flows from left to right — each stage'
 │  │                                                                  │      │
 │  │  kind = "transform"                                              │      │
 │  │    → reshape/compute variables without HTTP                      │      │
+│  │                                                                  │      │
+│  │  kind = "loop"                                                   │      │
+│  │    → repeat HTTP until condition, accumulate results             │      │
 │  └──────────────────────────────────────────────────────────────┬─┘      │
 │                                                                  │         │
 │                          extracted {{VARS}}                      │         │
@@ -1850,6 +1855,106 @@ Content-Type = "application/json"
 
 ---
 
+### Loop steps (pagination)
+
+A `kind = "loop"` step repeats an HTTP request in a loop — resolving `{{VAR}}` from the current env before each request, extracting variables from each response, and stopping when an `until` condition is met. Results from every iteration can be accumulated into a single JSON array.
+
+This is the canonical tool for APIs where the total number of pages is unknown in advance (cursor/token pagination, short-page detection). For known N pages use `foreach`.
+
+#### Minimal example — cursor pagination
+
+```toml
+[env]
+CURSOR = ""        # start with empty cursor (first page)
+
+[[steps]]
+name       = "Fetch all pages"
+kind       = "loop"
+method     = "GET"
+url        = "{{BASE_URL}}/items?cursor={{CURSOR}}"
+until      = { var = "CURSOR", exists = false }   # stop when CURSOR is null/missing
+accumulate = { var = "ALL_ITEMS", from = "items.*" }
+
+[steps.extract]
+CURSOR = "meta.next_cursor"   # null on last page → loop stops
+```
+
+The loop runs like this:
+
+```
+iteration 1: CURSOR=""  → GET /items?cursor=  → extracts CURSOR="abc123"
+iteration 2: CURSOR="abc123" → GET /items?cursor=abc123 → extracts CURSOR="def456"
+iteration 3: CURSOR="def456" → GET /items?cursor=def456 → extracts CURSOR=null  → stop
+ALL_ITEMS = [ ...page1 items..., ...page2 items..., ...page3 items... ]
+```
+
+#### Example — short-page detection
+
+Stop when the page returns fewer items than the expected page size (no cursor required):
+
+```toml
+[env]
+OFFSET     = "0"
+PAGE_COUNT = "100"   # start ≥ limit to enter the loop
+
+[[steps]]
+name       = "Fetch all pages"
+kind       = "loop"
+method     = "GET"
+url        = "{{BASE_URL}}/items?limit=50&offset={{OFFSET}}"
+until      = { var = "PAGE_COUNT", lt = 50 }
+accumulate = { var = "ALL_ITEMS", from = "data.*" }
+
+[steps.extract]
+PAGE_COUNT = "data_count"   # number of items in this page
+OFFSET     = "next_offset"
+```
+
+#### `until` condition
+
+`until` reuses the same condition syntax as `when`. Evaluated **after** each iteration's extraction, so freshly extracted vars are visible.
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `var` | string | Variable name to test (resolved after extraction) |
+| `exists = false` | bool | Stop when var is absent or JSON `null` |
+| `exists = true` | bool | Stop when var is present and non-null |
+| `eq = "value"` | string | Stop when var equals value |
+| `ne = "value"` | string | Stop when var does not equal value |
+| `lt = N` | float | Stop when var (parsed as float) is less than N |
+| `lte = N` | float | Stop when var (parsed as float) is ≤ N |
+
+#### `accumulate` config
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `var` | string | Variable that receives the accumulated JSON array |
+| `from` | string | Dot-path (supports `*` wildcard) evaluated on each response |
+
+After the loop, `accumulate.var` holds a JSON array of all values collected across iterations. It can be used in subsequent steps with `foreach` or `*` extraction.
+
+#### Pagination patterns
+
+| Pattern | Mechanism | `until` condition |
+|---------|-----------|-------------------|
+| **Cursor / token** | Response contains `next_cursor`, `null` on last page | `{ var = "CURSOR", exists = false }` |
+| **Short page** | No metadata — stop when page has fewer items than limit | `{ var = "PAGE_COUNT", lt = 50 }` |
+| **Offset / total** | First response gives `total`, derive page count | Use `foreach` + transform (known N) |
+| **Link header** | Next URL in `Link: rel="next"` header | Not yet supported |
+
+#### Safety cap
+
+The loop exits after **1 000 iterations** regardless of the `until` condition. The step is then marked as failed.
+
+#### Output
+
+```
+  ✓ Fetch all pages    LOOP    -    842 ms  (3 iterations, 150 items)
+      ↳ ALL_ITEMS = [{"id":1,…},{"id":2,…},…]
+```
+
+---
+
 ### Multipart form-data
 
 Add `[[steps.multipart_parts]]` subtables to any HTTP step to send a `multipart/form-data` body — the same format used by HTML file upload forms. Each subtable defines one part.
@@ -2168,6 +2273,8 @@ Ready-to-run campaigns in `examples/campaigns/` — no API key required:
 | `foreach_demo.toml` | JSONPlaceholder | **`foreach`**: GET /users → extract IDs with `*.id` wildcard → iterate over each user to fetch their todos |
 | `when_demo.toml` | JSONPlaceholder | **`when`**: `eq` / `ne` / `exists` — branches admin vs standard user; cascade automatique (step skippé → var non extraite → step suivant skippé) |
 | `upload_demo.toml` | postman-echo.com | **File Loader + multipart**: read a local file as base64/text → send in a JSON body; multipart text parts with `{{VAR}}`; multipart binary `@file` part with explicit MIME type |
+| `loop_pagination_demo.toml` | JSONPlaceholder | **`kind = "loop"`**: deux patterns — next-URL cursor (Rick & Morty, commenté) et last-ID-as-offset ; collecte les 100 posts en 4 pages de 25, écrit dans `/tmp/loop_all_posts.json` |
+| `spacex_exploration.toml` | SpaceX GraphQL | **Pipeline GraphQL 7 steps** : company → fleet snapshot → latest launch → all 109 past launches avec wildcard `*.id` → roadster orbital position → booster reuse stats → summary transform ; écrit `/tmp/spacex_all_launches.json` |
 
 ```bash
 terapi run examples/campaigns/crud_demo.toml
@@ -2177,6 +2284,8 @@ terapi run examples/campaigns/json_connector_demo.toml
 terapi run examples/campaigns/seed_step_demo.toml
 terapi run examples/campaigns/eu_capitals.toml
 terapi run examples/campaigns/upload_demo.toml
+terapi run examples/campaigns/loop_pagination_demo.toml
+terapi run examples/campaigns/spacex_exploration.toml
 
 # itineraire_demo uses [[params]] — run with defaults or override:
 terapi run examples/campaigns/itineraire_demo.toml
@@ -2311,6 +2420,8 @@ Press `n` (append) or `i` (insert after cursor) to open the catalog:
 | Brick | Badge | What it creates |
 |-------|-------|-----------------|
 | HTTP step | `HTTP` | standard `[[steps]]` with method/URL/headers/body/assertions |
+| GraphQL step | `GQL ` | `kind = "graphql"` — POST with `{"query":…,"variables":{…}}` body |
+| Loop (pagination) | `LOOP` | `kind = "loop"` — repeats HTTP until condition, accumulates results |
 | Transform | `TRSF` | `kind = "transform"` step (no HTTP, reshapes variables) |
 | Pause | `WAIT` | `kind = "pause"` step — waits N milliseconds |
 | Seed | `SEED` | HTTP step that feeds a JSON connector |
@@ -2348,6 +2459,22 @@ Press `n` (append) or `i` (insert after cursor) to open the catalog:
 **Pause step fields:** Name · Description · Wait (ms)
 
 **File Loader step fields:** Name · Description · File path · Output var · Encoding (base64 / text / hex — cycle)
+
+**Loop step fields:**
+
+| Field | Notes |
+|-------|-------|
+| Name | Free text |
+| Description | Textarea comment above `[[steps]]` |
+| Method | GET / POST / PUT / PATCH / DELETE — cycle with `←/→` |
+| URL | `{{VAR}}` supported; re-resolved from current env before each iteration |
+| Headers | Key=value list; `a` two-stage entry |
+| Until — var | Variable name to test after each iteration |
+| Until — condition | Cycle with `Enter`/`←`/`→`: `not exists → exists → == → != → <` |
+| Accumulate — var | Output variable that receives the accumulated JSON array |
+| Accumulate — from | Dot-path (supports `*`) evaluated on each response body |
+| Extract (per-iter) | Variables extracted from each response; feed back into URL/headers for the next iteration |
+| Continue on error | Toggle — iteration failures are non-blocking |
 
 **Comment step fields:** Name only (the comment text)
 

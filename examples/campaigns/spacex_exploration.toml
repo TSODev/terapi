@@ -1,0 +1,272 @@
+# spacex_exploration.toml — SpaceX GraphQL API exploration campaign
+#
+# Pipeline :
+#   1. Company overview        — nom, CEO, effectifs, valorisation
+#   2. Fleet snapshot          — toutes les fusées actives, dragons, navires
+#   3. Latest launch details   — mission, fusée, site, résultat
+#   4. All past launches       — 109 lancements en une requête (limit: 200)
+#      → extrait les IDs de tous les succès via wildcard *
+#   5. Roadster position       — distances Terre/Mars, vitesse orbitale
+#   6. Landing stats           — cœurs Falcon 9 actifs, réutilisations
+#   7. Summary report          — construit un résumé textuel des extractions
+#
+# API  : https://spacex-api.fly.dev/graphql  (communautaire, sans auth)
+# Note : données figées ~2020-2021 (dernier sync connu du dataset open-source).
+#
+# Run :
+#   terapi run examples/campaigns/spacex_exploration.toml
+#
+# Output : /tmp/spacex_all_launches.json
+
+continue_on_error = true
+
+[campaign]
+name        = "SpaceX — exploration complète"
+description = "Pipeline GraphQL : company, fleet, last launch, all launches, roadster, landing stats."
+
+[env]
+GQL = "https://spacex-api.fly.dev/graphql"
+
+# ── Step 1 — Company overview ─────────────────────────────────────────────────
+
+[[steps]]
+name    = "Company overview"
+kind    = "graphql"
+method  = "POST"
+url     = "{{GQL}}"
+graphql_query = """
+{
+  company {
+    name
+    ceo
+    coo
+    employees
+    vehicles
+    launch_sites
+    valuation
+    founded
+  }
+}
+"""
+assert = [{ on = "status", eq = 200 }]
+
+[steps.extract]
+COMPANY_NAME = "data.company.name"
+CEO          = "data.company.ceo"
+EMPLOYEES    = "data.company.employees"
+VALUATION    = "data.company.valuation"
+VEHICLES     = "data.company.vehicles"
+
+# ── Step 2 — Fleet snapshot ───────────────────────────────────────────────────
+
+[[steps]]
+name    = "Fleet snapshot"
+kind    = "graphql"
+method  = "POST"
+url     = "{{GQL}}"
+graphql_query = """
+{
+  rockets {
+    id
+    name
+    active
+    success_rate_pct
+    cost_per_launch
+    first_flight
+    stages
+  }
+  dragons {
+    id
+    name
+    type
+    active
+    crew_capacity
+    first_flight
+  }
+  ships {
+    id
+    name
+    type
+    active
+    home_port
+  }
+}
+"""
+assert = [{ on = "status", eq = 200 }]
+
+[steps.extract]
+ROCKET_NAMES = "data.rockets.*.name"
+ACTIVE_ROCKETS = "data.rockets.*.active"
+
+# ── Step 3 — Latest launch details ────────────────────────────────────────────
+
+[[steps]]
+name    = "Latest launch details"
+kind    = "graphql"
+method  = "POST"
+url     = "{{GQL}}"
+graphql_query = """
+{
+  launchLatest {
+    id
+    mission_name
+    launch_date_utc
+    launch_success
+    details
+    rocket {
+      rocket_name
+      first_stage {
+        cores {
+          core { id reuse_count }
+          reused
+          land_success
+          landing_type
+          landing_vehicle
+        }
+      }
+      second_stage {
+        payloads {
+          id
+          payload_type
+          orbit
+          customers
+          payload_mass_kg
+        }
+      }
+    }
+    launch_site { site_name_long }
+    links {
+      video_link
+      article_link
+      flickr_images
+    }
+  }
+}
+"""
+assert = [{ on = "status", eq = 200 }]
+
+[steps.extract]
+LATEST_MISSION  = "data.launchLatest.mission_name"
+LATEST_DATE     = "data.launchLatest.launch_date_utc"
+LATEST_SUCCESS  = "data.launchLatest.launch_success"
+LATEST_ROCKET   = "data.launchLatest.rocket.rocket_name"
+LATEST_SITE     = "data.launchLatest.launch_site.site_name_long"
+LATEST_VIDEO    = "data.launchLatest.links.video_link"
+
+# ── Step 4 — All past launches ────────────────────────────────────────────────
+#
+# launchesPastResult with limit: 200 retrieves all 109 launches in one request.
+# Using *.id and *.mission_name wildcards to collect all values into arrays.
+#
+# TODO (roadmap): replace with kind = "loop" once loop steps support:
+#   - built-in offset increment (loop_increment = { var = "OFFSET", by = 50 })
+#   - or {{VAR}} substitution inside graphql_query strings
+# See: CLAUDE.md roadmap — "Loop step: GraphQL pagination"
+
+[[steps]]
+name    = "All past launches"
+kind    = "graphql"
+method  = "POST"
+url     = "{{GQL}}"
+graphql_query = """
+{
+  launchesPastResult(limit: 200, offset: 0, order: "desc", sort: "launch_date_utc") {
+    result {
+      totalCount
+    }
+    data {
+      id
+      mission_name
+      launch_date_utc
+      launch_success
+      rocket { rocket_name }
+      launch_site { site_name_long }
+    }
+  }
+}
+"""
+assert = [
+  { on = "status", eq = 200 },
+  { on = "body.data.launchesPastResult.result.totalCount", exists = true },
+]
+
+[steps.extract]
+TOTAL_LAUNCHES   = "data.launchesPastResult.result.totalCount"
+ALL_MISSION_IDS  = "data.launchesPastResult.data.*.id"
+ALL_MISSIONS     = "data.launchesPastResult.data.*.mission_name"
+ALL_ROCKETS_USED = "data.launchesPastResult.data.*.rocket.rocket_name"
+
+# ── Step 5 — Roadster position ────────────────────────────────────────────────
+
+[[steps]]
+name    = "Roadster orbital position"
+kind    = "graphql"
+method  = "POST"
+url     = "{{GQL}}"
+graphql_query = """
+{
+  roadster {
+    name
+    launch_date_utc
+    earth_distance_km
+    mars_distance_km
+    speed_kph
+    periapsis_au
+    apoapsis_au
+    period_days
+    orbit_type
+  }
+}
+"""
+assert = [{ on = "status", eq = 200 }]
+
+[steps.extract]
+ROADSTER_EARTH_KM = "data.roadster.earth_distance_km"
+ROADSTER_MARS_KM  = "data.roadster.mars_distance_km"
+ROADSTER_SPEED    = "data.roadster.speed_kph"
+ROADSTER_PERIOD   = "data.roadster.period_days"
+
+# ── Step 6 — Booster reuse stats ──────────────────────────────────────────────
+
+[[steps]]
+name    = "Falcon 9 active boosters"
+kind    = "graphql"
+method  = "POST"
+url     = "{{GQL}}"
+graphql_query = """
+{
+  cores(find: { status: "active" }) {
+    id
+    block
+    reuse_count
+    rtls_attempts
+    rtls_landings
+    asds_attempts
+    asds_landings
+    missions { name flight }
+  }
+}
+"""
+assert = [{ on = "status", eq = 200 }]
+
+[steps.extract]
+BOOSTER_IDS    = "data.cores.*.id"
+BOOSTER_REUSES = "data.cores.*.reuse_count"
+
+# ── Step 7 — Summary report ───────────────────────────────────────────────────
+
+[[steps]]
+name = "Build summary"
+kind = "transform"
+transforms = [
+  { type = "template", input = "{{COMPANY_NAME}} (CEO: {{CEO}}, {{EMPLOYEES}} employees, valuation ${{VALUATION}})", output = "COMPANY_SUMMARY" },
+  { type = "template", input = "Latest: {{LATEST_MISSION}} on {{LATEST_DATE}} via {{LATEST_ROCKET}} — success={{LATEST_SUCCESS}}", output = "LAUNCH_SUMMARY" },
+  { type = "template", input = "Roadster: {{ROADSTER_EARTH_KM}} km from Earth, {{ROADSTER_MARS_KM}} km from Mars, speed {{ROADSTER_SPEED}} km/h", output = "ROADSTER_SUMMARY" },
+  { type = "template", input = "Total launches: {{TOTAL_LAUNCHES}}. Missions: {{ALL_MISSIONS}}", output = "FLEET_SUMMARY" },
+]
+
+# ── Output — all launches to JSON ─────────────────────────────────────────────
+
+[[outputs]]
+from_step = "All past launches"
+path      = "/tmp/spacex_all_launches.json"

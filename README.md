@@ -318,6 +318,7 @@ Ready-to-use collections in `examples/collections/` — copy them to your terapi
 | `graphql.toml` | Countries API, Rick & Morty API (POST GraphQL) | Aucune |
 | `rick-morty-graphql.toml` | Rick & Morty API — personnages, épisodes, lieux, filtres, pagination, introspection | Aucune |
 | `countries-graphql.toml` | Countries API — pays, continents, langues, filtres, introspection | Aucune |
+| `spacex-graphql.toml` | SpaceX — company, rockets, dragons, ships, launches, roadster, cores, capsules, missions (~20 requêtes) | Aucune |
 | `sncf.toml` | API SNCF — gares, horaires, itinéraires, perturbations | Basic `{{SNCF_TOKEN}}` |
 | `france-geo.toml` | API Géo + API Adresse IGN — communes, départements, régions, géocodage | Aucune |
 | `france-eau.toml` | Hub'Eau — hydrométrie, qualité rivières et nappes | Aucune |
@@ -548,12 +549,16 @@ Ready-to-run examples in `examples/campaigns/` — no API key required:
 | `eu_capitals.toml` | **4-step pipeline**: GraphQL seed (53 EU countries) → language transform → geocode capital → live weather (Open-Meteo); paired with `eu_capitals_map.html` |
 | `foreach_demo.toml` | **`foreach`**: fetch user list, extract IDs with `*.id` wildcard, iterate over each user to fetch their todos |
 | `when_demo.toml` | **`when`**: `eq` / `ne` / `exists` operators — admin vs standard user branches with automatic cascade |
+| `loop_pagination_demo.toml` | **`kind = "loop"`**: two patterns — next-URL cursor (Rick & Morty) and last-ID-as-offset (JSONPlaceholder); collects all 100 posts in 4 pages |
+| `spacex_exploration.toml` | **GraphQL pipeline**: company → fleet → latest launch → all 109 past launches (wildcard `*.id`) → roadster position → booster stats → summary transform |
 
 ```bash
 terapi run examples/campaigns/crud_demo.toml
 terapi run examples/campaigns/seed_step_demo.toml
 terapi run examples/campaigns/eu_capitals.toml
 terapi run examples/campaigns/itineraire_demo.toml -p DEPART=Bordeaux -p ARRIVEE=Nantes
+terapi run examples/campaigns/loop_pagination_demo.toml
+terapi run examples/campaigns/spacex_exploration.toml
 ```
 
 #### Interactive weather map
@@ -649,6 +654,7 @@ Press `g` again to return to REST mode (URL and headers are preserved).
 **Example GraphQL collections** in `examples/collections/`:
 - `rick-morty-graphql.toml` — Rick & Morty API — 6 folders, 17 requests: variables, pagination, multi-ID, aliases, filters, introspection
 - `countries-graphql.toml` — Countries API — 5 folders, 19 requests: filters, glob, inline fragments, introspection
+- `spacex-graphql.toml` — SpaceX community API — 8 folders, ~20 requests: company, rockets, dragons, ships, launches (latest/past/next/paginated/by-rocket), capsules, cores, missions, roadster, history, introspection
 
 ---
 

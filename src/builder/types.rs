@@ -110,10 +110,10 @@ pub const WHEN_OPS: &[(&str, bool)] = &[
 #[derive(Debug, Clone)]
 pub enum StepEditorMode {
     Browse,
-    EditText { buffer: String },
+    EditText { buffer: String, cursor: usize },
     EditBody,
     AddPairStage1 { target: PairTarget, buffer: String },
-    AddPairStage2 { target: PairTarget, key: String, buffer: String },
+    AddPairStage2 { target: PairTarget, key: String, buffer: String, cursor: usize },
     // Assertion creation flow
     AddAssertPath { buffer: String },
     AddAssertOp   { path: String, op: usize },
@@ -154,6 +154,16 @@ pub enum StepSection {
     GraphqlQuery,
     GraphqlVariables,
     LoadFromCollection,
+    // Loop step sections
+    LoopUrl,
+    LoopMethod,
+    LoopUntilVar,
+    LoopUntilCond,
+    LoopAccumulateVar,
+    LoopAccumulateFrom,
+    LoopExtract,
+    LoopHeaders,
+    LoopContinueOnError,
 }
 
 impl StepSection {
@@ -181,11 +191,23 @@ impl StepSection {
             StepSection::GraphqlQuery       => "GQL Query",
             StepSection::GraphqlVariables   => "GQL Variables",
             StepSection::LoadFromCollection => "[L] Load from collection",
+            StepSection::LoopUrl            => "URL",
+            StepSection::LoopMethod         => "Method",
+            StepSection::LoopUntilVar       => "Until — var",
+            StepSection::LoopUntilCond      => "Until — condition",
+            StepSection::LoopAccumulateVar  => "Accumulate — var",
+            StepSection::LoopAccumulateFrom => "Accumulate — from",
+            StepSection::LoopExtract        => "Extract (per-iter)",
+            StepSection::LoopHeaders        => "Headers",
+            StepSection::LoopContinueOnError => "Continue on error",
         }
     }
 
     pub fn is_list(&self) -> bool {
-        matches!(self, StepSection::Headers | StepSection::Extract | StepSection::Assertions | StepSection::MultipartParts | StepSection::GraphqlVariables)
+        matches!(self,
+            StepSection::Headers | StepSection::Extract | StepSection::Assertions |
+            StepSection::MultipartParts | StepSection::GraphqlVariables |
+            StepSection::LoopExtract | StepSection::LoopHeaders)
     }
 }
 
@@ -195,6 +217,7 @@ impl StepSection {
 pub enum BrickKind {
     Http,
     GraphQL,
+    Loop,
     Transform,
     Pause,
     Seed,
@@ -209,6 +232,7 @@ impl BrickKind {
         match self {
             BrickKind::Http       => "HTTP step",
             BrickKind::GraphQL    => "GraphQL step",
+            BrickKind::Loop       => "Loop (pagination)",
             BrickKind::Transform  => "Transform",
             BrickKind::Pause      => "Pause",
             BrickKind::Seed       => "Seed",
@@ -222,6 +246,7 @@ impl BrickKind {
         match self {
             BrickKind::Http       => "HTTP request",
             BrickKind::GraphQL    => "GraphQL query (POST, body built from query + variables)",
+            BrickKind::Loop       => "repeat HTTP until condition, accumulate results (pagination)",
             BrickKind::Transform  => "variable transform",
             BrickKind::Pause      => "wait (ms)",
             BrickKind::Seed       => "seed connector (inline)",
@@ -236,6 +261,7 @@ impl BrickKind {
 pub const BRICK_KINDS: &[BrickKind] = &[
     BrickKind::Http,
     BrickKind::GraphQL,
+    BrickKind::Loop,
     BrickKind::Transform,
     BrickKind::Pause,
     BrickKind::Seed,

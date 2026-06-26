@@ -1,0 +1,869 @@
+[collection]
+name        = "SpaceX — GraphQL"
+description = "SpaceX community GraphQL API — rockets, dragons, ships, launches, roadster, introspection"
+
+# Endpoint public, sans auth.
+# https://spacex-api.fly.dev/graphql
+#
+# Source : SpaceX-API (r-spacex/SpaceX-API) wrapped in a community GraphQL layer.
+# Données figées autour de 2020-2021 (dernière sync connue du dataset).
+#
+# Pagination : les queries *Result (launchesPastResult, rocketsResult…)
+#   retournent { result { totalCount } data [...] } avec args limit / offset.
+# Types principaux : Company, Rocket, Dragon, Ship, Launch, Capsule, Core,
+#   Launchpad, Landpad, Mission, Payload, History, Roadster.
+
+# ── Overview ──────────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Overview"
+
+[[folders.requests]]
+name         = "Company info"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Profil de l'entreprise : CEO, COO, CTO, effectifs, sites, véhicules."
+graphql      = true
+graphql_query = """
+{
+  company {
+    name
+    ceo
+    coo
+    cto
+    cto_propulsion
+    founded
+    employees
+    vehicles
+    launch_sites
+    test_sites
+    valuation
+    summary
+    headquarters {
+      address
+      city
+      state
+    }
+    links {
+      website
+      flickr
+      twitter
+      elon_twitter
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Tesla Roadster — position actuelle"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Position orbitale du Roadster lancé en 2018 : distances Terre/Mars, vitesse, orbite."
+graphql      = true
+graphql_query = """
+{
+  roadster {
+    name
+    launch_date_utc
+    launch_mass_kg
+    norad_id
+    epoch_jd
+    orbit_type
+    apoapsis_au
+    periapsis_au
+    semi_major_axis_au
+    eccentricity
+    inclination
+    longitude
+    periapsis_arg
+    period_days
+    speed_kph
+    speed_mph
+    earth_distance_km
+    earth_distance_mi
+    mars_distance_km
+    mars_distance_mi
+    wikipedia
+    details
+  }
+}
+"""
+
+# ── Fusées & Vaisseaux ────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Fusées & Vaisseaux"
+
+[[folders.requests]]
+name         = "Toutes les fusées"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Falcon 1, Falcon 9, Falcon Heavy, Starship — fiche complète de chaque lanceur."
+graphql      = true
+graphql_query = """
+{
+  rockets {
+    id
+    name
+    type
+    active
+    stages
+    boosters
+    cost_per_launch
+    success_rate_pct
+    first_flight
+    country
+    company
+    height { meters feet }
+    diameter { meters feet }
+    mass { kg lb }
+    payload_weights {
+      id
+      name
+      kg
+      lb
+    }
+    first_stage {
+      reusable
+      engines
+      fuel_amount_tons
+      burn_time_sec
+      thrust_sea_level { kN lbf }
+      thrust_vacuum   { kN lbf }
+    }
+    second_stage {
+      engines
+      fuel_amount_tons
+      burn_time_sec
+      thrust { kN lbf }
+      payloads {
+        option_1
+        composite_fairing {
+          height    { meters feet }
+          diameter  { meters feet }
+        }
+      }
+    }
+    engines {
+      number
+      type
+      version
+      layout
+      engine_loss_max
+      propellant_1
+      propellant_2
+      thrust_sea_level { kN lbf }
+      thrust_vacuum    { kN lbf }
+      thrust_to_weight
+      isp { sea_level vacuum }
+    }
+    description
+    wikipedia
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Fusée par ID (variable)"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Détail d'une fusée par son ID — falcon9 par défaut. IDs : falcon1, falcon9, falconheavy, starship."
+graphql      = true
+graphql_query = """
+query RocketDetail($id: ID!) {
+  rocket(id: $id) {
+    id
+    name
+    active
+    first_flight
+    country
+    cost_per_launch
+    success_rate_pct
+    description
+    wikipedia
+    height { meters }
+    diameter { meters }
+    mass { kg }
+    engines {
+      number
+      type
+      version
+      propellant_1
+      propellant_2
+      thrust_sea_level { kN }
+      thrust_vacuum    { kN }
+      isp { vacuum }
+    }
+  }
+}
+"""
+graphql_variables = {id = "falcon9"}
+
+[[folders.requests]]
+name         = "Dragons (capsules de fret/équipage)"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Dragon 1 (fret) et Dragon 2 (équipage) — capacité, dimensions, heatshield, moteurs."
+graphql      = true
+graphql_query = """
+{
+  dragons {
+    id
+    name
+    type
+    active
+    crew_capacity
+    orbit_duration_yr
+    dry_mass_kg
+    first_flight
+    heat_shield {
+      material
+      size_meters
+      temp_degrees
+      dev_partner
+    }
+    thrusters {
+      type
+      amount
+      pods
+      fuel_1
+      fuel_2
+      thrust { kN }
+    }
+    launch_payload_mass { kg }
+    launch_payload_vol  { cubic_meters }
+    return_payload_mass { kg }
+    return_payload_vol  { cubic_meters }
+    pressurized_capsule { payload_volume { cubic_meters } }
+    trunk {
+      trunk_volume { cubic_meters }
+      cargo {
+        solar_array
+        unpressurized_cargo
+      }
+    }
+    height_w_trunk { meters }
+    diameter       { meters }
+    description
+    wikipedia
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Navires de récupération"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Flotte de navires : barges ASDS, navires de récupération, remorqueurs."
+graphql      = true
+graphql_query = """
+{
+  ships {
+    id
+    name
+    model
+    type
+    roles
+    active
+    imo
+    mmsi
+    abs
+    class
+    weight_lbs
+    weight_kg
+    year_built
+    home_port
+    status
+    speed_kn
+    course_deg
+    latitude
+    longitude
+    last_ais_update
+    link
+    image
+    missions {
+      name
+      flight
+    }
+  }
+}
+"""
+
+# ── Lancements ────────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Lancements"
+
+[[folders.requests]]
+name         = "Dernier lancement"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Fiche complète du lancement le plus récent : mission, fusée, site, orbite, liens."
+graphql      = true
+graphql_query = """
+{
+  launchLatest {
+    id
+    mission_name
+    launch_date_utc
+    launch_date_local
+    launch_success
+    details
+    upcoming
+    rocket {
+      rocket_name
+      rocket_type
+      rocket {
+        id
+        name
+        active
+      }
+      first_stage {
+        cores {
+          core { id reuse_count }
+          flight
+          block
+          gridfins
+          legs
+          reused
+          land_success
+          landing_type
+          landing_vehicle
+        }
+      }
+      second_stage {
+        block
+        payloads {
+          id
+          payload_type
+          orbit
+          orbit_params {
+            regime
+            reference_system
+            longitude
+            semi_major_axis_km
+            eccentricity
+            periapsis_km
+            apoapsis_km
+            inclination_deg
+          }
+          customers
+          nationality
+          manufacturer
+          payload_mass_kg
+          reused
+        }
+      }
+    }
+    launch_site {
+      site_id
+      site_name
+      site_name_long
+    }
+    links {
+      mission_patch
+      mission_patch_small
+      reddit_campaign
+      reddit_launch
+      reddit_recovery
+      reddit_media
+      presskit
+      article_link
+      wikipedia
+      video_link
+      youtube_id
+      flickr_images
+    }
+    telemetry { flight_club }
+    static_fire_date_utc
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "10 derniers lancements"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Les 10 lancements les plus récents — vue résumée avec résultat et fusée."
+graphql      = true
+graphql_query = """
+{
+  launchesPast(limit: 10, order: "desc", sort: "launch_date_utc") {
+    id
+    mission_name
+    launch_date_utc
+    launch_success
+    rocket {
+      rocket_name
+      first_stage {
+        cores {
+          reused
+          land_success
+          landing_type
+          landing_vehicle
+        }
+      }
+    }
+    launch_site { site_name_long }
+    links {
+      mission_patch_small
+      video_link
+      flickr_images
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Lancements — avec pagination (page 1)"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "launchesPastResult : retourne totalCount + data — base pour les campagnes paginées."
+graphql      = true
+graphql_query = """
+query LaunchesPaged($limit: Int, $offset: Int) {
+  launchesPastResult(
+    limit: $limit
+    offset: $offset
+    order: "desc"
+    sort: "launch_date_utc"
+  ) {
+    result {
+      totalCount
+    }
+    data {
+      id
+      mission_name
+      launch_date_utc
+      launch_success
+      rocket { rocket_name }
+      launch_site { site_name_long }
+    }
+  }
+}
+"""
+graphql_variables = {limit = "20", offset = "0"}
+
+[[folders.requests]]
+name         = "Lancement par ID (variable)"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Détail complet d'un lancement par son ID numérique — ID 109 (Starlink-15) par défaut."
+graphql      = true
+graphql_query = """
+query LaunchDetail($id: ID!) {
+  launch(id: $id) {
+    id
+    mission_name
+    launch_date_utc
+    launch_success
+    details
+    rocket {
+      rocket_name
+      first_stage {
+        cores {
+          core { id reuse_count }
+          flight
+          land_success
+          landing_type
+          landing_vehicle
+        }
+      }
+      second_stage {
+        payloads {
+          id
+          payload_type
+          orbit
+          customers
+          payload_mass_kg
+        }
+      }
+    }
+    launch_site { site_name_long }
+    links {
+      article_link
+      wikipedia
+      video_link
+      flickr_images
+    }
+  }
+}
+"""
+graphql_variables = {id = "109"}
+
+[[folders.requests]]
+name         = "Prochain lancement"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "launchNext — détails du prochain vol planifié (peut être null si données figées)."
+graphql      = true
+graphql_query = """
+{
+  launchNext {
+    id
+    mission_name
+    launch_date_utc
+    is_tentative
+    tentative_max_precision
+    details
+    rocket {
+      rocket_name
+      second_stage {
+        payloads {
+          id
+          payload_type
+          orbit
+          customers
+        }
+      }
+    }
+    launch_site { site_name_long }
+    links {
+      mission_patch_small
+      reddit_campaign
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Lancements par fusée (variable)"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Tous les lancements d'une fusée filtrée par rocket_id — falcon9 par défaut."
+graphql      = true
+graphql_query = """
+query LaunchesByRocket($rocket_id: String) {
+  launchesPast(
+    find: { rocket_id: $rocket_id }
+    order: "desc"
+    sort: "launch_date_utc"
+  ) {
+    id
+    mission_name
+    launch_date_utc
+    launch_success
+    launch_site { site_name_long }
+  }
+}
+"""
+graphql_variables = {rocket_id = "falcon9"}
+
+# ── Capsules & Cœurs ──────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Capsules & Cœurs"
+
+[[folders.requests]]
+name         = "Capsules Dragon actives"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Capsules en service ou récupérées — status, missions effectuées, lancements."
+graphql      = true
+graphql_query = """
+{
+  capsulesPast {
+    id
+    id
+    type
+    status
+    original_launch
+    reuse_count
+    water_landings
+    land_landings
+    dragon { id name }
+    missions { name flight }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Cœurs Falcon 9 — réutilisations"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Boosters actifs ou en attente — numéro de série, bloc, atterrissages, missions."
+graphql      = true
+graphql_query = """
+{
+  cores(find: { status: "active" }) {
+    id
+    id
+    block
+    status
+    reuse_count
+    rtls_attempts
+    rtls_landings
+    asds_attempts
+    asds_landings
+    water_landing
+    original_launch
+    missions { name flight }
+  }
+}
+"""
+
+# ── Sites ─────────────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Sites"
+
+[[folders.requests]]
+name         = "Pads de lancement"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Sites de lancement : statut, localisation, fusées supportées, tentatives/succès."
+graphql      = true
+graphql_query = """
+{
+  launchpads {
+    id
+    name
+    status
+    location {
+      name
+      region
+      latitude
+      longitude
+    }
+    vehicles_launched { id name }
+    attempted_launches
+    successful_launches
+    wikipedia
+    details
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Zones d'atterrissage"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Landing pads (RTLS + ASDS) — statut, position, tentatives, succès."
+graphql      = true
+graphql_query = """
+{
+  landpads {
+    id
+    full_name
+    status
+    type
+    location {
+      name
+      region
+      latitude
+      longitude
+    }
+    landing_type
+    attempted_landings
+    successful_landings
+    wikipedia
+    details
+  }
+}
+"""
+
+# ── Missions & Historique ─────────────────────────────────────────────────────
+
+[[folders]]
+name = "Missions & Historique"
+
+[[folders.requests]]
+name         = "Toutes les missions contractuelles"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Missions (contrats clients) avec liste des vols et payloads associés."
+graphql      = true
+graphql_query = """
+{
+  missions {
+    id
+    name
+    manufacturers
+    payloadIDs
+    wikipedia
+    website
+    twitter
+    description
+    payloads {
+      id
+      payload_type
+      orbit
+      customers
+      nationality
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Historique SpaceX (10 derniers)"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Événements historiques majeurs de l'entreprise triés par date décroissante."
+graphql      = true
+graphql_query = """
+{
+  histories(limit: 10, order: "desc", sort: "event_date_utc") {
+    id
+    title
+    event_date_utc
+    details
+    links {
+      article
+      reddit
+      wikipedia
+    }
+    flight { id mission_name }
+  }
+}
+"""
+
+# ── Requêtes combinées (alias) ─────────────────────────────────────────────────
+
+[[folders]]
+name = "Requêtes combinées"
+
+[[folders.requests]]
+name         = "Dashboard complet (une seule requête)"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Company + Roadster + dernier lancement + prochain lancement en une seule requête GraphQL."
+graphql      = true
+graphql_query = """
+{
+  company {
+    name
+    ceo
+    employees
+    valuation
+  }
+  roadster {
+    earth_distance_km
+    mars_distance_km
+    speed_kph
+    period_days
+  }
+  launchLatest {
+    mission_name
+    launch_date_utc
+    launch_success
+    rocket { rocket_name }
+    launch_site { site_name_long }
+  }
+  launchNext {
+    mission_name
+    launch_date_utc
+    is_tentative
+    rocket { rocket_name }
+    launch_site { site_name_long }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Falcon 9 — fusée + stats + 5 derniers vols"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Fiche Falcon 9 complète + 5 derniers vols — alias GraphQL pour grouper sans conflit."
+graphql      = true
+graphql_query = """
+{
+  rocket(id: "falcon9") {
+    name
+    active
+    success_rate_pct
+    cost_per_launch
+    first_flight
+    engines { number type propellant_1 propellant_2 }
+  }
+  recentFlights: launchesPast(
+    limit: 5
+    find: { rocket_id: "falcon9" }
+    order: "desc"
+    sort: "launch_date_utc"
+  ) {
+    mission_name
+    launch_date_utc
+    launch_success
+    launch_site { site_name_long }
+  }
+}
+"""
+
+# ── Introspection ─────────────────────────────────────────────────────────────
+
+[[folders]]
+name = "Introspection"
+
+[[folders.requests]]
+name         = "Types du schéma"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Vue d'ensemble du schéma SpaceX — tous les types OBJECT, INPUT_OBJECT, ENUM."
+graphql      = true
+graphql_query = """
+{
+  __schema {
+    types {
+      name
+      kind
+      description
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Queries racine disponibles"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Toutes les queries avec leurs arguments — base pour construire des campagnes."
+graphql      = true
+graphql_query = """
+{
+  __schema {
+    queryType {
+      fields {
+        name
+        description
+        args {
+          name
+          type { name kind ofType { name kind } }
+          defaultValue
+        }
+        type {
+          name
+          kind
+          ofType { name kind ofType { name kind } }
+        }
+      }
+    }
+  }
+}
+"""
+
+[[folders.requests]]
+name         = "Type Launch — champs détaillés"
+method       = "POST"
+url          = "https://spacex-api.fly.dev/graphql"
+description  = "Introspection complète du type Launch : champs, types, nullable/non-null."
+graphql      = true
+graphql_query = """
+query TypeDetail($typeName: String!) {
+  __type(name: $typeName) {
+    name
+    kind
+    description
+    fields {
+      name
+      description
+      type {
+        name
+        kind
+        ofType { name kind ofType { name kind } }
+      }
+    }
+  }
+}
+"""
+graphql_variables = {typeName = "Launch"}

@@ -1,0 +1,112 @@
+# loop_pagination_demo.toml — demonstrate kind = "loop" for paginated APIs
+#
+# Two patterns in one file:
+#
+#  Pattern A — "next URL" cursor  (canonical, documented as a template)
+#    Each response carries a full `next` URL (or JSON null on the last page).
+#    {{NEXT_URL}} is initialized to page 1 and rewritten each iteration.
+#    ✦ Best when the API is cursor/token-based (Stripe, GitHub, Twitter…)
+#    ✦ Requires internet access to rickandmortyapi.com — uncomment to test.
+#
+#  Pattern B — last-ID as next offset  (runnable, JSONPlaceholder)
+#    JSONPlaceholder posts have sequential IDs (1–100) that match their
+#    array position. Extracting the last item's ID gives the next _start
+#    offset directly — no arithmetic or extra transform step needed.
+#    ✦ Runnable from any environment: https://jsonplaceholder.typicode.com
+#    ✦ 100 posts / 25 per page = 4 iterations, terminates after last item.
+#
+# Run:
+#   terapi run examples/campaigns/loop_pagination_demo.toml
+
+continue_on_error = false
+
+[campaign]
+name        = "loop pagination demo"
+description = "Collect paginated results using kind = 'loop'. Two patterns shown."
+
+# ── Pattern A — next URL cursor ───────────────────────────────────────────────
+#
+# API: Rick & Morty  https://rickandmortyapi.com  (no auth required)
+#   GET /api/character?name=morty&page=N  →  68 characters, 4 pages of 20 (last: 8)
+#   Response: { "info": { "next": "<url>" | null, "count": 68, "pages": 4 }, "results": [...] }
+#
+# How it works:
+#   1. Fetch {{NEXT_URL}}                     — first iter: env seed value (page 1)
+#   2. Append character names to ALL_NAMES    — results.*.name wildcard
+#   3. Extract info.next into NEXT_URL        — JSON null on the last page
+#   4. JSON null is serialised as the string "null" by the extractor
+#   5. until { eq = "null" } fires → loop stops after the last page
+#
+# Uncomment the [env] key and the [[steps]] block to enable Pattern A:
+
+# [env]
+# NEXT_URL = "https://rickandmortyapi.com/api/character?name=morty&page=1"
+
+# [[steps]]
+# name       = "Fetch all Morty characters"
+# kind       = "loop"
+# method     = "GET"
+# url        = "{{NEXT_URL}}"
+# until      = { var = "NEXT_URL", eq = "null" }
+# accumulate = { var = "ALL_NAMES", from = "results.*.name" }
+# assert     = [{ on = "status", eq = 200 }]
+#
+# [steps.extract]
+# NEXT_URL = "info.next"    # full URL of next page, or JSON null on the last page
+
+
+# ── Pattern B — last-ID as next offset (JSONPlaceholder posts) ────────────────
+#
+# API: JSONPlaceholder  https://jsonplaceholder.typicode.com  (no auth required)
+#   GET /posts?_start={{NEXT_START}}&_limit=25
+#   Response body: JSON array of 25 post objects (or fewer on the last page)
+#
+# Why this works:
+#   JSONPlaceholder post IDs are sequential (1–100) and match their array position.
+#   The last item on a page has ID = _start + page_size = the next _start value.
+#   Extracting "24.id" (0-indexed, 25th element) gives the next offset directly.
+#
+#   Termination: the last page (IDs 76–100) also has 25 items. We detect the
+#   end because the last item's ID equals the known total (100). The until
+#   condition fires after the last real page — no extra empty request.
+#
+#   If total count is unknown, add a first step to fetch it, then use
+#   until { var = "NEXT_START", eq = "{{TOTAL}}" }.
+#
+# Iterations (100 posts / 25 per page):
+#   start=0  → IDs  1–25  → "24.id" = 25  → NEXT_START="25"  → continue
+#   start=25 → IDs 26–50  → "24.id" = 50  → NEXT_START="50"  → continue
+#   start=50 → IDs 51–75  → "24.id" = 75  → NEXT_START="75"  → continue
+#   start=75 → IDs 76–100 → "24.id" = 100 → NEXT_START="100" → STOP (eq "100")
+
+[env]
+NEXT_START = "0"    # initial offset; rewritten each iteration with the next page's start
+
+[[steps]]
+name       = "Fetch all posts (4 pages of 25)"
+kind       = "loop"
+method     = "GET"
+url        = "https://jsonplaceholder.typicode.com/posts?_start={{NEXT_START}}&_limit=25"
+until      = { var = "NEXT_START", eq = "100" }   # stop after ID 100 (known total)
+accumulate = { var = "ALL_TITLES", from = "*.title" }
+assert     = [{ on = "status", eq = 200 }]
+
+[steps.extract]
+# ID of the last item on a full page (0-indexed position 24) = next _start value
+# Requires sequential IDs matching array positions — verify before adapting.
+NEXT_START = "24.id"
+
+# ── Validation ────────────────────────────────────────────────────────────────
+
+[[steps]]
+name   = "Summarise results"
+kind   = "transform"
+transforms = [
+  { type = "template", input = "ALL_TITLES collected across 4 pages. First title: {{ALL_TITLES}}", output = "SUMMARY" }
+]
+
+# ── Output ────────────────────────────────────────────────────────────────────
+
+[[outputs]]
+from_step = "Fetch all posts (4 pages of 25)"
+path      = "/tmp/loop_all_posts.json"

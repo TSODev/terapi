@@ -975,7 +975,7 @@ impl BuilderApp {
     }
 
     pub fn start_step_preview(&mut self, step_idx: usize) {
-        let step = self.campaign.steps[step_idx].clone();
+        let steps = self.campaign.steps.clone();
         let mut env: std::collections::HashMap<String, String> =
             if let Some(ref name) = self.campaign.env_file {
                 crate::storage::load_env_by_name(name)
@@ -991,7 +991,7 @@ impl BuilderApp {
         self.step_preview_running = true;
         self.status_message = "Running step…".into();
         tokio::spawn(async move {
-            let result = crate::campaign::run_step_preview(step, env).await;
+            let result = crate::campaign::run_step_preview_with_context(steps, step_idx, env).await;
             let _ = tx.send(result);
         });
     }
@@ -1245,7 +1245,36 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None,
+        },
+        BrickKind::Loop => Step {
+            name: "Paginate".into(),
+            kind: "loop".into(),
+            method: "GET".into(),
+            url: String::new(),
+            headers: std::collections::HashMap::new(),
+            body: None,
+            wait_ms: 0,
+            env: None,
+            extract: std::collections::HashMap::new(),
+            assert: vec![],
+            transforms: vec![],
+            continue_on_error: None,
+            foreach: None,
+            when: None,
+            description: String::new(),
+            file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
             graphql_query: None, graphql_variables: std::collections::HashMap::new(),
+            until: Some(crate::campaign::StepCondition {
+                var: "CURSOR".into(),
+                eq: None, ne: None,
+                exists: Some(false),
+                lt: None, lte: None,
+            }),
+            accumulate: Some(crate::campaign::AccumulateConfig {
+                var: "ALL_ITEMS".into(),
+                from: "items.*".into(),
+            }),
         },
         BrickKind::GraphQL => Step {
             name: "GraphQL query".into(),
@@ -1265,7 +1294,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
             graphql_query: Some("{\n  \n}".into()),
-            graphql_variables: std::collections::HashMap::new(),
+            graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None,
         },
         BrickKind::Transform => Step {
             name: "New transform".into(),
@@ -1284,7 +1313,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
-            graphql_query: None, graphql_variables: std::collections::HashMap::new(),
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None,
         },
         BrickKind::Pause => Step {
             name: "Pause".into(),
@@ -1303,7 +1332,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
-            graphql_query: None, graphql_variables: std::collections::HashMap::new(),
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None,
         },
         BrickKind::Seed => Step {
             name: "Seed".into(),
@@ -1322,7 +1351,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
-            graphql_query: None, graphql_variables: std::collections::HashMap::new(),
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None,
         },
         BrickKind::Comment => Step {
             name: "Comment text here".into(),
@@ -1341,7 +1370,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
-            graphql_query: None, graphql_variables: std::collections::HashMap::new(),
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None,
         },
         BrickKind::FileLoader => Step {
             name: "Load file".into(),
@@ -1363,14 +1392,14 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             file_output: Some("FILE_DATA".into()),
             file_encoding: Some("base64".into()),
             multipart_parts: vec![],
-            graphql_query: None, graphql_variables: std::collections::HashMap::new(),
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None,
         },
         // Connector and Output are handled directly in handle_catalog_key — not steps
         BrickKind::Connector | BrickKind::Output => unreachable!(),
     }
 }
 
-fn generate_toml(campaign: &Campaign, step_comments: &[String], header_comment: &str) -> String {
+pub(super) fn generate_toml(campaign: &Campaign, step_comments: &[String], header_comment: &str) -> String {
     let mut out = String::new();
     if !header_comment.is_empty() {
         for line in header_comment.lines() {
@@ -1481,14 +1510,6 @@ fn generate_toml(campaign: &Campaign, step_comments: &[String], header_comment: 
                 }
             }
         }
-        if !step.graphql_variables.is_empty() {
-            out.push_str("[steps.graphql_variables]\n");
-            let mut vars: Vec<_> = step.graphql_variables.iter().collect();
-            vars.sort_by_key(|(k, _)| k.as_str());
-            for (k, v) in vars {
-                out.push_str(&format!("{} = \"{}\"\n", k, toml_escape(v)));
-            }
-        }
         if step.wait_ms > 0 {
             out.push_str(&format!("wait_ms = {}\n", step.wait_ms));
         }
@@ -1510,22 +1531,7 @@ fn generate_toml(campaign: &Campaign, step_comments: &[String], header_comment: 
         if let Some(coe) = step.continue_on_error {
             out.push_str(&format!("continue_on_error = {}\n", coe));
         }
-        if !step.headers.is_empty() {
-            out.push_str("[steps.headers]\n");
-            let mut headers: Vec<_> = step.headers.iter().collect();
-            headers.sort_by_key(|(k, _)| k.as_str());
-            for (k, v) in headers {
-                out.push_str(&format!("{} = \"{}\"\n", k, v));
-            }
-        }
-        if !step.extract.is_empty() {
-            out.push_str("[steps.extract]\n");
-            let mut ex: Vec<_> = step.extract.iter().collect();
-            ex.sort_by_key(|(k, _)| k.as_str());
-            for (k, v) in ex {
-                out.push_str(&format!("{} = \"{}\"\n", k, v));
-            }
-        }
+        // Inline scalars (when/assert/transforms) must come before any [subtable] headers
         if let Some(when) = &step.when {
             let mut w = format!("when   = {{var = \"{}\"", when.var);
             if let Some(eq) = &when.eq { w.push_str(&format!(", eq = \"{}\"", eq)); }
@@ -1555,6 +1561,44 @@ fn generate_toml(campaign: &Campaign, step_comments: &[String], header_comment: 
             }).collect();
             out.push_str(&format!("transforms = [\n{}\n]\n",
                 parts.iter().map(|p| format!("  {}", p)).collect::<Vec<_>>().join(",\n")));
+        }
+        if let Some(until) = &step.until {
+            let mut u = format!("until = {{var = \"{}\"", until.var);
+            if let Some(eq)  = &until.eq    { u.push_str(&format!(", eq = \"{}\"", eq)); }
+            if let Some(ne)  = &until.ne    { u.push_str(&format!(", ne = \"{}\"", ne)); }
+            if let Some(b)   = until.exists { u.push_str(&format!(", exists = {}", b)); }
+            if let Some(lt)  = until.lt     { u.push_str(&format!(", lt = {}", lt)); }
+            if let Some(lte) = until.lte    { u.push_str(&format!(", lte = {}", lte)); }
+            u.push_str("}\n");
+            out.push_str(&u);
+        }
+        if let Some(acc) = &step.accumulate {
+            out.push_str(&format!("accumulate = {{var = \"{}\", from = \"{}\"}}\n", acc.var, acc.from));
+        }
+        // Subtable headers after all scalar/inline fields
+        if !step.headers.is_empty() {
+            out.push_str("[steps.headers]\n");
+            let mut headers: Vec<_> = step.headers.iter().collect();
+            headers.sort_by_key(|(k, _)| k.as_str());
+            for (k, v) in headers {
+                out.push_str(&format!("{} = \"{}\"\n", k, v));
+            }
+        }
+        if !step.graphql_variables.is_empty() {
+            out.push_str("[steps.graphql_variables]\n");
+            let mut vars: Vec<_> = step.graphql_variables.iter().collect();
+            vars.sort_by_key(|(k, _)| k.as_str());
+            for (k, v) in vars {
+                out.push_str(&format!("{} = \"{}\"\n", k, toml_escape(v)));
+            }
+        }
+        if !step.extract.is_empty() {
+            out.push_str("[steps.extract]\n");
+            let mut ex: Vec<_> = step.extract.iter().collect();
+            ex.sort_by_key(|(k, _)| k.as_str());
+            for (k, v) in ex {
+                out.push_str(&format!("{} = \"{}\"\n", k, v));
+            }
         }
         for mp in &step.multipart_parts {
             out.push_str("\n[[steps.multipart_parts]]\n");

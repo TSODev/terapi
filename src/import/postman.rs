@@ -493,12 +493,18 @@ fn parse_request(
                         .iter()
                         .filter(|p| !p.disabled)
                         .map(|p| {
-                            format!("{}={}", p.key, p.value.as_deref().unwrap_or(""))
+                            format!(
+                                "{}={}",
+                                percent_encode_form(&p.key),
+                                percent_encode_form(p.value.as_deref().unwrap_or(""))
+                            )
                         })
                         .collect();
                     if !parts.is_empty() {
                         body = Some(parts.join("&"));
-                        report.urlencoded_degraded += 1;
+                        headers
+                            .entry("Content-Type".to_string())
+                            .or_insert_with(|| "application/x-www-form-urlencoded".to_string());
                     }
                 }
             }
@@ -632,6 +638,20 @@ fn desc_text(d: &PostmanDescription) -> String {
         PostmanDescription::Simple(s) => s.clone(),
         PostmanDescription::Object { content, .. } => content.clone().unwrap_or_default(),
     }
+}
+
+fn percent_encode_form(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'*' => {
+                out.push(b as char)
+            }
+            b' ' => out.push('+'),
+            _ => out.push_str(&format!("%{:02X}", b)),
+        }
+    }
+    out
 }
 
 fn json_value_to_string(v: &serde_json::Value) -> String {

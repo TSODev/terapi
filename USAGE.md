@@ -44,6 +44,7 @@
   - [Silent mode (CI/cron)](#silent-mode-cicron)
   - [Step filter (--only)](#step-filter---only)
   - [Output formats (--format)](#output-formats---format)
+  - [Retry logic (--retry)](#retry-logic---retry)
 - [Campaign builder](#campaign-builder)
   - [Invocation](#invocation)
   - [Layout](#layout)
@@ -2621,6 +2622,57 @@ iteration,name,method,url,status,success,skipped,elapsed_ms,extracted,error
 0,Login,POST,https://api.example.com/auth/login,200,true,false,142,"{""JWT"":""eyJ..."",""USER_ID"":""42""}",
 0,Delete user,DELETE,https://api.example.com/users/42,404,false,false,34,,HTTP 404
 ```
+
+---
+
+### Retry logic (`--retry`)
+
+Automatically retry failed HTTP/GraphQL/seed steps with exponential backoff:
+
+```bash
+terapi run campaign.toml --retry 3
+terapi run campaign.toml --retry 5 --format json
+terapi run campaign.toml --retry 3 --only "Login"
+```
+
+The retry count is the number of **additional** attempts after the first failure. With `--retry 3`, a step can run up to 4 times total.
+
+**Backoff schedule:**
+
+| Attempt | Delay before this attempt |
+|---------|--------------------------|
+| 1st retry | 1 s |
+| 2nd retry | 2 s |
+| 3rd retry | 4 s |
+| 4th retry | 8 s |
+| 5th retry | 16 s |
+| 6th+ retry | 30 s (capped) |
+
+Formula: `min(2^(attempt-1), 30)` seconds.
+
+**What gets retried:**
+
+| Step kind | Retried? |
+|-----------|----------|
+| `http` (default) | Yes |
+| `graphql` | Yes |
+| `seed` | Yes |
+| `transform` | No — deterministic, no point retrying |
+| `pause` | No |
+| `file` | No |
+| `search` | No |
+| `comment` | No |
+| `loop` | No — manages its own iterations |
+
+**Text output** (on stderr, per retry):
+```
+  ⟳ retry 1/3 — Login — waiting 1s...
+  ⟳ retry 2/3 — Login — waiting 2s...
+```
+
+**JSON/CSV output** — only the final result is included; intermediate retries are not emitted as rows.
+
+**TUI** — while a step is being retried, the status bar shows `⟳ retry K/N — <step name>`.
 
 ---
 

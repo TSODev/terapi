@@ -36,6 +36,9 @@ impl App {
                 CampaignEvent::IterationStarted { idx, total, .. } => {
                     self.status_message = format!("Running campaign — iteration {}/{}…", idx + 1, total);
                 }
+                CampaignEvent::StepRetry { name, attempt, max, .. } => {
+                    self.status_message = format!("⟳ retry {}/{} — {}", attempt, max, name);
+                }
                 CampaignEvent::Warning(msg) => {
                     self.status_message = format!("Campaign warning: {}", msg);
                 }

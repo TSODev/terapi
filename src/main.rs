@@ -55,6 +55,10 @@ enum Commands {
         /// Output format: text (default), json, csv
         #[arg(long, value_name = "FORMAT", default_value = "text")]
         format: String,
+
+        /// Retry failed HTTP/GraphQL steps up to N times with exponential backoff
+        #[arg(long, default_value_t = 0, value_name = "N")]
+        retry: u32,
     },
 
     /// Import a collection or campaign TOML file into the terapi directory
@@ -77,7 +81,7 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Some(Commands::Run { file, silent, param, only, format }) => {
+        Some(Commands::Run { file, silent, param, only, format, retry }) => {
             let camp = campaign::load(&file)?;
             let overrides: std::collections::HashMap<String, String> = param.iter()
                 .filter_map(|p| p.split_once('=').map(|(k, v)| (k.to_string(), v.to_string())))
@@ -87,7 +91,7 @@ async fn main() -> Result<()> {
                 "csv"  => campaign::OutputFormat::Csv,
                 _      => campaign::OutputFormat::Text,
             };
-            campaign::run(&camp, silent, overrides, only, fmt).await?;
+            campaign::run(&camp, silent, overrides, only, fmt, retry).await?;
         }
         Some(Commands::Import { file }) => {
             import_collection(&file)?;

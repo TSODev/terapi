@@ -970,7 +970,7 @@ impl BuilderApp {
         self.campaign_rx = Some(rx);
         self.focus = BuilderFocus::Run { scroll: 0 };
         tokio::spawn(async move {
-            crate::campaign::run_streaming(campaign, tx, std::collections::HashMap::new(), vec![]).await;
+            crate::campaign::run_streaming(campaign, tx, std::collections::HashMap::new(), vec![], 0).await;
         });
     }
 

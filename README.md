@@ -61,6 +61,7 @@ terapi run campaign.toml --silent            # exit 0/1 only (CI/cron)
 terapi run campaign.toml --only "Login"      # run only the named step(s)
 terapi run campaign.toml --format json       # machine-readable JSON output
 terapi run campaign.toml --format csv        # CSV output (one row per step)
+terapi run campaign.toml --retry 3           # retry failed steps (exp. backoff)
 terapi import file.toml             # import a collection or campaign TOML
 terapi --version
 terapi --help

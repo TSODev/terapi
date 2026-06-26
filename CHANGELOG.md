@@ -12,6 +12,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `terapi run --format json` — emit a single JSON object on stdout: `campaign`, `success`, `duration_ms`, `steps[]` (or `iterations[]` for connector campaigns); each step includes `name`, `method`, `url`, `status`, `success`, `skipped`, `elapsed_ms`, `extracted`, `assertions`, `error`
 - `terapi run --format csv` — emit one CSV row per step: `iteration,name,method,url,status,success,skipped,elapsed_ms,extracted,error`; `extracted` is JSON-encoded in the cell; safe quoting (RFC 4180)
 - `--only` and `--format` are combinable: `terapi run campaign.toml --only Login --format json`
+- `terapi run --retry N` — retry failed HTTP/GraphQL/seed steps up to N times with exponential backoff (`min(2^(attempt-1), 30)` seconds between attempts); transform/pause/file/search/comment/loop steps are not retried; text output shows `⟳ retry K/N — <step> — waiting Xs...` on stderr
 
 ### Fixed
 - Import Postman v2.1 — `urlencoded` body now properly percent-encoded (RFC 1866) and `Content-Type: application/x-www-form-urlencoded` injected automatically; no longer reported as a degradation

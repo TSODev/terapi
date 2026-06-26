@@ -256,6 +256,7 @@ impl IterationResult {
 pub enum CampaignEvent {
     IterationStarted { idx: usize, total: usize, row_summary: String },
     StepStarted { name: String },
+    StepRetry { name: String, attempt: usize, max: usize, delay_secs: u64 },
     StepDone(StepResult),
     Finished(Vec<IterationResult>),
     Warning(String),
@@ -350,7 +351,7 @@ pub async fn run_step_preview_with_context(
 
 // ── streaming runner (core) ───────────────────────────────────────────────────
 
-pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<CampaignEvent>, overrides: HashMap<String, String>, only: Vec<String>) {
+pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<CampaignEvent>, overrides: HashMap<String, String>, only: Vec<String>, retry: u32) {
     let mut base_env: HashMap<String, String> = if let Some(ref name) = campaign.env_file {
         match crate::storage::load_env_by_name(name) {
             Ok(stored) => stored.vars,
@@ -460,7 +461,7 @@ pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<Campaig
             let _ = tx.send(CampaignEvent::IterationStarted { idx, total, row_summary });
         }
 
-        let step_results = run_steps_streaming(&client, &iteration_steps, campaign.continue_on_error, &env, &tx, &only).await;
+        let step_results = run_steps_streaming(&client, &iteration_steps, campaign.continue_on_error, &env, &tx, &only, retry).await;
 
         all.push(IterationResult {
             row_index: if multi { Some(idx) } else { None },
@@ -561,12 +562,16 @@ pub async fn run(
     overrides: HashMap<String, String>,
     only: Vec<String>,
     format: OutputFormat,
+    retry: u32,
 ) -> Result<()> {
     let text = format == OutputFormat::Text;
     macro_rules! out { ($($arg:tt)*) => { if !silent && text { println!($($arg)*); } } }
 
     if !only.is_empty() {
         out!("Filter   : {}", only.join(", "));
+    }
+    if retry > 0 {
+        out!("Retry    : up to {} attempt(s), exponential backoff", retry);
     }
     out!("Campaign : {}", campaign.campaign.name);
     if !campaign.campaign.description.is_empty() {
@@ -603,7 +608,7 @@ pub async fn run(
     let t0 = Instant::now();
     let (tx, mut rx) = mpsc::unbounded_channel::<CampaignEvent>();
     let owned = campaign.clone();
-    tokio::spawn(async move { run_streaming(owned, tx, overrides, only).await; });
+    tokio::spawn(async move { run_streaming(owned, tx, overrides, only, retry).await; });
 
     while let Some(event) = rx.recv().await {
         match event {
@@ -611,6 +616,11 @@ pub async fn run(
                 out!("── Row {}/{} — {}", idx + 1, total, row_summary);
             }
             CampaignEvent::StepStarted { .. } => {}
+            CampaignEvent::StepRetry { name, attempt, max, delay_secs } => {
+                if !silent && text {
+                    eprintln!("  ⟳ retry {}/{} — {} — waiting {}s...", attempt, max, name, delay_secs);
+                }
+            }
             CampaignEvent::Warning(msg) => {
                 if !silent && text { eprintln!("  Warning: {}", msg); }
             }
@@ -1090,6 +1100,7 @@ async fn run_steps_streaming(
     base_env: &HashMap<String, String>,
     tx: &mpsc::UnboundedSender<CampaignEvent>,
     only: &[String],
+    retry: u32,
 ) -> Vec<StepResult> {
     let mut extracted: HashMap<String, String> = HashMap::new();
     let mut results = Vec::new();
@@ -1247,8 +1258,26 @@ async fn run_steps_streaming(
         }
 
         // ── normal step ───────────────────────────────────────────────────────
+        let retryable = retry > 0
+            && matches!(step.kind.as_str(), "http" | "graphql" | "seed");
+
         let _ = tx.send(CampaignEvent::StepStarted { name: step.name.clone() });
-        let result = run_single_step(client, step, &effective, effective_coe).await;
+        let mut result = run_single_step(client, step, &effective, effective_coe).await;
+
+        if retryable && !result.success {
+            for attempt in 1..=retry {
+                let delay_secs = std::cmp::min(1u64 << (attempt as u64 - 1), 30);
+                let _ = tx.send(CampaignEvent::StepRetry {
+                    name: step.name.clone(),
+                    attempt: attempt as usize,
+                    max: retry as usize,
+                    delay_secs,
+                });
+                tokio::time::sleep(std::time::Duration::from_secs(delay_secs)).await;
+                result = run_single_step(client, step, &effective, effective_coe).await;
+                if result.success { break; }
+            }
+        }
 
         // Propagate extracted vars for non-foreach steps.
         if result.success {

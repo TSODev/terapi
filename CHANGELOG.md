@@ -5,7 +5,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Unreleased]
+## [0.9.2] — 2026-06-26
 
 ### Added
 - `terapi run --only <step-name>` (repeatable) — run only the named step(s), skip all others; skipped steps appear as `⊘ (skipped)` without failing the pipeline; vars from skipped steps are absent (same semantics as `when = false`)

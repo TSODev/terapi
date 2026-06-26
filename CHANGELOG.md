@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- Import Postman v2.1 — `urlencoded` body now properly percent-encoded (RFC 1866) and `Content-Type: application/x-www-form-urlencoded` injected automatically; no longer reported as a degradation
+
+---
+
 ## [0.9.1] — 2026-06-26
 
 ### Added

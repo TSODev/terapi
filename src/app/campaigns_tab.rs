@@ -18,7 +18,7 @@ impl App {
         self.status_message = format!("Running campaign: {}…", name);
         let tx = self.campaign_tx.clone();
         tokio::spawn(async move {
-            campaign::run_streaming(camp, tx, overrides).await;
+            campaign::run_streaming(camp, tx, overrides, vec![]).await;
         });
     }
 

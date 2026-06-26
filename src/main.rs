@@ -47,6 +47,14 @@ enum Commands {
         /// Override a campaign parameter: KEY=VALUE (repeatable)
         #[arg(long, short = 'p', value_name = "KEY=VALUE")]
         param: Vec<String>,
+
+        /// Run only the named step(s) — skip all others (repeatable)
+        #[arg(long, value_name = "STEP_NAME")]
+        only: Vec<String>,
+
+        /// Output format: text (default), json, csv
+        #[arg(long, value_name = "FORMAT", default_value = "text")]
+        format: String,
     },
 
     /// Import a collection or campaign TOML file into the terapi directory
@@ -69,12 +77,17 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Some(Commands::Run { file, silent, param }) => {
+        Some(Commands::Run { file, silent, param, only, format }) => {
             let camp = campaign::load(&file)?;
             let overrides: std::collections::HashMap<String, String> = param.iter()
                 .filter_map(|p| p.split_once('=').map(|(k, v)| (k.to_string(), v.to_string())))
                 .collect();
-            campaign::run(&camp, silent, overrides).await?;
+            let fmt = match format.as_str() {
+                "json" => campaign::OutputFormat::Json,
+                "csv"  => campaign::OutputFormat::Csv,
+                _      => campaign::OutputFormat::Text,
+            };
+            campaign::run(&camp, silent, overrides, only, fmt).await?;
         }
         Some(Commands::Import { file }) => {
             import_collection(&file)?;

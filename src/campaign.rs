@@ -9,6 +9,15 @@ use std::str::FromStr;
 use std::time::Instant;
 use tokio::sync::mpsc;
 
+// ── CLI output format ─────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum OutputFormat {
+    Text,
+    Json,
+    Csv,
+}
+
 use crate::connector::{self, ConnectorConfig, Row, load_rows_from_json};
 
 // ── TOML schema ───────────────────────────────────────────────────────────────
@@ -341,7 +350,7 @@ pub async fn run_step_preview_with_context(
 
 // ── streaming runner (core) ───────────────────────────────────────────────────
 
-pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<CampaignEvent>, overrides: HashMap<String, String>) {
+pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<CampaignEvent>, overrides: HashMap<String, String>, only: Vec<String>) {
     let mut base_env: HashMap<String, String> = if let Some(ref name) = campaign.env_file {
         match crate::storage::load_env_by_name(name) {
             Ok(stored) => stored.vars,
@@ -451,7 +460,7 @@ pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<Campaig
             let _ = tx.send(CampaignEvent::IterationStarted { idx, total, row_summary });
         }
 
-        let step_results = run_steps_streaming(&client, &iteration_steps, campaign.continue_on_error, &env, &tx).await;
+        let step_results = run_steps_streaming(&client, &iteration_steps, campaign.continue_on_error, &env, &tx, &only).await;
 
         all.push(IterationResult {
             row_index: if multi { Some(idx) } else { None },
@@ -546,9 +555,19 @@ pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<Campaig
 
 // ── CLI runner (consumes streaming events) ────────────────────────────────────
 
-pub async fn run(campaign: &Campaign, silent: bool, overrides: HashMap<String, String>) -> Result<()> {
-    macro_rules! out { ($($arg:tt)*) => { if !silent { println!($($arg)*); } } }
+pub async fn run(
+    campaign: &Campaign,
+    silent: bool,
+    overrides: HashMap<String, String>,
+    only: Vec<String>,
+    format: OutputFormat,
+) -> Result<()> {
+    let text = format == OutputFormat::Text;
+    macro_rules! out { ($($arg:tt)*) => { if !silent && text { println!($($arg)*); } } }
 
+    if !only.is_empty() {
+        out!("Filter   : {}", only.join(", "));
+    }
     out!("Campaign : {}", campaign.campaign.name);
     if !campaign.campaign.description.is_empty() {
         out!("           {}", campaign.campaign.description);
@@ -581,9 +600,10 @@ pub async fn run(campaign: &Campaign, silent: bool, overrides: HashMap<String, S
         out!();
     }
 
+    let t0 = Instant::now();
     let (tx, mut rx) = mpsc::unbounded_channel::<CampaignEvent>();
     let owned = campaign.clone();
-    tokio::spawn(async move { run_streaming(owned, tx, overrides).await; });
+    tokio::spawn(async move { run_streaming(owned, tx, overrides, only).await; });
 
     while let Some(event) = rx.recv().await {
         match event {
@@ -591,15 +611,29 @@ pub async fn run(campaign: &Campaign, silent: bool, overrides: HashMap<String, S
                 out!("── Row {}/{} — {}", idx + 1, total, row_summary);
             }
             CampaignEvent::StepStarted { .. } => {}
-            CampaignEvent::Warning(msg) => out!("  Warning: {}", msg),
+            CampaignEvent::Warning(msg) => {
+                if !silent && text { eprintln!("  Warning: {}", msg); }
+            }
             CampaignEvent::StepDone(sr) => {
-                if !silent { print_step_result(&sr); }
+                if !silent && text { print_step_result(&sr); }
             }
             CampaignEvent::Finished(results) => {
-                if !silent {
-                    print_report(campaign, &results);
-                    for o in &campaign.outputs {
-                        out!("  → output written: {}", o.path);
+                let duration_ms = t0.elapsed().as_millis() as u64;
+                match format {
+                    OutputFormat::Text => {
+                        if !silent {
+                            print_report(campaign, &results);
+                            for o in &campaign.outputs {
+                                println!("  → output written: {}", o.path);
+                            }
+                        }
+                    }
+                    OutputFormat::Json => {
+                        let json = build_json_report(campaign, &results, duration_ms);
+                        println!("{}", serde_json::to_string_pretty(&json).unwrap_or_default());
+                    }
+                    OutputFormat::Csv => {
+                        print_csv_report(&results);
                     }
                 }
                 let total_fail: usize = results.iter().map(|r| r.fail_count()).sum();
@@ -607,13 +641,106 @@ pub async fn run(campaign: &Campaign, silent: bool, overrides: HashMap<String, S
                 break;
             }
             CampaignEvent::Error(e) => {
-                if !silent { eprintln!("Campaign error: {}", e); }
+                if format == OutputFormat::Json {
+                    let err = serde_json::json!({"error": e});
+                    eprintln!("{}", serde_json::to_string_pretty(&err).unwrap_or_default());
+                } else if !silent {
+                    eprintln!("Campaign error: {}", e);
+                }
                 std::process::exit(1);
             }
         }
     }
 
     Ok(())
+}
+
+fn build_json_report(campaign: &Campaign, results: &[IterationResult], duration_ms: u64) -> Value {
+    let all_ok = results.iter().all(|r| r.success());
+    let multi = results.len() > 1;
+
+    let make_step = |s: &StepResult| {
+        let mut obj = serde_json::Map::new();
+        obj.insert("name".into(), Value::String(s.name.clone()));
+        obj.insert("method".into(), Value::String(s.method.clone()));
+        obj.insert("url".into(), Value::String(s.url.clone()));
+        obj.insert("status".into(), s.status.map(|c| Value::Number(c.into())).unwrap_or(Value::Null));
+        obj.insert("success".into(), Value::Bool(s.success));
+        obj.insert("skipped".into(), Value::Bool(s.skipped));
+        obj.insert("elapsed_ms".into(), Value::Number(s.duration_ms.into()));
+        obj.insert("extracted".into(), Value::Object(
+            s.extracted.iter().map(|(k, v)| (k.clone(), Value::String(v.clone()))).collect()
+        ));
+        obj.insert("assertions".into(), Value::Array(
+            s.assertion_results.iter().map(|(desc, passed)| {
+                serde_json::json!({"description": desc, "passed": passed})
+            }).collect()
+        ));
+        obj.insert("error".into(), s.error.as_ref().map(|e| Value::String(e.clone())).unwrap_or(Value::Null));
+        Value::Object(obj)
+    };
+
+    if multi {
+        let iterations: Vec<Value> = results.iter().map(|iter| {
+            serde_json::json!({
+                "index": iter.row_index,
+                "steps": iter.steps.iter().map(make_step).collect::<Vec<_>>()
+            })
+        }).collect();
+        serde_json::json!({
+            "campaign": campaign.campaign.name,
+            "success": all_ok,
+            "duration_ms": duration_ms,
+            "iterations": iterations
+        })
+    } else {
+        let steps: Vec<Value> = results.iter()
+            .flat_map(|r| r.steps.iter().map(make_step))
+            .collect();
+        serde_json::json!({
+            "campaign": campaign.campaign.name,
+            "success": all_ok,
+            "duration_ms": duration_ms,
+            "steps": steps
+        })
+    }
+}
+
+fn print_csv_report(results: &[IterationResult]) {
+    println!("iteration,name,method,url,status,success,skipped,elapsed_ms,extracted,error");
+    for iter in results {
+        let idx = iter.row_index.map(|i| i.to_string()).unwrap_or_else(|| "0".into());
+        for s in &iter.steps {
+            let status = s.status.map(|c| c.to_string()).unwrap_or_default();
+            let extracted = if s.extracted.is_empty() {
+                String::new()
+            } else {
+                serde_json::to_string(&s.extracted).unwrap_or_default()
+            };
+            let error = s.error.as_deref().unwrap_or("");
+            println!(
+                "{},{},{},{},{},{},{},{},{},{}",
+                idx,
+                csv_escape(&s.name),
+                s.method,
+                csv_escape(&s.url),
+                status,
+                s.success,
+                s.skipped,
+                s.duration_ms,
+                csv_escape(&extracted),
+                csv_escape(error),
+            );
+        }
+    }
+}
+
+fn csv_escape(s: &str) -> String {
+    if s.contains(',') || s.contains('"') || s.contains('\n') {
+        format!("\"{}\"", s.replace('"', "\"\""))
+    } else {
+        s.to_string()
+    }
 }
 
 fn is_graphql_body(body: &str) -> bool {
@@ -962,6 +1089,7 @@ async fn run_steps_streaming(
     campaign_coe: bool,
     base_env: &HashMap<String, String>,
     tx: &mpsc::UnboundedSender<CampaignEvent>,
+    only: &[String],
 ) -> Vec<StepResult> {
     let mut extracted: HashMap<String, String> = HashMap::new();
     let mut results = Vec::new();
@@ -980,6 +1108,30 @@ async fn run_steps_streaming(
             }
         }
         effective.extend(extracted.clone());
+
+        // ── --only filter ─────────────────────────────────────────────────────
+        if !only.is_empty() && !only.contains(&step.name) {
+            let skipped = StepResult {
+                name: step.name.clone(),
+                method: "SKIP".into(),
+                url: String::new(),
+                status: None,
+                duration_ms: 0,
+                success: true,
+                skipped: true,
+                non_blocking: true,
+                error: None,
+                extracted: HashMap::new(),
+                assertion_results: vec![],
+                body_json: None,
+                graphql: false,
+                request_headers: vec![],
+                request_body: None,
+            };
+            let _ = tx.send(CampaignEvent::StepDone(skipped.clone()));
+            results.push(skipped);
+            continue;
+        }
 
         // ── when condition ────────────────────────────────────────────────────
         if let Some(ref cond) = step.when {

@@ -7,7 +7,7 @@
 
 **Terminal + API** — a keyboard-driven TUI for exploring, testing, and automating REST and GraphQL APIs, without leaving your terminal.
 
-![terapi — GraphQL mode: query editor + JSON response tree](assets/screenshot-graphql.png)
+![terapi — GraphQL mode: query editor + JSON response tree](https://github.com/user-attachments/assets/3fca2289-c240-4311-aa7f-42e8d07feadf)
 
 ## Why terapi?
 
@@ -632,7 +632,7 @@ Press `g` on the Request tab to activate GraphQL mode. The URL bar shows a magen
 
 Press `g` again to return to REST mode (URL and headers are preserved).
 
-![terapi — SpaceX GraphQL query with JSON response tree](assets/screenshot-graphql.png)
+![terapi — SpaceX GraphQL query with JSON response tree](https://github.com/user-attachments/assets/3fca2289-c240-4311-aa7f-42e8d07feadf)
 
 **Example GraphQL collections** in `examples/collections/`:
 - `rick-morty-graphql.toml` — Rick & Morty API — 6 folders, 17 requests: variables, pagination, multi-ID, aliases, filters, introspection

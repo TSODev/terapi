@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.8.4] — 2026-06-26
+
+### Changed
+- README: replace ASCII diagram with real GraphQL screenshot (hero + GraphQL section)
+
+---
+
 ## [0.8.3] — 2026-06-26
 
 ### Added

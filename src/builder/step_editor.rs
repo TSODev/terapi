@@ -62,6 +62,15 @@ pub fn sections_for(kind: &str) -> Vec<StepSection> {
             StepSection::LoopExtract,
             StepSection::LoopContinueOnError,
         ],
+        "search" => vec![
+            StepSection::Name,
+            StepSection::Description,
+            StepSection::SearchInput,
+            StepSection::SearchPath,
+            StepSection::SearchMatch,
+            StepSection::SearchOutput,
+            StepSection::SearchFirstOnly,
+        ],
         _ => vec![
             StepSection::Name,
             StepSection::Description,
@@ -636,6 +645,34 @@ fn handle_browse(
             }
         }
 
+        // ── Search step sections ──────────────────────────────────────────────
+        StepSection::SearchInput | StepSection::SearchPath | StepSection::SearchMatch | StepSection::SearchOutput => {
+            if key.code == KeyCode::Enter {
+                let step = &app.campaign.steps[step_idx];
+                let cfg = step.search.as_ref();
+                let buf = match section {
+                    StepSection::SearchInput  => cfg.map(|c| c.input.clone()).unwrap_or_default(),
+                    StepSection::SearchPath   => cfg.map(|c| c.path.clone()).unwrap_or_default(),
+                    StepSection::SearchMatch  => cfg.map(|c| c.pattern.clone()).unwrap_or_default(),
+                    StepSection::SearchOutput => cfg.map(|c| c.output.clone()).unwrap_or_default(),
+                    _ => unreachable!(),
+                };
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
+            }
+        }
+        StepSection::SearchFirstOnly => {
+            if matches!(key.code, KeyCode::Enter | KeyCode::Char(' ')) {
+                let step = &mut app.campaign.steps[step_idx];
+                let cfg = step.search.get_or_insert(crate::campaign::SearchConfig {
+                    input: String::new(), path: String::new(),
+                    pattern: String::new(), output: "RESULTS".into(), first_only: false,
+                });
+                cfg.first_only = !cfg.first_only;
+                app.modified = true;
+            }
+        }
+
         // ── Action ───────────────────────────────────────────────────────────
         StepSection::LoadFromCollection => {
             if matches!(key.code, KeyCode::Enter | KeyCode::Char('L')) {
@@ -772,6 +809,20 @@ fn apply_text_edit(app: &mut BuilderApp, step_idx: usize, section: &StepSection,
                     var: String::new(), from: String::new(),
                 });
                 a.from = value.to_string();
+            }
+            // Search sections
+            StepSection::SearchInput | StepSection::SearchPath | StepSection::SearchMatch | StepSection::SearchOutput => {
+                let cfg = step.search.get_or_insert(crate::campaign::SearchConfig {
+                    input: String::new(), path: String::new(),
+                    pattern: String::new(), output: "RESULTS".into(), first_only: false,
+                });
+                match section {
+                    StepSection::SearchInput  => cfg.input   = value.to_string(),
+                    StepSection::SearchPath   => cfg.path    = value.to_string(),
+                    StepSection::SearchMatch  => cfg.pattern = value.to_string(),
+                    StepSection::SearchOutput => cfg.output  = value.to_string(),
+                    _ => {}
+                }
             }
             _ => return,
         }
@@ -1247,6 +1298,12 @@ pub fn current_value(app: &BuilderApp, step_idx: usize, section: &StepSection) -
         }).unwrap_or_else(|| "not exists".into()),
         StepSection::LoopAccumulateVar  => step.accumulate.as_ref().map(|a| a.var.clone()).unwrap_or_default(),
         StepSection::LoopAccumulateFrom => step.accumulate.as_ref().map(|a| a.from.clone()).unwrap_or_default(),
+        // Search sections
+        StepSection::SearchInput    => step.search.as_ref().map(|c| c.input.clone()).unwrap_or_default(),
+        StepSection::SearchPath     => step.search.as_ref().map(|c| c.path.clone()).unwrap_or_else(|| String::new()),
+        StepSection::SearchMatch    => step.search.as_ref().map(|c| c.pattern.clone()).unwrap_or_default(),
+        StepSection::SearchOutput   => step.search.as_ref().map(|c| c.output.clone()).unwrap_or_else(|| "RESULTS".into()),
+        StepSection::SearchFirstOnly => if step.search.as_ref().map_or(false, |c| c.first_only) { "[x] first match only".into() } else { "[ ] all matches (array)".into() },
     }
 }
 

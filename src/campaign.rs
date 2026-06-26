@@ -130,6 +130,20 @@ pub struct Step {
     pub until: Option<StepCondition>,
     #[serde(default)]
     pub accumulate: Option<AccumulateConfig>,
+    // Search step fields (kind = "search")
+    #[serde(default)]
+    pub search: Option<SearchConfig>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct SearchConfig {
+    pub input: String,
+    pub path: String,
+    #[serde(rename = "match")]
+    pub pattern: String,
+    pub output: String,
+    #[serde(default)]
+    pub first_only: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -682,6 +696,46 @@ async fn run_single_step(
             Err(e) => StepResult {
                 name: step.name.clone(),
                 method: "TRSF".into(),
+                url: String::new(),
+                status: None,
+                duration_ms: t0.elapsed().as_millis() as u64,
+                success: false,
+                skipped: false,
+                non_blocking: effective_coe,
+                error: Some(e.to_string()),
+                extracted: HashMap::new(),
+                assertion_results: vec![],
+                body_json: None,
+                graphql: false,
+                request_headers: vec![],
+                request_body: None,
+            },
+        };
+    }
+
+    if step.kind == "search" {
+        let t0 = Instant::now();
+        return match run_search_step(step, effective) {
+            Ok(extracted) => StepResult {
+                name: step.name.clone(),
+                method: "SRCH".into(),
+                url: String::new(),
+                status: None,
+                duration_ms: t0.elapsed().as_millis() as u64,
+                success: true,
+                skipped: false,
+                non_blocking: effective_coe,
+                error: None,
+                extracted,
+                assertion_results: vec![],
+                body_json: None,
+                graphql: false,
+                request_headers: vec![],
+                request_body: None,
+            },
+            Err(e) => StepResult {
+                name: step.name.clone(),
+                method: "SRCH".into(),
                 url: String::new(),
                 status: None,
                 duration_ms: t0.elapsed().as_millis() as u64,
@@ -1613,6 +1667,49 @@ fn fmt_opt(v: &Option<Value>) -> String {
 
 fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max { s.to_string() } else { format!("{}…", &s[..max]) }
+}
+
+fn run_search_step(step: &Step, env: &HashMap<String, String>) -> Result<HashMap<String, String>> {
+    let cfg = step.search.as_ref()
+        .ok_or_else(|| anyhow::anyhow!("search step missing `search` config"))?;
+
+    let input_str = resolve(&cfg.input, env);
+    let array: Vec<serde_json::Value> = serde_json::from_str(&input_str)
+        .map_err(|e| anyhow::anyhow!("search input is not a JSON array: {}", e))?;
+
+    let re = regex::Regex::new(&cfg.pattern)
+        .map_err(|e| anyhow::anyhow!("search: invalid regex \"{}\": {}", cfg.pattern, e))?;
+
+    let output_var = resolve(&cfg.output, env);
+
+    let matches: Vec<serde_json::Value> = array.into_iter().filter(|elem| {
+        let haystack = if cfg.path.is_empty() {
+            match elem {
+                serde_json::Value::String(s) => s.clone(),
+                other => other.to_string(),
+            }
+        } else {
+            match extract_value_at(elem, &cfg.path) {
+                Some(serde_json::Value::String(s)) => s,
+                Some(v) => v.to_string(),
+                None => return false,
+            }
+        };
+        re.is_match(&haystack)
+    }).collect();
+
+    let result = if cfg.first_only {
+        match matches.into_iter().next() {
+            Some(v) => serde_json::to_string(&v).unwrap_or_default(),
+            None => "null".to_string(),
+        }
+    } else {
+        serde_json::to_string(&matches).unwrap_or_else(|_| "[]".to_string())
+    };
+
+    let mut extracted = HashMap::new();
+    extracted.insert(output_var, result);
+    Ok(extracted)
 }
 
 fn run_file_step(path: &str, encoding: &str) -> Result<String> {

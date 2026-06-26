@@ -817,7 +817,7 @@ impl BuilderApp {
     ) -> Result<()> {
         use crossterm::event::KeyCode;
         let steps: Vec<&str> = self.campaign.steps.iter()
-            .filter(|s| s.kind != "comment" && s.kind != "transform" && s.kind != "pause" && s.kind != "file")
+            .filter(|s| s.kind != "comment" && s.kind != "transform" && s.kind != "pause" && s.kind != "file" && s.kind != "search")
             .map(|s| s.name.as_str())
             .collect();
         let n = steps.len();
@@ -1245,7 +1245,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
-            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None,
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None,
         },
         BrickKind::Loop => Step {
             name: "Paginate".into(),
@@ -1275,6 +1275,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
                 var: "ALL_ITEMS".into(),
                 from: "items.*".into(),
             }),
+            search: None,
         },
         BrickKind::GraphQL => Step {
             name: "GraphQL query".into(),
@@ -1294,7 +1295,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
             graphql_query: Some("{\n  \n}".into()),
-            graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None,
+            graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None,
         },
         BrickKind::Transform => Step {
             name: "New transform".into(),
@@ -1313,7 +1314,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
-            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None,
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None,
         },
         BrickKind::Pause => Step {
             name: "Pause".into(),
@@ -1332,7 +1333,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
-            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None,
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None,
         },
         BrickKind::Seed => Step {
             name: "Seed".into(),
@@ -1351,7 +1352,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
-            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None,
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None,
         },
         BrickKind::Comment => Step {
             name: "Comment text here".into(),
@@ -1370,7 +1371,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
-            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None,
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None,
         },
         BrickKind::FileLoader => Step {
             name: "Load file".into(),
@@ -1392,6 +1393,32 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             file_output: Some("FILE_DATA".into()),
             file_encoding: Some("base64".into()),
             multipart_parts: vec![],
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None,
+        },
+        BrickKind::Search => Step {
+            name: "Search / Filter".into(),
+            kind: "search".into(),
+            search: Some(crate::campaign::SearchConfig {
+                input: String::new(),
+                path: String::new(),
+                pattern: String::new(),
+                output: "RESULTS".into(),
+                first_only: false,
+            }),
+            method: String::new(),
+            url: String::new(),
+            headers: std::collections::HashMap::new(),
+            body: None,
+            wait_ms: 0,
+            env: None,
+            extract: std::collections::HashMap::new(),
+            assert: vec![],
+            transforms: vec![],
+            continue_on_error: None,
+            foreach: None,
+            when: None,
+            description: String::new(),
+            file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
             graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None,
         },
         // Connector and Output are handled directly in handle_catalog_key — not steps
@@ -1574,6 +1601,16 @@ pub(super) fn generate_toml(campaign: &Campaign, step_comments: &[String], heade
         }
         if let Some(acc) = &step.accumulate {
             out.push_str(&format!("accumulate = {{var = \"{}\", from = \"{}\"}}\n", acc.var, acc.from));
+        }
+        if let Some(ref cfg) = step.search {
+            out.push_str(&format!(
+                "search = {{input = \"{}\", path = \"{}\", match = \"{}\", output = \"{}\"",
+                cfg.input, cfg.path, cfg.pattern.replace('\\', "\\\\").replace('"', "\\\""), cfg.output
+            ));
+            if cfg.first_only {
+                out.push_str(", first_only = true");
+            }
+            out.push_str("}\n");
         }
         // Subtable headers after all scalar/inline fields
         if !step.headers.is_empty() {

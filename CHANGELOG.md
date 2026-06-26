@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.9.1] — 2026-06-26
+
+### Added
+- `kind = "search"` campaign step — filter a JSON array by regex on a field
+  - `search = { input = "{{VAR}}", path = "field.path", match = "regex", output = "OUT" }`
+  - `path = ""` matches directly on string elements (no field navigation)
+  - `first_only = true` stores first matching element as object; default stores all matches as array
+  - Returns `"null"` / `[]` when no match
+  - Badge `SRCH` (cyan) in TUI and builder pipeline
+  - Full step editor in `terapi build`: Input var, Match-on field, Pattern, Output var, First match toggle
+  - TOML serialization in builder with regex escaping
+
+---
+
 ## [0.9.0] — 2026-06-26
 
 ### Added

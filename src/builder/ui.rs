@@ -307,6 +307,7 @@ fn step_badge(kind: &str) -> (&'static str, Color) {
         "file"      => ("FILE", Color::Magenta),
         "graphql"   => ("GQL ", Color::Magenta),
         "loop"      => ("LOOP", Color::Green),
+        "search"    => ("SRCH", Color::Cyan),
         _           => ("HTTP", Color::Cyan),
     }
 }
@@ -336,6 +337,14 @@ fn step_summary(step: &crate::campaign::Step) -> String {
             let until_var = step.until.as_ref().map(|u| u.var.clone()).unwrap_or_default();
             if acc.is_empty() { format!("{} until {}", step.url, until_var) }
             else { format!("{} → {} until {}", step.url, acc, until_var) }
+        }
+        "search" => {
+            if let Some(ref cfg) = step.search {
+                let mode = if cfg.first_only { "first" } else { "all" };
+                format!("{{{}}} .{} ~ /{}/  → {} ({})", cfg.input, cfg.path, cfg.pattern, cfg.output, mode)
+            } else {
+                "search (unconfigured)".into()
+            }
         }
         _ => {
             let url = if step.url.len() > 30 { format!("…{}", &step.url[step.url.len().saturating_sub(27)..]) }

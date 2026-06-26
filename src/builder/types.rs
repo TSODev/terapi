@@ -164,6 +164,12 @@ pub enum StepSection {
     LoopExtract,
     LoopHeaders,
     LoopContinueOnError,
+    // Search step sections
+    SearchInput,
+    SearchPath,
+    SearchMatch,
+    SearchOutput,
+    SearchFirstOnly,
 }
 
 impl StepSection {
@@ -200,6 +206,11 @@ impl StepSection {
             StepSection::LoopExtract        => "Extract (per-iter)",
             StepSection::LoopHeaders        => "Headers",
             StepSection::LoopContinueOnError => "Continue on error",
+            StepSection::SearchInput    => "Input (JSON array var)",
+            StepSection::SearchPath     => "Match on field (dot-path)",
+            StepSection::SearchMatch    => "Pattern (regex)",
+            StepSection::SearchOutput   => "Output var",
+            StepSection::SearchFirstOnly => "First match only",
         }
     }
 
@@ -207,7 +218,8 @@ impl StepSection {
         matches!(self,
             StepSection::Headers | StepSection::Extract | StepSection::Assertions |
             StepSection::MultipartParts | StepSection::GraphqlVariables |
-            StepSection::LoopExtract | StepSection::LoopHeaders)
+            StepSection::LoopExtract | StepSection::LoopHeaders
+        )
     }
 }
 
@@ -217,6 +229,7 @@ impl StepSection {
 pub enum BrickKind {
     Http,
     GraphQL,
+    Search,
     Loop,
     Transform,
     Pause,
@@ -232,6 +245,7 @@ impl BrickKind {
         match self {
             BrickKind::Http       => "HTTP step",
             BrickKind::GraphQL    => "GraphQL step",
+            BrickKind::Search     => "Search / Filter",
             BrickKind::Loop       => "Loop (pagination)",
             BrickKind::Transform  => "Transform",
             BrickKind::Pause      => "Pause",
@@ -246,6 +260,7 @@ impl BrickKind {
         match self {
             BrickKind::Http       => "HTTP request",
             BrickKind::GraphQL    => "GraphQL query (POST, body built from query + variables)",
+            BrickKind::Search     => "filter a JSON array by regex on a field, store matches",
             BrickKind::Loop       => "repeat HTTP until condition, accumulate results (pagination)",
             BrickKind::Transform  => "variable transform",
             BrickKind::Pause      => "wait (ms)",
@@ -262,6 +277,7 @@ pub const BRICK_KINDS: &[BrickKind] = &[
     BrickKind::Http,
     BrickKind::GraphQL,
     BrickKind::Loop,
+    BrickKind::Search,
     BrickKind::Transform,
     BrickKind::Pause,
     BrickKind::Seed,

@@ -177,12 +177,14 @@ fn bool_true() -> bool {
 
 pub struct ImportReport {
     pub source_name: String,
+    pub format: String,
     pub is_env_only: bool,
     pub requests_imported: usize,
     pub folders_imported: usize,
     pub scripts_ignored: usize,
     pub formdata_degraded: usize,
     pub urlencoded_degraded: usize,
+    /// (label, var_count) — label is env name or "N envs"
     pub env_created: Option<(String, usize)>,
     pub dest: String,
     pub existed: bool,
@@ -192,23 +194,23 @@ impl ImportReport {
     pub fn print(&self) {
         println!();
         if self.is_env_only {
-            println!("Import: {} (Postman environment)", self.source_name);
+            println!("Import: {} ({})", self.source_name, self.format);
             println!();
             if let Some((ref name, count)) = self.env_created {
                 println!("  ✓ {:>3} variables → env \"{}\"", count, name);
             }
         } else {
-            println!("Import: {} (Postman v2.1)", self.source_name);
+            println!("Import: {} ({})", self.source_name, self.format);
             println!();
             println!("  ✓ {:>3} requests imported", self.requests_imported);
             if self.folders_imported > 0 {
                 println!("  ✓ {:>3} folders", self.folders_imported);
             }
-            if let Some((ref name, count)) = self.env_created {
-                println!("  ✓ {:>3} variables → env \"{}\"", count, name);
+            if let Some((ref label, count)) = self.env_created {
+                println!("  ✓ {:>3} variables → {}", count, label);
             }
             if self.scripts_ignored > 0 {
-                println!("  ⚠ {:>3} pre-request/test scripts ignored", self.scripts_ignored);
+                println!("  ⚠ {:>3} non-HTTP requests skipped (gRPC, WebSocket, scripts)", self.scripts_ignored);
             }
             if self.formdata_degraded > 0 {
                 println!(
@@ -224,7 +226,7 @@ impl ImportReport {
             }
         }
         println!();
-        let verb = if self.existed { "Updated " } else { "Saved  " };
+        let verb = if self.existed { "Updated" } else { "Saved  " };
         println!("  {} → {}", verb, self.dest);
         println!();
     }
@@ -262,6 +264,7 @@ fn import_collection(path: &str, content: &str) -> Result<ImportReport> {
 
     let mut report = ImportReport {
         source_name: col.info.name.clone(),
+        format: "Postman v2.1".to_string(),
         is_env_only: false,
         requests_imported: 0,
         folders_imported: 0,
@@ -362,6 +365,7 @@ fn import_environment(content: &str) -> Result<ImportReport> {
 
     Ok(ImportReport {
         source_name: env.name.clone(),
+        format: "Postman environment".to_string(),
         is_env_only: true,
         requests_imported: 0,
         folders_imported: 0,

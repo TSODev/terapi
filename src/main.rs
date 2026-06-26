@@ -102,7 +102,7 @@ fn import_collection(path: &str) -> Result<()> {
         .to_lowercase();
 
     if ext == "json" {
-        let report = import::postman::import_postman(path, &content)
+        let report = import::import_json(path, &content)
             .with_context(|| format!("failed to import '{}'", path))?;
         report.print();
         return Ok(());

@@ -8,7 +8,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [0.9.0] — 2026-06-26
 
 ### Added
-- `terapi import <file.json>` — import Postman v2.1 collections and environments
+- `terapi import <file.json>` — import Postman v2.1 and Insomnia v4 collections and environments
   - Auto-detects collection vs environment from JSON structure
   - Imports folders (one level; nested sub-folders flattened with "Sub / Request" naming)
   - Imports requests: method, URL (raw with query string), headers, body (raw/GraphQL/urlencoded/formdata)
@@ -19,6 +19,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Postman environments (JSON with `_postman_variable_scope`) → terapi env
   - Disabled headers, params, and env values are skipped
   - Import report: counts (requests, folders, env vars), warnings (scripts ignored, formdata/urlencoded degraded), destination path
+- `terapi import <file.json>` — import Insomnia v4 exports
+  - Auto-detected via `_type: "export"` + `resources` array
+  - Workspace → collection; request_groups → folders; requests → StoredRequest
+  - gRPC and WebSocket requests skipped with warning count
+  - Sub-environments merged with base environment vars; each saved as a separate terapi env
+  - Auth: Bearer, Basic, API Key, OAuth2 CC and AC (detected from grant_type)
+  - GraphQL body (`mimeType: "application/graphql"`) → GQL mode
 
 ---
 

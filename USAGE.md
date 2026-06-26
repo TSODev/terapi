@@ -16,6 +16,9 @@
   - [Collection TOML format](#collection-toml-format)
 - [Demo mode](#demo-mode)
 - [Import](#import)
+  - [Import TOML (collection / campaign)](#import-toml-collection--campaign)
+  - [Import Postman v2.1](#import-postman-v21)
+  - [Import Insomnia v4](#import-insomnia-v4)
 - [OAuth2 authentication](#oauth2-authentication)
 - [Campaign runner](#campaign-runner)
   - [Campaign TOML format](#campaign-toml-format)
@@ -29,6 +32,7 @@
   - [Pause steps](#pause-steps)
   - [Transform steps](#transform-steps)
   - [File Loader steps](#file-loader-steps)
+  - [Search / Filter steps](#search--filter-steps)
   - [Loop steps (pagination)](#loop-steps-pagination)
   - [Multipart form-data](#multipart-form-data)
   - [Input connectors](#input-connectors)
@@ -1152,7 +1156,15 @@ Useful for exploring the JSON viewer, testing fold behaviour, or demoing the TUI
 
 ## Import
 
-`terapi import` accepts both **collection** and **campaign** TOML files. It auto-detects the type from the TOML content (`[collection]` vs `[campaign]`) and copies the file to the correct sub-directory:
+`terapi import <file>` auto-detects the format and copies the result to the right directory. Three formats are supported: terapi TOML, Postman v2.1 JSON, and Insomnia v4 JSON.
+
+Directory resolution follows the same priority as the TUI: `$TERAPI_DIR` → `./.terapi/` → `~/.config/terapi/`.
+
+---
+
+### Import TOML (collection / campaign)
+
+Accepts both **collection** and **campaign** TOML files. The type is detected from the TOML content (`[collection]` vs `[campaign]`):
 
 | TOML section | Destination |
 |---|---|
@@ -1160,29 +1172,95 @@ Useful for exploring the JSON viewer, testing fold behaviour, or demoing the TUI
 | `[campaign]` | `<terapi_dir>/campaigns/` |
 
 ```bash
-# Import a collection
 terapi import examples/collections/france-geo.toml
-
-# Import a campaign
 terapi import examples/campaigns/crud_demo.toml
 
 # Import everything at once
-for f in examples/collections/*.toml examples/*.toml; do terapi import "$f"; done
+for f in examples/collections/*.toml examples/campaigns/*.toml; do terapi import "$f"; done
 ```
 
-The destination filename is derived from the `name` field in `[collection]` or `[campaign]`. If a file already exists it is overwritten and reported as `Updated`.
-
-**Output:**
+The destination filename is derived from the `name` field. If a file already exists it is overwritten and reported as `Updated`.
 
 ```
-Imported collection "France — Géographie" → /Users/you/.config/terapi/collections/france-géographie.toml
-Updated  collection "France — Géographie" → /Users/you/.config/terapi/collections/france-géographie.toml
-Imported campaign  "JSONPlaceholder — CRUD Demo" → /Users/you/.config/terapi/campaigns/jsonplaceholder-crud-demo.toml
+Imported collection "France — Géographie" → ~/.config/terapi/collections/france-géographie.toml
+Updated  campaign  "JSONPlaceholder — CRUD Demo" → ~/.config/terapi/campaigns/jsonplaceholder-crud-demo.toml
 ```
 
-Files with neither `[collection]` nor `[campaign]` produce a clear error. The directory resolution follows the same priority as the TUI: `$TERAPI_DIR` → `./.terapi/` → `~/.config/terapi/`.
+---
 
-For collections that require authentication (`sncf.toml`, `france-meteo.toml`), open the **Env** tab, create an environment, add the required variable (`SNCF_TOKEN` or `METEO_TOKEN`), and activate it with `Enter`.
+### Import Postman v2.1
+
+`terapi import <file.json>` detects and imports Postman v2.1 **collection** and **environment** JSON files.
+
+```bash
+terapi import my_collection.postman_collection.json
+terapi import my_environment.postman_environment.json
+```
+
+**What is imported:**
+
+| Element | Notes |
+|---------|-------|
+| Folders | Nested folders are flattened one level — sub-folder requests are prefixed with `SubFolder / Request name` |
+| Requests | Method, URL, headers, body |
+| Body | `raw` → raw body; `graphql` → GraphQL mode with query + variables; `urlencoded` and `formdata` → degraded to raw body (reported in summary) |
+| Auth | Bearer, Basic, API Key, OAuth2 Client Credentials; auth config copied to collection TOML |
+| Collection variables | Saved as a separate terapi environment `<collection name> vars` |
+| Pre/post-request scripts | Skipped (JavaScript — not supported) |
+
+**Environment file** — a Postman environment JSON (detected by `_postman_variable_scope`) is imported directly as a terapi env:
+
+```bash
+terapi import production.postman_environment.json
+# → ~/.config/terapi/envs/production.toml
+```
+
+**Import report:**
+
+```
+✓ Postman v2.1 — "My API"
+  Destination  : ~/.config/terapi/collections/my-api.toml
+  Requests     : 23
+  Folders      : 5
+  Env          : "My API vars" → ~/.config/terapi/envs/my-api-vars.toml  (8 vars)
+  ! 2 formdata step(s) degraded to raw body (terapi uses raw or JSON bodies)
+  ! 1 script(s) ignored (pre/post-request scripts not supported)
+```
+
+---
+
+### Import Insomnia v4
+
+`terapi import <file.json>` detects and imports Insomnia v4 export files (produced by **File → Export Data → Current Workspace**).
+
+```bash
+terapi import insomnia_export.json
+```
+
+**What is imported:**
+
+| Element | Notes |
+|---------|-------|
+| Folders | Nested folders flattened — sub-folder requests prefixed with `SubFolder / Request name` |
+| Requests | Method, URL, headers, body |
+| Body | `application/json` and raw text → raw body; `application/graphql` → GraphQL mode; `application/x-www-form-urlencoded` → degraded to raw; `multipart/form-data` → degraded to raw |
+| Auth | Bearer, Basic, API Key, OAuth2 (Client Credentials or Authorization Code detected from `grant_type`) |
+| Environments | Base environment + sub-environments merged; each sub-env saved as a separate terapi env with base vars pre-filled |
+| gRPC / WebSocket requests | Skipped and counted in the summary |
+
+**Import report:**
+
+```
+✓ Insomnia v4 — "My Workspace"
+  Destination  : ~/.config/terapi/collections/my-workspace.toml
+  Requests     : 18
+  Folders      : 4
+  Env          : "Production" → ~/.config/terapi/envs/production.toml  (12 vars)
+  Env          : "Staging"    → ~/.config/terapi/envs/staging.toml     (12 vars)
+  ! 3 script(s) ignored (gRPC / WebSocket not supported)
+```
+
+For collections that require authentication, open the **Env** tab after import, activate the imported environment with `Enter`, and add any credentials that were not exported (secrets are typically not included in Insomnia/Postman exports).
 
 ---
 
@@ -1855,6 +1933,92 @@ Content-Type = "application/json"
 
 ---
 
+### Search / Filter steps
+
+A `kind = "search"` step filters a JSON array stored in a campaign variable, matching elements by a regex applied to a dot-path field, and writes the results to a new variable. No HTTP request is made.
+
+```toml
+[[steps]]
+name   = "Filter active users"
+kind   = "search"
+search = {input = "{{USERS}}", path = "status", match = "^active$", output = "ACTIVE_USERS"}
+```
+
+**Fields:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `input` | string | — | Variable holding the JSON array to search (e.g. `{{USERS}}`). Must resolve to a valid JSON array. |
+| `path` | string | `""` | Dot-path into each element to match against. Empty string → match on the element itself (useful for arrays of strings). |
+| `match` | string | — | Regex pattern (Rust `regex` syntax). Applied to the string at `path` for each element. |
+| `output` | string | `RESULTS` | Variable name where results are stored. |
+| `first_only` | bool | `false` | If `true`, store only the first matching element (or `"null"` if none). If `false`, store a JSON array of all matches. |
+
+**`path` semantics:**
+
+| `path` value | Match target |
+|---|---|
+| `""` (empty) | The element itself — useful when the array contains strings, numbers, etc. |
+| `"status"` | `element["status"]` |
+| `"address.city"` | `element["address"]["city"]` |
+| `"0"` | `element[0]` for arrays-of-arrays |
+
+**Examples:**
+
+```toml
+# Filter an array of objects on a field
+[[steps]]
+name   = "Keep active users"
+kind   = "search"
+search = {input = "{{USERS}}", path = "status", match = "^active$", output = "ACTIVE_USERS"}
+
+# Find first email matching a domain
+[[steps]]
+name   = "Find support contact"
+kind   = "search"
+search = {input = "{{CONTACTS}}", path = "email", match = "@support\\.example\\.com$", output = "SUPPORT_EMAIL", first_only = true}
+
+# Filter an array of plain strings
+[[steps]]
+name   = "Keep JSON endpoints"
+kind   = "search"
+search = {input = "{{URLS}}", path = "", match = "\\.json$", output = "JSON_URLS"}
+
+# Combine with wildcard extraction from a previous step
+[[steps]]
+name   = "List all users"
+url    = "{{BASE_URL}}/users"
+[steps.extract]
+USERS = "data"          # e.g. [{id:1, role:"admin"}, {id:2, role:"user"}, …]
+
+[[steps]]
+name   = "Find admins"
+kind   = "search"
+search = {input = "{{USERS}}", path = "role", match = "^admin$", output = "ADMINS"}
+
+[[steps]]
+name   = "Promote first admin"
+foreach = "{{ADMINS}}"
+method  = "POST"
+url     = "{{BASE_URL}}/users/{{item.id}}/promote"
+```
+
+**Output:**
+
+- `first_only = false` (default): `output` receives a JSON array string, e.g. `[{"id":1,"role":"admin"},{"id":3,"role":"admin"}]`. Can be used directly with `foreach`.
+- `first_only = true`: `output` receives the first matching element as a JSON string, or the literal string `"null"` if no match.
+
+The step appears as `SRCH` in the CLI output and the TUI Campaigns panel:
+
+```
+  ✓ Find admins    SRCH    -    1 ms
+      ↳ ADMINS = [{"id":1,"role":"admin"}]
+```
+
+In the TUI Campaign panel idle view, search steps show `SRCH` (cyan badge) in the step list. In the Campaign Builder, add a **Search / Filter** brick from the catalog.
+
+---
+
 ### Loop steps (pagination)
 
 A `kind = "loop"` step repeats an HTTP request in a loop — resolving `{{VAR}}` from the current env before each request, extracting variables from each response, and stopping when an `until` condition is met. Results from every iteration can be accumulated into a single JSON array.
@@ -2275,6 +2439,7 @@ Ready-to-run campaigns in `examples/campaigns/` — no API key required:
 | `upload_demo.toml` | postman-echo.com | **File Loader + multipart**: read a local file as base64/text → send in a JSON body; multipart text parts with `{{VAR}}`; multipart binary `@file` part with explicit MIME type |
 | `loop_pagination_demo.toml` | JSONPlaceholder | **`kind = "loop"`**: deux patterns — next-URL cursor (Rick & Morty, commenté) et last-ID-as-offset ; collecte les 100 posts en 4 pages de 25, écrit dans `/tmp/loop_all_posts.json` |
 | `spacex_exploration.toml` | SpaceX GraphQL | **Pipeline GraphQL 7 steps** : company → fleet snapshot → latest launch → all 109 past launches avec wildcard `*.id` → roadster orbital position → booster reuse stats → summary transform ; écrit `/tmp/spacex_all_launches.json` |
+| `search_demo.toml` | JSONPlaceholder | **`kind = "search"`**: GET /users → filtre les utilisateurs par domaine email (regex) → `foreach` sur les matchs → GET leurs todos ; illustre `first_only` et recherche sur tableau de strings |
 
 ```bash
 terapi run examples/campaigns/crud_demo.toml
@@ -2425,8 +2590,9 @@ Press `n` (append) or `i` (insert after cursor) to open the catalog:
 | Transform | `TRSF` | `kind = "transform"` step (no HTTP, reshapes variables) |
 | Pause | `WAIT` | `kind = "pause"` step — waits N milliseconds |
 | Seed | `SEED` | HTTP step that feeds a JSON connector |
-| Comment | `#` | TOML comment line between steps, skipped at runtime |
 | File Loader | `FILE` | `kind = "file"` — reads a file into a campaign variable |
+| Search / Filter | `SRCH` | `kind = "search"` — filter a JSON array variable by regex on a field |
+| Comment | `#` | TOML comment line between steps, skipped at runtime |
 | Connector [IN] | — | `[[connectors]]` block (CSV or JSON data source) |
 | Output [OUT] | — | `[[outputs]]` block (collects step responses to a JSON file) |
 
@@ -2459,6 +2625,8 @@ Press `n` (append) or `i` (insert after cursor) to open the catalog:
 **Pause step fields:** Name · Description · Wait (ms)
 
 **File Loader step fields:** Name · Description · File path · Output var · Encoding (base64 / text / hex — cycle)
+
+**Search / Filter step fields:** Name · Description · Input (JSON array var, e.g. `{{USERS}}`) · Match on field (dot-path, empty = element itself) · Pattern (regex) · Output var · First match only (toggle)
 
 **Loop step fields:**
 

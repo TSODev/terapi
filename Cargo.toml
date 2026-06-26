@@ -10,7 +10,7 @@ homepage = "https://github.com/tsodev/terapi"
 keywords = ["tui", "api", "graphql", "rest", "terminal"]
 categories = ["command-line-utilities", "development-tools"]
 readme = "README.md"
-exclude = ["CLAUDE.md", "PUBLISH.md"]
+exclude = ["CLAUDE.md", "PUBLISH.md", "assets/"]
 
 [[bin]]
 name = "terapi"

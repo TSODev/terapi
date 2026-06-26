@@ -7,7 +7,7 @@
 
 **Terminal + API** — a keyboard-driven TUI for exploring, testing, and automating REST and GraphQL APIs, without leaving your terminal.
 
-![terapi — GraphQL mode: query editor + JSON response tree](https://github.com/user-attachments/assets/3fca2289-c240-4311-aa7f-42e8d07feadf)
+![terapi — GraphQL mode: query editor + JSON response tree](https://raw.githubusercontent.com/TSODev/terapi/main/assets/screenshots/terapi-graphql.png)
 
 ## Why terapi?
 
@@ -62,6 +62,34 @@ terapi import file.toml             # import a collection or campaign TOML
 terapi --version
 terapi --help
 ```
+
+---
+
+## Import — Postman & Insomnia
+
+`terapi import <file.json>` auto-detects the format and copies the result to the right directory:
+
+```bash
+terapi import my_collection.json        # Postman v2.1 collection or environment
+terapi import insomnia_export.json      # Insomnia v4 export
+```
+
+After import, a report is printed:
+
+```
+✓ Postman v2.1 — "My API"  →  ~/.config/terapi/collections/my-api.toml
+  Requests  : 23
+  Folders   : 5
+  Env       : "My API vars"  →  ~/.config/terapi/envs/my-api-vars.toml  (8 vars)
+  ! 2 formdata step(s) degraded to raw body
+  ! 1 script(s) ignored (pre/post-request scripts not supported)
+```
+
+**Supported:**
+- Postman v2.1 — collections (folders, requests, auth, headers, body, raw/GraphQL/formdata) + environment files; collection variables saved as a separate terapi env
+- Insomnia v4 — collections (nested folders, GraphQL, auth) + base environments and sub-environments merged; gRPC/WebSocket entries counted but skipped
+
+**Auth mapping:** Bearer → Bearer · Basic → Basic · API Key → API Key · OAuth2 → OAuth2 Client Credentials
 
 ---
 
@@ -515,6 +543,32 @@ url    = "https://api.example.com/auth/refresh"
 
 In the TUI idle view, steps with `when` show `⊘ if VAR == "value"` in grey below the step name.
 
+### Search / Filter steps (`kind = "search"`)
+
+Filter a JSON array stored in a variable by a regex applied to a field, and store the matches in a new variable:
+
+```toml
+[[steps]]
+name   = "Filter active users"
+kind   = "search"
+search = {input = "{{USERS}}", path = "status", match = "^active$", output = "ACTIVE_USERS"}
+
+[[steps]]
+name   = "Find first premium email"
+kind   = "search"
+search = {input = "{{USERS}}", path = "email", match = "@premium\\.com$", output = "FIRST_PREMIUM", first_only = true}
+```
+
+| Field | Description |
+|-------|-------------|
+| `input` | Variable holding the JSON array (e.g. `{{USERS}}`) |
+| `path` | Dot-path into each element to match against — empty to match on the element directly |
+| `match` | Regex pattern |
+| `output` | Variable name to store results (default `RESULTS`) |
+| `first_only` | `true` → store only the first match (or `"null"` if none); `false` (default) → store JSON array of all matches |
+
+The `SRCH` badge (cyan) appears in the Campaigns panel idle view and in the Campaign Builder pipeline.
+
 ---
 
 ### Campaign examples
@@ -632,8 +686,6 @@ Press `g` on the Request tab to activate GraphQL mode. The URL bar shows a magen
 
 Press `g` again to return to REST mode (URL and headers are preserved).
 
-![terapi — SpaceX GraphQL query with JSON response tree](https://github.com/user-attachments/assets/3fca2289-c240-4311-aa7f-42e8d07feadf)
-
 **Example GraphQL collections** in `examples/collections/`:
 - `rick-morty-graphql.toml` — Rick & Morty API — 6 folders, 17 requests: variables, pagination, multi-ID, aliases, filters, introspection
 - `countries-graphql.toml` — Countries API — 5 folders, 19 requests: filters, glob, inline fragments, introspection
@@ -702,9 +754,9 @@ terapi build my_campaign.toml       # edit an existing file
 
 **What's in the builder:**
 
-- **Numbered pipeline** — steps with badges (`HTTP` `TRSF` `WAIT` `SEED` `FILE` `#`) and inline hints (`↻` foreach, `⊘` when, `?` assertions)
+- **Numbered pipeline** — steps with badges (`HTTP` `TRSF` `WAIT` `SEED` `FILE` `SRCH` `LOOP` `#`) and inline hints (`↻` foreach, `⊘` when, `?` assertions)
 - **[IN] / [OUT] sections** — navigable connectors above steps and output blocks below
-- **Brick catalog** — HTTP, Transform, Pause, Seed, File Loader, Comment, Connector [IN], Output [OUT]
+- **Brick catalog** — HTTP, Transform, Pause, Seed, File Loader, Search / Filter, Loop, Comment, Connector [IN], Output [OUT]
 - **Step editor** — all fields for every step type; multi-line body textarea; assertions, when, foreach guided entry
 - **Run step** (`r`) — execute the current step immediately; response shown in the right panel below the editor; status, assertions, extracted vars, body preview
 - **JSON path autocomplete** (`Tab` on Extract value) — after running a step, picks dot-paths from the response JSON

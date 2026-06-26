@@ -3,6 +3,7 @@ mod builder;
 mod campaign;
 mod connector;
 mod event;
+mod import;
 mod json_highlight;
 mod storage;
 mod ui;
@@ -93,6 +94,21 @@ fn import_collection(path: &str) -> Result<()> {
     let content = std::fs::read_to_string(path)
         .with_context(|| format!("cannot read '{}'", path))?;
 
+    // Detect JSON (Postman collection or environment)
+    let ext = std::path::Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    if ext == "json" {
+        let report = import::postman::import_postman(path, &content)
+            .with_context(|| format!("failed to import '{}'", path))?;
+        report.print();
+        return Ok(());
+    }
+
+    // TOML: terapi collection or campaign
     let parsed: toml::Value = toml::from_str(&content)
         .with_context(|| format!("'{}' is not valid TOML", path))?;
 

@@ -5,6 +5,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.9.0] — 2026-06-26
+
+### Added
+- `terapi import <file.json>` — import Postman v2.1 collections and environments
+  - Auto-detects collection vs environment from JSON structure
+  - Imports folders (one level; nested sub-folders flattened with "Sub / Request" naming)
+  - Imports requests: method, URL (raw with query string), headers, body (raw/GraphQL/urlencoded/formdata)
+  - Imports auth: Bearer, Basic, API Key, OAuth2 (mapped to Client Credentials)
+  - Collection-level auth inherited by requests with no explicit auth
+  - GraphQL body (`mode: "graphql"`) → GQL mode with query + variables
+  - Collection variables → terapi env named `"<collection> vars"`
+  - Postman environments (JSON with `_postman_variable_scope`) → terapi env
+  - Disabled headers, params, and env values are skipped
+  - Import report: counts (requests, folders, env vars), warnings (scripts ignored, formdata/urlencoded degraded), destination path
+
+---
+
 ## [0.8.4] — 2026-06-26
 
 ### Changed

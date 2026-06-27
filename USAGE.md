@@ -2842,6 +2842,11 @@ terapi run examples/campaigns/spacex_exploration.toml
 terapi run examples/campaigns/itineraire_demo.toml
 terapi run examples/campaigns/itineraire_demo.toml -p DEPART=Bordeaux -p ARRIVEE=Nantes
 terapi run examples/campaigns/itineraire_demo.toml -p DEPART=Marseille -p ARRIVEE=Strasbourg -p PROFILE=car
+
+# horaires_sncf_par_gare requires a terapi env "sncf" with SNCF_TOKEN:
+#   Env tab → n → "sncf" → a → SNCF_TOKEN = <your-token>
+terapi run examples/campaigns/horaires_sncf_par_gare.toml -p GARE="Paris Montparnasse"
+terapi run examples/campaigns/horaires_sncf_par_gare.toml -p GARE="Lyon Part-Dieu"
 ```
 
 #### Interactive weather map

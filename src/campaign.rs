@@ -1655,6 +1655,20 @@ async fn run_poll_step(
 // ── jq step ───────────────────────────────────────────────────────────────────
 
 async fn run_jq_step(step: &Step, env: &HashMap<String, String>) -> anyhow::Result<HashMap<String, String>> {
+    // Check that the system jq binary is available before attempting to run.
+    let jq_available = tokio::process::Command::new("jq")
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .await
+        .is_ok();
+    if !jq_available {
+        return Err(anyhow::anyhow!(
+            "jq n'est pas disponible — installez jq pour utiliser ce step (brew install jq / apt install jq)"
+        ));
+    }
+
     let input      = resolve(step.jq_input.as_deref().unwrap_or(""), env);
     let expr       = resolve(step.jq_expression.as_deref().unwrap_or("."), env);
     let output_var = step.jq_output.as_deref().unwrap_or("JQ_RESULT").to_string();
@@ -1668,7 +1682,9 @@ async fn run_jq_step(step: &Step, env: &HashMap<String, String>) -> anyhow::Resu
     cmd.stderr(std::process::Stdio::piped());
 
     let mut child = cmd.spawn()
-        .map_err(|e| anyhow::anyhow!("`jq` not found — install jq first (https://jqlang.org): {}", e))?;
+        .map_err(|_| anyhow::anyhow!(
+            "jq n'est pas disponible — installez jq pour utiliser ce step (brew install jq / apt install jq)"
+        ))?;
 
     if let Some(mut stdin) = child.stdin.take() {
         use tokio::io::AsyncWriteExt;

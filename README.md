@@ -565,6 +565,81 @@ search = {input = "{{USERS}}", path = "email", match = "@premium\\.com$", output
 
 The `SRCH` badge (cyan) appears in the Campaigns panel idle view and in the Campaign Builder pipeline.
 
+### Poll steps (`kind = "poll"`)
+
+Poll an HTTP endpoint repeatedly until a condition is met (or timeout). Useful for waiting on async jobs, queues, or any eventually-consistent state:
+
+```toml
+[[steps]]
+name   = "Wait for job to complete"
+kind   = "poll"
+method = "GET"
+url    = "{{BASE_URL}}/jobs/{{JOB_ID}}"
+[steps.headers]
+Authorization = "Bearer {{TOKEN}}"
+[steps.extract]
+JOB_STATUS = "status"
+[steps.until]
+var = "JOB_STATUS"
+eq  = "done"
+interval_ms  = 2000   # check every 2 s (default: 1000)
+timeout_secs = 60     # give up after 60 s (default: 60)
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `until` | — | Condition to stop polling: `{ var, eq?, ne?, exists? }` (same operators as `when`) |
+| `interval_ms` | `1000` | Delay between polls (min 100 ms) |
+| `timeout_secs` | `60` | Maximum wait time before failing (max 500 iterations) |
+
+`extract` variables are re-evaluated after each poll and used to test the `until` condition. While polling, the TUI status bar shows `⟳ poll #N — step name — Ns`. The `POLL` badge (yellow) appears in the pipeline.
+
+### Set steps (`kind = "set"`)
+
+Assign one or more variables without making an HTTP call. Supports `{{VAR}}` substitution in values — useful for initialising state, computing derived strings, or branching logic:
+
+```toml
+[[steps]]
+name = "Initialise counters"
+kind = "set"
+[steps.vars]
+PAGE   = "1"
+OFFSET = "0"
+LABEL  = "run-{{RUN_ID}}"
+```
+
+All values support `{{VAR}}` interpolation from the current campaign environment. The `SET` badge (blue) appears in the pipeline.
+
+### JQ steps (`kind = "jq"`)
+
+Apply a [`jq`](https://jqlang.org) filter to a JSON variable and store the result. Requires `jq` installed on the system (`brew install jq` / `apt install jq`).
+
+```toml
+[[steps]]
+name          = "Extract active user IDs"
+kind          = "jq"
+jq_input      = "{{USERS}}"
+jq_expression = "[.[] | select(.active) | .id]"
+jq_output     = "ACTIVE_IDS"
+
+[[steps]]
+name          = "Get token as raw string"
+kind          = "jq"
+jq_input      = "{{AUTH_RESPONSE}}"
+jq_expression = ".data.access_token"
+jq_output     = "TOKEN"
+jq_raw        = true   # pass -r: raw string output, not quoted JSON
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `jq_input` | `""` | Variable holding the JSON to process |
+| `jq_expression` | `"."` | jq filter expression |
+| `jq_output` | `"JQ_RESULT"` | Variable to store the result |
+| `jq_raw` | `false` | `true` → raw string output (`-r`); `false` → compact JSON |
+
+If `jq` is not found on the system, the step fails immediately with a clear error message. The `JQ` badge (green) appears in the pipeline.
+
 ---
 
 ### Campaign examples
@@ -734,9 +809,9 @@ terapi build my_campaign.toml       # edit an existing file
 
 **What's in the builder:**
 
-- **Numbered pipeline** — steps with badges (`HTTP` `TRSF` `WAIT` `SEED` `FILE` `SRCH` `LOOP` `#`) and inline hints (`↻` foreach, `⊘` when, `?` assertions)
+- **Numbered pipeline** — steps with badges (`HTTP` `TRSF` `WAIT` `SEED` `FILE` `SRCH` `LOOP` `POLL` `SET` `JQ` `#`) and inline hints (`↻` foreach, `⊘` when, `?` assertions)
 - **[IN] / [OUT] sections** — navigable connectors above steps and output blocks below
-- **Brick catalog** — HTTP, Transform, Pause, Seed, File Loader, Search / Filter, Loop, Comment, Connector [IN], Output [OUT]
+- **Brick catalog** — HTTP, Transform, Pause, Seed, File Loader, Search / Filter, JQ transform, Loop, Poll, Set, Comment, Connector [IN], Output [OUT]
 - **Step editor** — all fields for every step type; multi-line body textarea; assertions, when, foreach guided entry
 - **Run step** (`r`) — execute the current step immediately; response shown in the right panel below the editor; status, assertions, extracted vars, body preview
 - **JSON path autocomplete** (`Tab` on Extract value) — after running a step, picks dot-paths from the response JSON

@@ -33,6 +33,8 @@
   - [Transform steps](#transform-steps)
   - [File Loader steps](#file-loader-steps)
   - [Search / Filter steps](#search--filter-steps)
+  - [Poll steps](#poll-steps)
+  - [Set steps](#set-steps)
   - [JQ steps](#jq-steps)
   - [Loop steps (pagination)](#loop-steps-pagination)
   - [Multipart form-data](#multipart-form-data)
@@ -2023,6 +2025,106 @@ In the TUI Campaign panel idle view, search steps show `SRCH` (cyan badge) in th
 
 ---
 
+### Poll steps
+
+A `kind = "poll"` step sends an HTTP request repeatedly until an `until` condition is met or the timeout expires. It is useful for waiting on async operations (job queues, async processing, eventually-consistent reads).
+
+#### Fields
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `method` / `url` / `headers` / `extract` | — | Same as any HTTP step |
+| `until` | — | Condition to stop polling: `{ var, eq?, ne?, exists?, lt?, lte? }` |
+| `interval_ms` | `1000` | Delay between polls in milliseconds (minimum 100) |
+| `timeout_secs` | `60` | Maximum total wait time before marking the step failed |
+
+The `until` condition reuses the same operators as `when`: `eq`, `ne`, `exists`, `lt`, `lte`. Variables extracted from each poll response are evaluated against `until` before sleeping.
+
+A safety cap of 500 iterations is enforced regardless of `timeout_secs`.
+
+#### Example
+
+```toml
+[[steps]]
+name   = "Wait for processing"
+kind   = "poll"
+method = "GET"
+url    = "{{BASE_URL}}/jobs/{{JOB_ID}}/status"
+[steps.headers]
+Authorization = "Bearer {{TOKEN}}"
+[steps.extract]
+JOB_STATUS   = "status"
+JOB_PROGRESS = "progress"
+[steps.until]
+var = "JOB_STATUS"
+eq  = "completed"
+interval_ms  = 2000   # check every 2 s
+timeout_secs = 120    # give up after 2 min
+
+[[steps]]
+name   = "Use result"
+kind   = "poll"
+method = "GET"
+url    = "{{BASE_URL}}/queue/{{QUEUE_ID}}"
+[steps.extract]
+ITEMS_COUNT = "items_count"
+[steps.until]
+var = "ITEMS_COUNT"
+lte = "0"             # stop when queue is empty
+```
+
+While polling, the TUI Campaigns status bar shows `⟳ poll #N — step name — Ns`. The `POLL` badge (yellow) appears in the pipeline.
+
+In the Campaign Builder, add a **Poll** brick from the catalog.
+
+---
+
+### Set steps
+
+A `kind = "set"` step assigns one or more variables directly, without making an HTTP call. All values support `{{VAR}}` interpolation from the current campaign environment.
+
+This replaces the need for a `template` transform when all you want is to initialise or re-assign variables.
+
+#### Fields
+
+| Field | Description |
+|-------|-------------|
+| `vars` | Key/value map of variables to set. Values support `{{VAR}}` substitution. |
+
+#### Examples
+
+```toml
+# Initialise pagination state
+[[steps]]
+name = "Init pagination"
+kind = "set"
+[steps.vars]
+PAGE   = "1"
+OFFSET = "0"
+LIMIT  = "50"
+
+# Compute a derived value using an existing variable
+[[steps]]
+name = "Build label"
+kind = "set"
+[steps.vars]
+LABEL    = "run-{{RUN_ID}}-{{ENV}}"
+LOG_PATH = "/tmp/terapi-{{RUN_ID}}.json"
+
+# Reset a flag after a conditional branch
+[[steps]]
+name = "Reset flag"
+kind = "set"
+[steps.vars]
+RETRY_NEEDED = "false"
+```
+
+The `SET` badge (blue) appears in the pipeline idle view and CLI output.
+
+In the Campaign Builder, add a **Set** brick from the catalog.
+
+---
+
 ### JQ steps
 
 A `kind = "jq"` step applies a [`jq`](https://jqlang.org) filter expression to a JSON variable and stores the result in another variable.
@@ -2832,6 +2934,8 @@ Press `n` (append) or `i` (insert after cursor) to open the catalog:
 | File Loader | `FILE` | `kind = "file"` — reads a file into a campaign variable |
 | Search / Filter | `SRCH` | `kind = "search"` — filter a JSON array variable by regex on a field |
 | JQ transform | `JQ  ` | `kind = "jq"` — apply a jq filter to a JSON variable (**requires `jq`**) |
+| Poll | `POLL` | `kind = "poll"` — repeat HTTP until an `until` condition is met (or timeout) |
+| Set | `SET ` | `kind = "set"` — assign literal/template variables without HTTP |
 | Comment | `#` | TOML comment line between steps, skipped at runtime |
 | Connector [IN] | — | `[[connectors]]` block (CSV or JSON data source) |
 | Output [OUT] | — | `[[outputs]]` block (collects step responses to a JSON file) |
@@ -2869,6 +2973,10 @@ Press `n` (append) or `i` (insert after cursor) to open the catalog:
 **Search / Filter step fields:** Name · Description · Input (JSON array var, e.g. `{{USERS}}`) · Match on field (dot-path, empty = element itself) · Pattern (regex) · Output var · First match only (toggle)
 
 **JQ step fields:** Name · Description · Input (JSON var, e.g. `{{RESPONSE}}`) · Expression (jq filter) · Output var · Raw output (toggle — passes `-r` to jq)
+
+**Poll step fields:** Name · Description · Method · URL · Headers (key=value list) · Extract (key=value list) · Until — var · Until — condition (cycle: `not exists → exists → == → != → < → <=`) · Interval ms · Timeout secs · Continue on error
+
+**Set step fields:** Name · Description · Vars (key=value list — `a` to add, `d` to delete, `Enter` to edit)
 
 **Loop step fields:**
 

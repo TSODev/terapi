@@ -5,6 +5,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+### Added
+- `kind = "poll"` campaign step — poll an HTTP endpoint until an `until` condition is met or timeout expires
+  - `until = { var, eq?, ne?, exists?, lt?, lte? }` — same operators as `when`, evaluated on extracted vars after each poll
+  - `interval_ms` (default 1000, min 100) — delay between polls; `timeout_secs` (default 60) — max wait
+  - Safety cap of 500 iterations regardless of timeout
+  - TUI status bar shows `⟳ poll #N — step name — Ns`; badge `POLL` (yellow) in pipeline and CLI output
+  - Full step editor in `terapi build`: URL, method, headers, extract, until condition, interval, timeout, continue_on_error
+- `kind = "set"` campaign step — assign literal/template variables without HTTP
+  - `[steps.vars]` key/value table; all values support `{{VAR}}` interpolation
+  - Badge `SET` (blue) in pipeline and CLI output
+  - Full step editor in `terapi build`: vars list with add/edit/delete
+- `kind = "jq"` campaign step — apply a jq filter expression to a JSON variable using the system `jq` binary
+  - `jq_input` (JSON variable), `jq_expression` (jq filter), `jq_output` (default `JQ_RESULT`), `jq_raw` (bool, passes `-r`)
+  - Fails immediately with a clear error if `jq` is not found on the system
+  - Badge `JQ` (green) in pipeline and CLI output
+  - Full step editor in `terapi build`
+
+### Changed
+- `jq` availability is now checked explicitly before spawning the process; missing binary produces a user-friendly error instead of an OS error code
+
+---
+
 ## [0.9.3] — 2026-06-26
 
 ### Changed

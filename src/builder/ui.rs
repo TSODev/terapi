@@ -1088,12 +1088,95 @@ fn render_step_editor(
         Span::styled(hints, Style::default().fg(Color::Indexed(246)))
     )));
 
-    frame.render_widget(List::new(rows), sections_area);
+    // Split sections area: scrollable list on top, fixed help strip at bottom
+    let editor_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(0), Constraint::Length(5)])
+        .split(sections_area);
+
+    frame.render_widget(List::new(rows), editor_chunks[0]);
+    render_step_help(frame, &step.kind, editor_chunks[1]);
 
     // Picker overlay (drawn last so it sits on top)
     if let StepEditorMode::ExtractPicker { paths, filter, cursor, .. } = mode {
         render_extract_picker(frame, paths, filter, *cursor, inner);
     }
+}
+
+fn step_help_text(kind: &str) -> (&'static str, &'static str, &'static str) {
+    match kind {
+        "seed" => (
+            "Like HTTP, but feeds data into a [[connectors]] loop — runs once before iterations.",
+            "Pair with: [[connectors]] type = \"json\"  from_step = \"<this step name>\"",
+            "L: load from collection  ·  r: run step",
+        ),
+        "transform" => (
+            "Reshape variables without HTTP — regex, template, split, trim, upper, lower.",
+            "Transforms run in order; each reads from the env updated by the previous one.",
+            "a: add transform  ·  Enter: edit  ·  d: delete",
+        ),
+        "pause" => (
+            "Sleep for a fixed duration between steps.",
+            "Useful for rate-limiting or waiting for async side effects (e.g. 2000 = 2 seconds).",
+            "Enter on Wait field to edit duration in milliseconds",
+        ),
+        "file" => (
+            "Read a file from disk and store its contents in a campaign variable.",
+            "Encodings: base64 (default, ready for uploads)  ·  text  ·  hex",
+            "Enter: edit path  ·  ←/→: cycle encoding",
+        ),
+        "search" => (
+            "Filter a JSON array variable by regex on a field path, store matching elements.",
+            "path = \"\" matches on the element directly;  first_only returns a single object.",
+            "←/→: toggle First match only",
+        ),
+        "jq" => (
+            "Apply a jq filter expression to a JSON variable (requires system jq binary).",
+            "jq_raw = true outputs a raw string instead of JSON — useful for string values.",
+            "←/→: toggle Raw output  ·  expression supports {{VAR}} substitution",
+        ),
+        "poll" => (
+            "Poll an HTTP endpoint repeatedly until an until condition is met or timeout expires.",
+            "Extracted vars are re-evaluated after each poll to test the until condition.",
+            "←/→: cycle until condition  ·  a: add header or extract",
+        ),
+        "set" => (
+            "Assign variables directly without HTTP — {{VAR}} substitution supported in values.",
+            "Use to init counters, build derived labels, or reset flags between branches.",
+            "a: add variable  ·  d: delete  ·  Enter: edit key or value",
+        ),
+        "loop" => (
+            "Repeat an HTTP request accumulating results until an until condition is met.",
+            "Cursor-based or offset pagination; safety cap: 1000 iterations.",
+            "←/→: cycle until condition  ·  a: add extract",
+        ),
+        "comment" => (
+            "A TOML comment line — skipped at runtime, has no effect on execution.",
+            "Use to separate pipeline sections or annotate intent for future readers.",
+            "Enter: edit comment text",
+        ),
+        _ => (
+            "Send an HTTP request and capture the response body and headers.",
+            "Use [extract] to pull JSON values into variables for use in later steps.",
+            "a: add header  ·  Tab: autocomplete extract path after running  ·  r: run step",
+        ),
+    }
+}
+
+fn render_step_help(frame: &mut Frame, kind: &str, area: Rect) {
+    let (line1, line2, line3) = step_help_text(kind);
+    let block = Block::default()
+        .title(" Help ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Indexed(240)));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    let text = vec![
+        Line::from(Span::styled(line1, Style::default().fg(Color::White))),
+        Line::from(Span::styled(line2, Style::default().fg(Color::Indexed(250)))),
+        Line::from(Span::styled(line3, Style::default().fg(Color::Yellow))),
+    ];
+    frame.render_widget(Paragraph::new(text).wrap(Wrap { trim: false }), inner);
 }
 
 fn render_extract_picker(

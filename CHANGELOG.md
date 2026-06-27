@@ -26,6 +26,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 - `jq` availability is now checked explicitly before spawning the process; missing binary produces a user-friendly error instead of an OS error code
+- Campaign Builder: step editor now shows a contextual **Help** strip at the bottom of the editor panel when a step is selected — 3-line description (what it does · key behavior · keybindings), adapts to each step type (`http`, `seed`, `transform`, `pause`, `file`, `search`, `jq`, `poll`, `set`, `loop`, `comment`)
 
 ---
 

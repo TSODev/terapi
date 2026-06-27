@@ -1284,10 +1284,13 @@ fn render_extract_picker(
         filter_chunks[0],
     );
 
-    // Path list
+    // Path list with scroll to keep cursor visible
     let list_area = filter_chunks[1];
+    let visible = list_area.height as usize;
+    let scroll = if cursor >= visible { cursor - visible + 1 } else { 0 };
     let items: Vec<ListItem> = filtered.iter().enumerate()
-        .take(list_area.height as usize)
+        .skip(scroll)
+        .take(visible)
         .map(|(i, path)| {
             if i == cursor {
                 ListItem::new(Line::from(vec![

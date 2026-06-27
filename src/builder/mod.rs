@@ -848,7 +848,9 @@ impl BuilderApp {
     ) -> Result<()> {
         use crossterm::event::KeyCode;
         let steps: Vec<&str> = self.campaign.steps.iter()
-            .filter(|s| s.kind != "comment" && s.kind != "transform" && s.kind != "pause" && s.kind != "file" && s.kind != "search" && s.kind != "poll")
+            .filter(|s| s.kind != "comment" && s.kind != "transform" && s.kind != "pause"
+                     && s.kind != "file" && s.kind != "parallel" && s.kind != "notify"
+                     && s.kind != "set" && s.kind != "jq" && s.kind != "search")
             .map(|s| s.name.as_str())
             .collect();
         let n = steps.len();

@@ -52,6 +52,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Campaign Builder: `AddPairStage2` hint (value field) now shows `Tab: JSON path picker` when the target is an Extract field
 - Campaign Builder: **Assertions now support `Enter` to edit** — `Enter` on an existing assertion pre-fills path, operator (pre-selected to current op), and value; `Enter` saves by replacing the assertion at that position (not pushing a new one); hints show `(edit mode)` to distinguish from add flow
 - Campaign Builder: **`LoopUntilCond` and `PollUntilCond` values are now editable** — `←/→` cycles the condition type as before; `Enter` when the type is `eq`/`ne`/`lt`/`lte` opens an inline text editor pre-filled with the current value; previously the comparison value was always stuck at empty string or 0
+
+### Fixed
+- Campaign Builder checker (`c`) — all non-HTTP step kinds now get per-kind field validation instead of incorrectly reporting "HTTP step: URL is empty":
+  - `jq` → checks `jq_input` and `jq_expression` are non-empty
+  - `set` → checks `vars` is non-empty
+  - `search` → checks `input` variable is non-empty
+  - `notify` → checks webhook URL is non-empty
+  - `loop` / `poll` → checks URL is non-empty (with correct label)
+  - `parallel` → checks steps list is non-empty
+- Campaign Builder checker: `{{VAR}}` resolution now covers `jq_input`, `jq_expression`, `jq_args` values, `set` vars values, `search.input`, and `notify` message
+- Campaign Builder checker: variables produced by `set`, `jq`, `search`, and `file` steps are now added to the `defined` set — downstream steps no longer get false "variable not defined" errors for vars those steps output
 - Campaign Builder: **ENV badge** — per-step `env` override now shown as a `⊙ env: <name>` (cyan) secondary line in the pipeline panel
 - Campaign Builder: **campaign meta header** — description (italic) and `env_file` (cyan) displayed at the top of the pipeline panel when set, separated by a divider
 - Campaign Builder: **ExtractPicker scroll** — the JSON path autocomplete overlay now scrolls to keep the cursor visible when the list exceeds the panel height; previously the cursor disappeared below the bottom of the list

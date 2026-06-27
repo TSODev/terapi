@@ -3250,16 +3250,24 @@ Navigate to the [OUT] section with `↓` from the last step. `Enter` reopens the
 
 | Level | Rule |
 |-------|------|
-| Error | `{{VAR}}` in url/body/headers/foreach/when/multipart not defined upstream |
+| Error | `{{VAR}}` in url/body/headers/foreach/when/multipart/jq fields/set vars/search input/notify message not defined upstream |
 | Error | File Loader: `file_path` is empty |
 | Error | Output `from_step` references a non-existent step name |
 | Error | Connector `from_step` references a non-existent step name |
-| Warning | HTTP step: URL is empty |
+| Warning | HTTP / GraphQL step: URL is empty |
+| Warning | Loop / Poll step: URL is empty |
+| Warning | Notify step: webhook URL is empty |
+| Warning | JQ step: `jq_input` or `jq_expression` is empty |
+| Warning | Set step: no variables defined |
+| Warning | Search step: input variable is empty |
+| Warning | Parallel step: no steps listed |
 | Warning | Transform step: no transforms defined |
 | Warning | Multipart part: name is empty |
 | Warning | Connector: path is empty and no `from_step` set |
 | Warning | Output: path is empty |
 | Warning | Duplicate or empty step names |
+
+Variables produced by `set`, `jq`, `search`, and `file` steps are automatically added to the known-defined set — downstream steps referencing those variables will not trigger false "not defined" errors.
 
 ---
 

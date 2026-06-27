@@ -899,7 +899,7 @@ terapi build my_campaign.toml       # edit an existing file
 - **JSON path autocomplete** (`Tab` on Extract value) — after running a step, picks dot-paths from the response JSON
 - **Load from collection** (`L`) — browse existing collections and fill method/URL/headers/body in one keystroke
 - **Variables panel** (`v`) — full CRUD on the `[env]` block
-- **Checker** (`c`) — static validation: undefined `{{VAR}}`, empty URLs / file paths, invalid `from_step` references, duplicate step names
+- **Checker** (`c`) — static validation per step kind (URL for http/graphql/loop/poll/notify, jq_input+expression for jq, vars for set, input for search, steps list for parallel, file_path for file); `{{VAR}}` resolution across all fields; vars produced by set/jq/search/file propagated to downstream checks; invalid `from_step` references; duplicate/empty step names
 - **TOML preview** (`p`) — syntax-highlighted live preview (`[section]` cyan, `[[array]]` magenta, strings green)
 - **Save** (`w`) — writes to the target file or `<terapi_dir>/campaigns/`
 - **Quit confirmation** — `y / n / Esc` prompt when there are unsaved changes

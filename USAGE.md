@@ -2146,6 +2146,7 @@ A `kind = "jq"` step applies a [`jq`](https://jqlang.org) filter expression to a
 | `jq_expression` | `"."` | jq filter expression |
 | `jq_output` | `"JQ_RESULT"` | Variable to store the result |
 | `jq_raw` | `false` | If `true`, pass `-r` (raw string output); default is compact JSON |
+| `[steps.jq_args]` | `{}` | Extra variables passed as `--argjson $name value` — use to combine multiple JSON variables in one expression |
 
 #### Examples
 
@@ -2175,11 +2176,22 @@ jq_input      = "{{ITEMS}}"
 jq_expression = "length | tostring"
 jq_output     = "ITEM_COUNT"
 jq_raw        = true
+
+# Combine two arrays with --argjson (NAMES and DATES → [{name, date}])
+[[steps]]
+name          = "Zip names and dates"
+kind          = "jq"
+jq_input      = "{{NAMES}}"
+jq_expression = "[., $dates] | transpose | map({name: .[0], date: .[1]})"
+jq_output     = "ZIPPED"
+
+[steps.jq_args]
+dates = "{{DATES}}"
 ```
 
-`jq_input` and `jq_expression` both support `{{VAR}}` substitution. The output is stored as a string (JSON-encoded when `jq_raw = false`, raw string when `jq_raw = true`). If `jq` is not found or the expression fails, the step is marked as failed with the jq error message.
+`jq_input` and `jq_expression` both support `{{VAR}}` substitution. Values in `[steps.jq_args]` are also resolved before being passed to jq. The output is stored as a string (JSON-encoded when `jq_raw = false`, raw string when `jq_raw = true`). If `jq` is not found or the expression fails, the step is marked as failed with the jq error message.
 
-In the Campaign Builder, add a **JQ transform** brick from the catalog (badge `JQ`, green).
+In the Campaign Builder, add a **JQ transform** brick from the catalog (badge `JQ`, green). The step editor includes an **Extra args (--argjson)** list section (`a` to add, `d` to delete, `Enter` to edit).
 
 ---
 

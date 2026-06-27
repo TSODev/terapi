@@ -20,9 +20,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Full step editor in `terapi build`: vars list with add/edit/delete
 - `kind = "jq"` campaign step — apply a jq filter expression to a JSON variable using the system `jq` binary
   - `jq_input` (JSON variable), `jq_expression` (jq filter), `jq_output` (default `JQ_RESULT`), `jq_raw` (bool, passes `-r`)
+  - `[steps.jq_args]` — optional key/value table of extra variables passed as `--argjson $name resolved_value`; allows combining multiple JSON variables in a single expression (e.g. `[., $dates] | transpose | map({name: .[0], date: .[1]})`)
   - Fails immediately with a clear error if `jq` is not found on the system
   - Badge `JQ` (green) in pipeline and CLI output
-  - Full step editor in `terapi build`
+  - Full step editor in `terapi build`: "Extra args (--argjson)" list section with `a`/`d`/`Enter`
 
 - `kind = "parallel"` campaign step — run multiple named steps concurrently, wait for all to complete
   - `steps = ["Step A", "Step B"]` — named steps are pre-scanned and skipped in the sequential flow
@@ -41,7 +42,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `jq` availability is now checked explicitly before spawning the process; missing binary produces a user-friendly error instead of an OS error code
 - Campaign Builder: step editor now shows a contextual **Help** strip at the bottom of the editor panel when a step is selected — 3-line description (what it does · key behavior · keybindings), adapts to each step type (`http`, `seed`, `transform`, `pause`, `file`, `search`, `jq`, `poll`, `set`, `loop`, `parallel`, `notify`, `comment`)
 - Campaign Builder: pipeline panel and all context panels now have 1 line of top padding inside the border for visual breathing room
-- Campaign Builder: step run result panel now shows the **full JSON body** (no truncation) with syntax highlighting (keys=cyan, strings=green, numbers=yellow, booleans=magenta); scrollable with `[` / `]` (or `Fn+↑` / `Fn+↓` on Mac)
+- Campaign Builder: step run result panel now takes the **full right panel** (no 55/45 split); syntax-highlighted JSON body; scrollable with `PgUp`/`PgDn`; `Esc` hides the panel (result kept in memory so `Tab`→ExtractPicker still works); extracted variables shown in an `── Extracted ──` section below the body
 - Campaign Builder: **Parallel step picker** — adding a step to a parallel's list now opens a visual picker overlay (↑/↓ + Enter) instead of a free-text prompt; only `http`, `graphql`, `seed`, `poll`, `loop` steps are listed (steps that perform network requests)
 - Campaign Builder ergonomics — **all list sections** (Headers, Extractions, Assertions, GQL Variables, Multipart Parts, Transforms, Parallel Steps, Set Vars) now support:
   - `↑`/`↓` navigates items within the section before jumping to the next section
@@ -51,6 +52,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Campaign Builder: `AddPairStage2` hint (value field) now shows `Tab: JSON path picker` when the target is an Extract field
 - Campaign Builder: **Assertions now support `Enter` to edit** — `Enter` on an existing assertion pre-fills path, operator (pre-selected to current op), and value; `Enter` saves by replacing the assertion at that position (not pushing a new one); hints show `(edit mode)` to distinguish from add flow
 - Campaign Builder: **`LoopUntilCond` and `PollUntilCond` values are now editable** — `←/→` cycles the condition type as before; `Enter` when the type is `eq`/`ne`/`lt`/`lte` opens an inline text editor pre-filled with the current value; previously the comparison value was always stuck at empty string or 0
+- Campaign Builder: **ENV badge** — per-step `env` override now shown as a `⊙ env: <name>` (cyan) secondary line in the pipeline panel
+- Campaign Builder: **campaign meta header** — description (italic) and `env_file` (cyan) displayed at the top of the pipeline panel when set, separated by a divider
+- Campaign Builder: **ExtractPicker scroll** — the JSON path autocomplete overlay now scrolls to keep the cursor visible when the list exceeds the panel height; previously the cursor disappeared below the bottom of the list
+- Campaign Builder: **`[[params]]` prompt before run** — pressing `r` on a campaign that declares `[[params]]` (without `default`) opens an interactive parameter form inside the builder; `↑`/`↓` navigate, `Enter` edits the selected value, `r` launches with the current values, `Esc` cancels; params with defaults are pre-filled
+- `terapi run` now prompts for `[[params]]` that have no `default` and were not supplied via `-p` when running in interactive mode (non-`--silent`); one param per line on stderr; `--silent` skips prompting and uses defaults (or empty string)
 
 ---
 

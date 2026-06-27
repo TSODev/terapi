@@ -629,6 +629,17 @@ jq_input      = "{{AUTH_RESPONSE}}"
 jq_expression = ".data.access_token"
 jq_output     = "TOKEN"
 jq_raw        = true   # pass -r: raw string output, not quoted JSON
+
+# Combine two arrays — NAMES (stdin) + DATES (--argjson) → [{name, date}]
+[[steps]]
+name          = "Zip names and dates"
+kind          = "jq"
+jq_input      = "{{NAMES}}"
+jq_expression = "[., $dates] | transpose | map({name: .[0], date: .[1]})"
+jq_output     = "ZIPPED"
+
+[steps.jq_args]
+dates = "{{DATES}}"
 ```
 
 | Field | Default | Description |
@@ -637,6 +648,7 @@ jq_raw        = true   # pass -r: raw string output, not quoted JSON
 | `jq_expression` | `"."` | jq filter expression |
 | `jq_output` | `"JQ_RESULT"` | Variable to store the result |
 | `jq_raw` | `false` | `true` → raw string output (`-r`); `false` → compact JSON |
+| `[steps.jq_args]` | `{}` | Extra variables passed as `--argjson $name value`; all values support `{{VAR}}` |
 
 If `jq` is not found on the system, the step fails immediately with a clear error message. The `JQ` badge (green) appears in the pipeline.
 

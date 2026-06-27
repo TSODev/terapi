@@ -652,6 +652,21 @@ dates = "{{DATES}}"
 
 If `jq` is not found on the system, the step fails immediately with a clear error message. The `JQ` badge (green) appears in the pipeline.
 
+**`jq_input` must be valid JSON.** If the variable holds a plain string (not an array/object), wrap it: `jq_input = '"{{VAR}}"'` (TOML literal string with JSON quotes inside).
+
+**Transforming arrays of strings** — for fixed-format values, string slicing is simpler than regex (no escaping):
+
+```toml
+# "20260627T174700" → "27/06/2026 à 17:47" for every element
+jq_expression = '[.[] | "\(.[6:8])/\(.[4:6])/\(.[0:4]) à \(.[9:11]):\(.[11:13])"]'
+```
+
+When regex is needed, use `capture()` with named groups — `sub()` replacement context sees captures as an object, not an array (`.[0]` does not work):
+
+```toml
+jq_expression = '[.[] | capture("^(?P<y>\\d{4})(?P<mo>\\d{2})(?P<d>\\d{2})T(?P<h>\\d{2})(?P<mi>\\d{2})") | "\(.d)/\(.mo)/\(.y) à \(.h):\(.mi)"]'
+```
+
 ### Parallel steps (`kind = "parallel"`)
 
 Run multiple named steps concurrently and wait for all to complete. Useful for independent requests that don't depend on each other's output:

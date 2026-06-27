@@ -2194,6 +2194,47 @@ dates = "{{DATES}}"
 
 In the Campaign Builder, add a **JQ transform** brick from the catalog (badge `JQ`, green). The step editor includes an **Extra args (--argjson)** list section (`a` to add, `d` to delete, `Enter` to edit).
 
+#### `jq_input` — JSON vs raw string
+
+`jq_input` is passed to jq as stdin and **must be valid JSON**. Campaign variables are stored as raw strings, so:
+
+| Variable content | `jq_input` value | jq receives |
+|---|---|---|
+| JSON array `["a","b"]` | `"{{VAR}}"` | valid JSON array ✓ |
+| JSON object `{"k":"v"}` | `"{{VAR}}"` | valid JSON object ✓ |
+| Raw string `hello` | `'"{{VAR}}"'` | `"hello"` — wrapped in JSON quotes ✓ |
+| Raw number / date `20260627T174700` | `'"{{VAR}}"'` | `"20260627T174700"` ✓ |
+
+When the variable holds a plain string (not a JSON array or object), wrap `jq_input` in a TOML literal string with JSON quotes: `'"{{VAR}}"'`.
+
+#### Transforming arrays of strings
+
+To transform every element of a JSON array, wrap the expression in `[.[] | ...]`:
+
+```toml
+# Format every element — TOML literal string avoids double-escaping
+jq_input      = "{{ITEMS}}"
+jq_expression = '[.[] | ascii_upcase]'
+```
+
+**String slicing (recommended for fixed-format values)**
+
+For strings with a predictable structure (timestamps, codes, IDs), use position slicing instead of regex — no backslash escaping, no capture group issues:
+
+```toml
+# SNCF/GTFS timestamp: "20260627T174700" → "27/06/2026 à 17:47"
+jq_expression = '[.[] | "\(.[6:8])/\(.[4:6])/\(.[0:4]) à \(.[9:11]):\(.[11:13])"]'
+```
+
+**Named capture groups (when regex is needed)**
+
+jq's `sub()` replacement template sees captures as an **object**, not an array — `.[0]` does not work. Use `capture()` with named groups (`?P<name>`) instead:
+
+```toml
+# capture() returns {name: value} — access fields with .name
+jq_expression = '[.[] | capture("^(?P<y>\\d{4})(?P<mo>\\d{2})(?P<d>\\d{2})T(?P<h>\\d{2})(?P<mi>\\d{2})") | "\(.d)/\(.mo)/\(.y) à \(.h):\(.mi)"]'
+```
+
 ---
 
 ### Parallel steps

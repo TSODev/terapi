@@ -895,7 +895,7 @@ terapi build my_campaign.toml       # edit an existing file
 - **[IN] / [OUT] sections** — navigable connectors above steps and output blocks below
 - **Brick catalog** — HTTP, Transform, Pause, Seed, File Loader, Search / Filter, JQ transform, Loop, Poll, Parallel, Set, Notify, Comment, Connector [IN], Output [OUT]
 - **Step editor** — all fields for every step type; multi-line body textarea; assertions, when, foreach guided entry
-- **Run step** (`r`) — execute the current step immediately; response shown in the right panel below the editor; status, assertions, extracted vars, body preview
+- **Run step** (`r`) — execute the current step immediately; full right panel shows status, assertions, extracted vars, body; step name and value columns adapt to panel width; `↑/↓` / `PgUp/PgDn` scroll vertically; `←/→` scroll horizontally for long URLs/values; `Esc` returns to editor (result kept in memory for `Tab`→path autocomplete)
 - **JSON path autocomplete** (`Tab` on Extract value) — after running a step, picks dot-paths from the response JSON
 - **Load from collection** (`L`) — browse existing collections and fill method/URL/headers/body in one keystroke
 - **Variables panel** (`v`) — full CRUD on the `[env]` block

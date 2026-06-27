@@ -3142,30 +3142,37 @@ Press `n` (append) or `i` (insert after cursor) to open the catalog:
 
 Press `r` in the step editor (Browse mode) to execute the current step immediately using the campaign `[env]` + `env_file` variables. No focus change required.
 
-The right panel splits: step editor on top (55%), run result below (45%):
+The right panel switches to the **full run result view** (the step editor is temporarily hidden):
 
 ```
-┌─ ✓ Run result  [/]: scroll ────────────────────┐
-│  200  142 ms  https://api.example.com/users      │
-│  ✓ status eq 200                                 │
-│  ↳ USER_ID = 42                                  │
-│                                                  │
-│  {                                               │
-│    "id": 42,                                     │
-│    "name": "Alice",                              │
-│    "email": "alice@example.com"                  │
-│  }                                               │
-└──────────────────────────────────────────────────┘
+┌─ ✓ Run result ────────────────────────────────────────────────────┐
+│                                                                    │
+│  ✓ GET    Fetch users          200  142ms                          │
+│    ✓ status eq 200                                                 │
+│    ↳ USERS              [{"id":1,"name":"Alice"},{"id":2,...       │
+│                                                                    │
+│  ── Extracted ──────────────────────────────────────────────────── │
+│  ✓ GET    Extract IDs          200  38ms                           │
+│    ↳ ACTIVE_IDS         [1,3,7]                                    │
+│                                                                    │
+│  ─ Variables ───────────────────────────────────────────────────── │
+│    ACTIVE_IDS           [1,3,7]                                    │
+│    USERS                [{"id":1,"name":"Alice"},{"id":2,...       │
+│                                                                    │
+│  r: re-run  ↑/↓ PgUp/PgDn: scroll  ←/→: scroll horizontal  Esc   │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
-- Status code is colour-coded (green < 300, yellow 3xx, red 4xx/5xx)
-- Assertion results shown as `✓` / `✗`
-- Extracted variables shown as `↳ KEY = value`
-- Full JSON body displayed with syntax highlighting (keys=cyan, strings=green, numbers=yellow, booleans=magenta)
-- `[` / `]` scroll the body 10 lines at a time (`Fn+↑` / `Fn+↓` on Mac keyboards)
-- The result panel persists when navigating to adjacent steps — useful for referencing the JSON structure while configuring the next step
+- Step name and value columns **adapt to the panel width** — no fixed character limit
+- `↑`/`↓` scroll one line; `PgUp`/`PgDn` scroll 10 lines
+- `←`/`→` scroll horizontally 4 chars per press — useful for long URLs or JSON arrays that exceed the panel width
+- Assertion results shown as `✓` / `✗` with full description
+- Extracted variables listed below each step result and summarised in a `─ Variables ─` section at the bottom
+- Error messages displayed in full (no truncation)
+- `Esc` hides the result panel and returns to the step editor; the result stays in memory so `Tab`→ExtractPicker still works
+- `r` re-runs the campaign from the Run/Done view
 
-Works for all step types: HTTP, File Loader, Transform, Pause. Comment steps are excluded.
+Works for all step types: HTTP, GraphQL, JQ, File Loader, Transform, Pause, Set, Search. Comment steps are excluded.
 
 ---
 

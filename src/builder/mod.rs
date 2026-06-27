@@ -104,14 +104,20 @@ impl BuilderApp {
                 self.handle_catalog_key(key, cursor, insert_after)
             }
             BuilderFocus::StepEditor { step_idx, section_cursor, sub_cursor, mode, desc_active } => {
-                // PageUp/PageDown scroll the preview panel when a result is visible
+                // When preview is visible it takes the full panel — intercept all keys
                 if self.step_preview_result.is_some() || self.step_preview_running {
                     use crossterm::event::KeyCode;
                     match key.code {
-                        KeyCode::PageUp | KeyCode::Char('[') => { self.step_preview_scroll = self.step_preview_scroll.saturating_sub(10); return Ok(()); }
-                        KeyCode::PageDown | KeyCode::Char(']') => { self.step_preview_scroll += 10; return Ok(()); }
+                        KeyCode::Esc => {
+                            self.step_preview_result = None;
+                            self.step_preview_running = false;
+                            self.step_preview_scroll = 0;
+                        }
+                        KeyCode::PageUp => { self.step_preview_scroll = self.step_preview_scroll.saturating_sub(10); }
+                        KeyCode::PageDown => { self.step_preview_scroll += 10; }
                         _ => {}
                     }
+                    return Ok(());
                 }
                 step_editor::handle_key(self, key, step_idx, section_cursor, sub_cursor, mode, desc_active)
             }

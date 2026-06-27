@@ -101,6 +101,28 @@ fn render_pipeline(frame: &mut Frame, app: &BuilderApp, area: Rect) {
 
     let mut items: Vec<ListItem> = Vec::new();
 
+    // Campaign meta info (description + env_file if set)
+    {
+        let desc = &app.campaign.campaign.description;
+        let env_f = app.campaign.env_file.as_deref().unwrap_or("");
+        let has_info = !desc.is_empty() || !env_f.is_empty();
+        if has_info {
+            if !desc.is_empty() {
+                items.push(ListItem::new(Line::from(vec![
+                    Span::styled(truncate(desc, 48), Style::default().fg(Color::Indexed(246)).add_modifier(Modifier::ITALIC)),
+                ])));
+            }
+            if !env_f.is_empty() {
+                items.push(ListItem::new(Line::from(vec![
+                    Span::styled(format!("env: {}", env_f), Style::default().fg(Color::Cyan)),
+                ])));
+            }
+            items.push(ListItem::new(Line::from(
+                Span::styled("─".repeat(48), Style::default().fg(Color::Indexed(240))),
+            )));
+        }
+    }
+
     // Header comment block (from top of TOML file)
     if !app.header_comment.is_empty() {
         for line in app.header_comment.lines() {
@@ -257,6 +279,12 @@ fn render_pipeline(frame: &mut Frame, app: &BuilderApp, area: Rect) {
                 Span::styled(label, Style::default().fg(Color::Indexed(246))),
             ])));
         }
+        if let Some(env) = &step.env {
+            items.push(ListItem::new(Line::from(vec![
+                Span::raw("         "),
+                Span::styled(format!("⊙ env: {}", env), Style::default().fg(Color::Cyan)),
+            ])));
+        }
     }
 
     let coe_flag = if app.campaign.continue_on_error {
@@ -382,12 +410,7 @@ fn render_context(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         BuilderFocus::Catalog { cursor, .. } => render_catalog(frame, *cursor, area),
         BuilderFocus::StepEditor { step_idx, section_cursor, sub_cursor, mode, desc_active } => {
             if app.step_preview_result.is_some() || app.step_preview_running {
-                let chunks = Layout::default()
-                    .direction(Direction::Vertical)
-                    .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
-                    .split(area);
-                render_step_editor(frame, app, *step_idx, *section_cursor, *sub_cursor, mode, *desc_active, chunks[0]);
-                render_step_preview(frame, app, chunks[1]);
+                render_step_preview(frame, app, area);
             } else {
                 render_step_editor(frame, app, *step_idx, *section_cursor, *sub_cursor, mode, *desc_active, area);
             }
@@ -783,7 +806,7 @@ fn render_step_preview(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     };
 
     let scroll = app.step_preview_scroll;
-    let title = format!(" {} Run result  [/]: scroll ", title_icon);
+    let title = format!(" {} Run result  PgUp/PgDn: scroll  Esc: back to editor ", title_icon);
 
     let block = Block::default()
         .title(title)

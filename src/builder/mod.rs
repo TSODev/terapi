@@ -194,6 +194,7 @@ impl BuilderApp {
             }
             KeyCode::Char('K') => editor::move_step_up(self),
             KeyCode::Char('J') => editor::move_step_down(self),
+            KeyCode::Char('D') if step_count > 0 => editor::duplicate_step(self),
             KeyCode::Char('d') if step_count > 0 => editor::delete_step(self),
             KeyCode::Char('c') => {
                 let results = checker::run(self);

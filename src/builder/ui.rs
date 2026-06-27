@@ -523,6 +523,7 @@ fn render_pipeline_hint(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         hint_line("n",       "New step (append)"),
         hint_line("i",       "Insert step after cursor"),
         hint_line("Enter",   "Edit selected step"),
+        hint_line("D",       "Duplicate selected step"),
         hint_line("d",       "Delete selected step"),
         hint_line("K / J",   "Move step up / down"),
         hint_line("s",       "Campaign settings"),

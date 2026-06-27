@@ -2825,6 +2825,7 @@ Ready-to-run campaigns in `examples/campaigns/` — no API key required:
 | `loop_pagination_demo.toml` | JSONPlaceholder | **`kind = "loop"`**: deux patterns — next-URL cursor (Rick & Morty, commenté) et last-ID-as-offset ; collecte les 100 posts en 4 pages de 25, écrit dans `/tmp/loop_all_posts.json` |
 | `spacex_exploration.toml` | SpaceX GraphQL | **Pipeline GraphQL 7 steps** : company → fleet snapshot → latest launch → all 109 past launches avec wildcard `*.id` → roadster orbital position → booster reuse stats → summary transform ; écrit `/tmp/spacex_all_launches.json` |
 | `search_demo.toml` | JSONPlaceholder | **`kind = "search"`**: GET /users → filtre les utilisateurs par domaine email (regex) → `foreach` sur les matchs → GET leurs todos ; illustre `first_only` et recherche sur tableau de strings |
+| `horaires_sncf_par_gare.toml` | API SNCF (auth) | **`jq` + `build` + `[[outputs]]`**: résolution gare par nom (`-p GARE="Paris Montparnasse"`) → départs + arrivées → reformatage timestamps via string slicing jq → zip jq (train/heure/direction via `--argjson`) → `kind = "build"` → JSON de synthèse ; requiert `SNCF_TOKEN` dans un env terapi nommé `sncf` |
 
 ```bash
 terapi run examples/campaigns/crud_demo.toml

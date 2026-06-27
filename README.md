@@ -778,6 +778,7 @@ Ready-to-run examples in `examples/campaigns/` — no API key required:
 | `when_demo.toml` | **`when`**: `eq` / `ne` / `exists` operators — admin vs standard user branches with automatic cascade |
 | `loop_pagination_demo.toml` | **`kind = "loop"`**: two patterns — next-URL cursor (Rick & Morty) and last-ID-as-offset (JSONPlaceholder); collects all 100 posts in 4 pages |
 | `spacex_exploration.toml` | **GraphQL pipeline**: company → fleet → latest launch → all 109 past launches (wildcard `*.id`) → roadster position → booster stats → summary transform |
+| `horaires_sncf_par_gare.toml` | **SNCF API** (`-p GARE="Paris Montparnasse"`): resolve stop_area → fetch departures + arrivals → JQ timestamp formatting (`.[6:8]/.[4:6]/.[0:4]`) → JQ zip (train + time + direction) → Build JSON; requires `SNCF_TOKEN` in a terapi env named `sncf` |
 
 ```bash
 terapi run examples/campaigns/crud_demo.toml

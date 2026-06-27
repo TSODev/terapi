@@ -1,0 +1,129 @@
+# Campagne — Horaires SNCF par gare
+#
+# Utilise l'API SNCF (api.sncf.com) :
+#   - Places      : recherche d'une gare par nom (autocomplétion)
+#   - Departures  : prochains départs depuis la gare
+#   - Arrivals    : prochaines arrivées à la gare
+#   - JQ          : reformatage des timestamps (20260627T174700 → 27/06/2026 à 17:47)
+#   - Build       : assemblage du JSON final
+#
+# Prérequis :
+#   - Un token SNCF dans un environnement terapi nommé "sncf"
+#     (onglet Env → créer "sncf" → ajouter SNCF_TOKEN = "<votre-token>")
+#   - jq installé sur le système (brew install jq / apt install jq)
+#
+# Usage :
+#   terapi run examples/campaigns/horaires_sncf_par_gare.toml -p GARE="Paris Montparnasse"
+#   terapi run examples/campaigns/horaires_sncf_par_gare.toml -p GARE="Lyon Part-Dieu"
+#
+# Résultat : /tmp/horaires_sncf.json
+
+[campaign]
+name        = "SNCF — Horaires par gare"
+description = "Prochains départs et arrivées d'une gare, avec horaires lisibles et JSON de synthèse"
+
+env_file = "sncf"   # doit contenir SNCF_TOKEN
+
+[[params]]
+name        = "GARE"
+description = "Nom de la gare (ex: Paris Montparnasse, Lyon Part-Dieu, Bordeaux Saint-Jean)"
+
+[[outputs]]
+from_step    = "Build Final JSON"
+path         = "/tmp/horaires_sncf.json"
+include_vars = ["JSON_RESULT"]
+
+# ── Étape 1 : Résolution de la gare ──────────────────────────────────────────
+
+[[steps]]
+name        = "Informations Gare"
+description = "Autocomplétion par nom — renvoie l'ID stop_area et les infos ligne"
+method      = "GET"
+url         = "https://api.sncf.com/v1/coverage/sncf/places?q={{GARE}}&type[]=stop_area&count=10"
+assert      = [{on = "status", eq = 200}]
+[steps.headers]
+Authorization = "{{SNCF_TOKEN}}"
+[steps.extract]
+GAREID    = "places.0.id"
+GARE_NAME = "places.0.name"
+LIGNENAME = "places.0.stop_area.lines.0.name"
+TRAINNAME = "places.0.stop_area.lines.0.commercial_mode.name"
+
+# ── Étape 2 : Départs ────────────────────────────────────────────────────────
+
+[[steps]]
+name        = "Horaires départs"
+description = "20 prochains départs depuis {{GARE_NAME}}"
+method      = "GET"
+url         = "https://api.sncf.com/v1/coverage/sncf/stop_areas/{{GAREID}}/departures?count=20"
+[steps.headers]
+Authorization = "{{SNCF_TOKEN}}"
+[steps.extract]
+DEPARTS_TIME = "departures.*.stop_date_time.departure_date_time"
+DEP_DIRECTION = "departures.*.display_informations.direction"
+DEP_HEADSIGN  = "departures.*.display_informations.headsign"
+
+[[steps]]
+name          = "Formater horaires départs"
+description   = "20260627T174700 → 27/06/2026 à 17:47"
+kind          = "jq"
+jq_input      = "{{DEPARTS_TIME}}"
+jq_expression = '[.[] | "\(.[6:8])/\(.[4:6])/\(.[0:4]) à \(.[9:11]):\(.[11:13])"]'
+jq_output     = "DTIME"
+
+[[steps]]
+name          = "Combiner départs"
+description   = "Zip train + horaire formaté + direction → tableau d'objets"
+kind          = "jq"
+jq_input      = "{{DEP_HEADSIGN}}"
+jq_expression = "[., $dates, $direction] | transpose | map({train: .[0], heure: .[1], direction: .[2]})"
+jq_output     = "DEP_RESULT"
+[steps.jq_args]
+dates     = "{{DTIME}}"
+direction = "{{DEP_DIRECTION}}"
+
+# ── Étape 3 : Arrivées ───────────────────────────────────────────────────────
+
+[[steps]]
+name        = "Horaires arrivées"
+description = "20 prochaines arrivées à {{GARE_NAME}}"
+method      = "GET"
+url         = "https://api.sncf.com/v1/coverage/sncf/stop_areas/{{GAREID}}/arrivals?count=20"
+[steps.headers]
+Authorization = "{{SNCF_TOKEN}}"
+[steps.extract]
+ARRIVALS_TIME = "arrivals.*.stop_date_time.arrival_date_time"
+ARR_DIRECTION = "arrivals.*.display_informations.direction"
+ARR_HEADSIGN  = "arrivals.*.display_informations.headsign"
+
+[[steps]]
+name          = "Formater horaires arrivées"
+description   = "20260627T174700 → 27/06/2026 à 17:47"
+kind          = "jq"
+jq_input      = "{{ARRIVALS_TIME}}"
+jq_expression = '[.[] | "\(.[6:8])/\(.[4:6])/\(.[0:4]) à \(.[9:11]):\(.[11:13])"]'
+jq_output     = "ATIME"
+
+[[steps]]
+name          = "Combiner arrivées"
+description   = "Zip train + horaire formaté + direction → tableau d'objets"
+kind          = "jq"
+jq_input      = "{{ARR_HEADSIGN}}"
+jq_expression = "[., $dates, $direction] | transpose | map({train: .[0], heure: .[1], direction: .[2]})"
+jq_output     = "ARR_RESULT"
+[steps.jq_args]
+dates     = "{{ATIME}}"
+direction = "{{ARR_DIRECTION}}"
+
+# ── Étape 4 : Assemblage final ───────────────────────────────────────────────
+
+[[steps]]
+name         = "Build Final JSON"
+description  = "Assemble gare + ligne + départs + arrivées en un seul objet JSON"
+kind         = "build"
+build_output = "JSON_RESULT"
+[steps.fields]
+gare      = "{{GARE_NAME}}"
+ligne     = "{{TRAINNAME}} — {{LIGNENAME}}"
+departs   = "{{DEP_RESULT}}"
+arrivees  = "{{ARR_RESULT}}"

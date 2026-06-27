@@ -422,7 +422,7 @@ fn render_context(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         BuilderFocus::Checker { results } => render_checker(frame, results, area),
         BuilderFocus::TomlPreview { scroll } => render_toml_preview(frame, app, *scroll, area),
         BuilderFocus::Variables { cursor, mode } => render_variables(frame, app, *cursor, mode, area),
-        BuilderFocus::Run { scroll } => render_run_view(frame, app, *scroll, area),
+        BuilderFocus::Run { scroll, h_scroll } => render_run_view(frame, app, *scroll, *h_scroll, area),
         BuilderFocus::ParamsEditor { cursor, mode }     => render_params_editor(frame, app, *cursor, mode, area),
         BuilderFocus::ConnectorsEditor { cursor, mode } => render_connectors_editor(frame, app, *cursor, mode, area),
         BuilderFocus::OutputsEditor { cursor, mode }    => render_outputs_editor(frame, app, *cursor, mode, area),
@@ -2114,7 +2114,7 @@ fn render_outputs_editor(frame: &mut Frame, app: &BuilderApp, cursor: usize, mod
 
 // ── Run view ──────────────────────────────────────────────────────────────────
 
-fn render_run_view(frame: &mut Frame, app: &BuilderApp, scroll: usize, area: Rect) {
+fn render_run_view(frame: &mut Frame, app: &BuilderApp, scroll: usize, h_scroll: usize, area: Rect) {
     let (title, border_color, step_results, current_step, done) = match &app.run_state {
         CampaignRunState::Idle => {
             let block = Block::default().title(" Run ").borders(Borders::ALL)
@@ -2136,13 +2136,12 @@ fn render_run_view(frame: &mut Frame, app: &BuilderApp, scroll: usize, area: Rec
             let fail = flat.iter().filter(|s| !s.success).count();
             let color = if fail > 0 { Color::Red } else { Color::Green };
             let title = format!(" {} Done: {}  ✓ {}  ✗ {} ", if fail > 0 { "✗" } else { "✓" }, name, ok, fail);
-            // Render done state inline
             let block = Block::default().title(title).borders(Borders::ALL)
                 .border_style(Style::default().fg(color))
                 .padding(Padding::new(0, 0, 1, 0));
             let inner = block.inner(area);
             frame.render_widget(block, area);
-            render_run_results(frame, app, &flat, None, true, scroll, inner);
+            render_run_results(frame, app, &flat, None, true, scroll, h_scroll, inner);
             return;
         }
     };
@@ -2154,7 +2153,7 @@ fn render_run_view(frame: &mut Frame, app: &BuilderApp, scroll: usize, area: Rec
     frame.render_widget(block, area);
 
     let flat: Vec<&StepResult> = step_results.iter().collect();
-    render_run_results(frame, app, &flat, current_step, done, scroll, inner);
+    render_run_results(frame, app, &flat, current_step, done, scroll, h_scroll, inner);
 }
 
 fn render_run_results(
@@ -2164,15 +2163,22 @@ fn render_run_results(
     current_step: Option<&str>,
     done: bool,
     scroll: usize,
+    h_scroll: usize,
     area: Rect,
 ) {
+    // Available width for dynamic truncation (minus borders/padding already applied)
+    let w = area.width.saturating_sub(2) as usize;
+    // Name column: total width minus icon(2) + method(7) + status(4) + duration(8) + spaces
+    let name_w = w.saturating_sub(23).max(10);
+    // Value column: total width minus indent(2) + key label(20)
+    let val_w = w.saturating_sub(22).max(20);
+
     let mut lines: Vec<Line> = Vec::new();
 
     // Cumulative extracted variables
     let mut all_vars: Vec<(String, String)> = Vec::new();
 
     for sr in results {
-        // Step header line
         let (icon, icon_color) = if sr.skipped {
             ("⊘", Color::Indexed(246))
         } else if sr.success {
@@ -2191,33 +2197,31 @@ fn render_run_results(
                 Style::default().fg(Color::Yellow),
             ),
             Span::styled(
-                truncate(&sr.name, 28),
+                truncate(&sr.name, name_w),
                 Style::default().fg(if sr.success { Color::White } else { Color::Red }),
             ),
             Span::styled(status_str, Style::default().fg(status_color(sr.status))),
             Span::styled(dur_str, Style::default().fg(Color::Indexed(246))),
         ]));
 
-        // Error message if any
+        // Error message — full text, no truncation
         if let Some(ref err) = sr.error {
-            for chunk in err.chars().collect::<Vec<_>>().chunks(50) {
-                lines.push(Line::from(vec![
-                    Span::raw("  "),
-                    Span::styled(chunk.iter().collect::<String>(), Style::default().fg(Color::Red)),
-                ]));
-            }
+            lines.push(Line::from(vec![
+                Span::raw("  "),
+                Span::styled(err.clone(), Style::default().fg(Color::Red)),
+            ]));
         }
 
-        // Assertion results
+        // Assertion results — full description
         for (desc, passed) in &sr.assertion_results {
             let (a_icon, a_color) = if *passed { ("  ✓", Color::Green) } else { ("  ✗", Color::Red) };
             lines.push(Line::from(vec![
                 Span::styled(format!("{} ", a_icon), Style::default().fg(a_color)),
-                Span::styled(truncate(desc, 52), Style::default().fg(Color::Indexed(246))),
+                Span::styled(desc.clone(), Style::default().fg(Color::Indexed(246))),
             ]));
         }
 
-        // Extracted vars from this step
+        // Extracted vars from this step — value up to panel width
         if !sr.extracted.is_empty() {
             let mut pairs: Vec<_> = sr.extracted.iter().collect();
             pairs.sort_by_key(|(k, _)| k.as_str());
@@ -2225,7 +2229,7 @@ fn render_run_results(
                 lines.push(Line::from(vec![
                     Span::raw("  "),
                     Span::styled(format!("↳ {:<18}", k), Style::default().fg(Color::Cyan)),
-                    Span::styled(truncate(v, 30), Style::default().fg(Color::Indexed(250))),
+                    Span::styled(truncate(v, val_w), Style::default().fg(Color::Indexed(250))),
                 ]));
                 all_vars.push((k.to_string(), v.to_string()));
             }
@@ -2246,7 +2250,6 @@ fn render_run_results(
 
     // Variable summary (deduped, last value wins)
     if !all_vars.is_empty() {
-        // Dedup: keep last value per key
         let mut seen: std::collections::HashMap<String, String> = std::collections::HashMap::new();
         for (k, v) in &all_vars { seen.insert(k.clone(), v.clone()); }
         let mut sorted: Vec<_> = seen.into_iter().collect();
@@ -2259,7 +2262,7 @@ fn render_run_results(
         for (k, v) in &sorted {
             lines.push(Line::from(vec![
                 Span::styled(format!("  {:<20}", k), Style::default().fg(Color::Cyan)),
-                Span::styled(truncate(v, 32), Style::default().fg(Color::Indexed(250))),
+                Span::styled(truncate(v, val_w), Style::default().fg(Color::Indexed(250))),
             ]));
         }
         lines.push(Line::from(""));
@@ -2267,14 +2270,13 @@ fn render_run_results(
 
     if done {
         lines.push(Line::from(Span::styled(
-            "r: re-run  Esc: back to pipeline",
+            "r: re-run  ↑/↓ PgUp/PgDn: scroll  ←/→: scroll horizontal  Esc: pipeline",
             Style::default().fg(Color::Indexed(246)),
         )));
     }
 
     let para = Paragraph::new(lines)
-        .scroll((scroll as u16, 0))
-        .wrap(Wrap { trim: false });
+        .scroll((scroll as u16, h_scroll as u16));
     frame.render_widget(para, area);
 }
 
@@ -2372,7 +2374,7 @@ fn render_status(frame: &mut Frame, app: &BuilderApp, area: Rect) {
             VariablesMode::Edit { .. } => "Tab/Enter: next field / save  Esc: cancel",
         },
         BuilderFocus::Run { .. } =>
-            "↑↓: scroll  r: re-run  Esc: back to pipeline",
+            "↑↓ PgUp/PgDn: scroll  ←/→: scroll horizontal  r: re-run  Esc: back to pipeline",
         BuilderFocus::ParamsEditor { mode, .. } => match mode {
             ParamEditorMode::Browse =>
                 "↑↓: navigate  Enter: edit  a: add  d: del  Esc: back",

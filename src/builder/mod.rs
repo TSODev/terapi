@@ -133,7 +133,7 @@ impl BuilderApp {
             BuilderFocus::Checker { .. }                  => self.handle_overlay_key(key),
             BuilderFocus::TomlPreview { scroll }          => self.handle_preview_key(key, scroll),
             BuilderFocus::Variables { cursor, mode }      => self.handle_variables_key(key, cursor, mode),
-            BuilderFocus::Run { scroll }                  => self.handle_run_key(key, scroll),
+            BuilderFocus::Run { scroll, h_scroll }         => self.handle_run_key(key, scroll, h_scroll),
             BuilderFocus::ParamsEditor { cursor, mode }     => self.handle_params_editor_key(key, cursor, mode),
             BuilderFocus::ConnectorsEditor { cursor, mode } => self.handle_connectors_key(key, cursor, mode),
             BuilderFocus::OutputsEditor { cursor, mode }    => self.handle_outputs_key(key, cursor, mode),
@@ -1067,7 +1067,7 @@ impl BuilderApp {
             current_step: None,
         };
         self.campaign_rx = Some(rx);
-        self.focus = BuilderFocus::Run { scroll: 0 };
+        self.focus = BuilderFocus::Run { scroll: 0, h_scroll: 0 };
         tokio::spawn(async move {
             crate::campaign::run_streaming(campaign, tx, overrides, vec![], 0).await;
         });
@@ -1156,17 +1156,25 @@ impl BuilderApp {
         }
     }
 
-    fn handle_run_key(&mut self, key: crossterm::event::KeyEvent, scroll: usize) -> Result<()> {
+    fn handle_run_key(&mut self, key: crossterm::event::KeyEvent, scroll: usize, h_scroll: usize) -> Result<()> {
         use crossterm::event::KeyCode;
         match key.code {
             KeyCode::Esc => {
                 self.focus = BuilderFocus::Pipeline;
             }
-            KeyCode::Up => {
-                self.focus = BuilderFocus::Run { scroll: scroll.saturating_sub(1) };
+            KeyCode::Up | KeyCode::PageUp => {
+                let step = if key.code == KeyCode::PageUp { 10 } else { 1 };
+                self.focus = BuilderFocus::Run { scroll: scroll.saturating_sub(step), h_scroll };
             }
-            KeyCode::Down => {
-                self.focus = BuilderFocus::Run { scroll: scroll + 1 };
+            KeyCode::Down | KeyCode::PageDown => {
+                let step = if key.code == KeyCode::PageDown { 10 } else { 1 };
+                self.focus = BuilderFocus::Run { scroll: scroll + step, h_scroll };
+            }
+            KeyCode::Left => {
+                self.focus = BuilderFocus::Run { scroll, h_scroll: h_scroll.saturating_sub(4) };
+            }
+            KeyCode::Right => {
+                self.focus = BuilderFocus::Run { scroll, h_scroll: h_scroll + 4 };
             }
             KeyCode::Char('r') => {
                 // Re-run

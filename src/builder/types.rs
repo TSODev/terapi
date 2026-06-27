@@ -18,7 +18,7 @@ pub enum BuilderFocus {
     Variables { cursor: usize, mode: VariablesMode },
     Checker { results: Vec<CheckResult> },
     TomlPreview { scroll: usize },
-    Run { scroll: usize },
+    Run { scroll: usize, h_scroll: usize },
     ParamsEditor      { cursor: usize, mode: ParamEditorMode },
     ConnectorsEditor    { cursor: usize, mode: IoEditorMode },
     OutputsEditor       { cursor: usize, mode: IoEditorMode },

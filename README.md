@@ -722,6 +722,30 @@ X-Custom-Auth = "{{WEBHOOK_TOKEN}}"
 
 The `NTFY` badge (magenta) appears in the pipeline.
 
+### Build JSON steps (`kind = "build"`)
+
+Construct a JSON object from key/value pairs and store it in a campaign variable. No HTTP request is made. Values are `{{VAR}}`-resolved then parsed as JSON — arrays, objects, numbers, booleans, and null are embedded natively; anything else becomes a string:
+
+```toml
+[[steps]]
+name         = "Build summary"
+kind         = "build"
+build_output = "SUMMARY"   # optional, default "BUILD_RESULT"
+
+[steps.fields]
+arrivals   = "{{ARR_RESULT}}"   # JSON array  → embedded as array
+departures = "{{DEP_RESULT}}"   # JSON array  → embedded as array
+station    = "{{GAREID}}"       # string      → embedded as string
+count      = "{{TOTAL}}"        # "42"        → embedded as number
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `[steps.fields]` | `{}` | Key/value pairs — values support `{{VAR}}`; parsed as JSON if valid |
+| `build_output` | `BUILD_RESULT` | Variable name to store the resulting JSON object |
+
+The field order in `[steps.fields]` is preserved in the JSON output. The `BILD` badge (green) appears in the pipeline. The `[[outputs]]` connector can collect the build result just like an HTTP step response.
+
 ---
 
 ### Campaign examples

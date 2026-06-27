@@ -38,6 +38,7 @@
   - [JQ steps](#jq-steps)
   - [Parallel steps](#parallel-steps)
   - [Notify steps](#notify-steps)
+  - [Build JSON steps](#build-json-step)
   - [Loop steps (pagination)](#loop-steps-pagination)
   - [Multipart form-data](#multipart-form-data)
   - [Input connectors](#input-connectors)
@@ -2358,7 +2359,7 @@ Produces in `SUMMARY`:
 
 The `BILD` badge (green) appears in the pipeline idle view and CLI output.
 
-In the Campaign Builder, add a **Build JSON** brick from the catalog.
+In the Campaign Builder, add a **Build JSON** brick from the catalog. In the **Fields** section, use `K` to move the selected field up and `J` to move it down — the field order is preserved in the generated TOML and reflected in the JSON object output. The `[[outputs]]` connector can collect the build result just like an HTTP step response.
 
 ---
 

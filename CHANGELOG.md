@@ -8,6 +8,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- `kind = "build"` campaign step — construct a JSON object from key/value pairs and store it in a variable
+  - `[steps.fields]` key/value table; all values support `{{VAR}}` interpolation
+  - Values are resolved then parsed as JSON (arrays, objects, numbers, booleans, null) — if not valid JSON the value is kept as a string; no explicit casting needed
+  - `build_output` — variable name to store the result (default `BUILD_RESULT`)
+  - Badge `BILD` (green) in pipeline and CLI output
+  - Full step editor in `terapi build`: Fields list (`a`/`d`/`Enter`/`K`/`J`) + Output var; `K` moves the selected field up, `J` moves it down — order is preserved in the generated TOML and in the JSON output
+  - `[[outputs]]` connector can now collect the build result (same as HTTP steps)
 - `kind = "poll"` campaign step — poll an HTTP endpoint until an `until` condition is met or timeout expires
   - `until = { var, eq?, ne?, exists?, lt?, lte? }` — same operators as `when`, evaluated on extracted vars after each poll
   - `interval_ms` (default 1000, min 100) — delay between polls; `timeout_secs` (default 60) — max wait
@@ -56,14 +63,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Campaign Builder: **`D` duplicates the selected step** — inserts a clone immediately below the cursor, appends `" copy"` to the name (successive duplicates: `" copy 2"`, `" copy 3"`), and moves the cursor to the new step; step comment is also duplicated
 - Campaign Builder: **`d` delete now requires confirmation** — first `d` activates a pending-delete state; the status bar turns red and shows `⚠ Delete "<name>" ?  d: confirm  any other key: cancel`; pressing `d` again deletes; any other key cancels silently; prevents accidental loss of steps
-- `kind = "build"` campaign step — construct a JSON object from key/value pairs and store it in a variable
-  - `[steps.fields]` key/value table; all values support `{{VAR}}` interpolation
-  - Values are resolved then parsed as JSON (arrays, objects, numbers, booleans, null) — if not valid JSON the value is kept as a string; no explicit casting needed
-  - `build_output` — variable name to store the result (default `BUILD_RESULT`)
-  - Badge `BILD` (green) in pipeline and CLI output
-  - Full step editor in `terapi build`: Fields list (`a`/`d`/`Enter`) + Output var
 
 ### Fixed
+- Campaign Builder: **OutputStepPicker** — the handler filter now matches the UI filter exactly; selecting a `build`, `set`, `jq`, `notify`, or `parallel` step in the picker no longer sets the wrong `from_step` on the output connector (index was shifting because the handler excluded different step kinds than the UI)
+- Campaign Builder: **TOML key quoting** — keys containing characters outside `[A-Za-z0-9_-]` (accented chars, spaces, etc.) are now wrapped in double quotes in the generated TOML (`"key with accents"`) so the file can always be reloaded; affects header names, env/set vars, `[steps.extract]` keys, jq_args keys, GraphQL variable keys, and build field keys
 - Campaign Builder checker (`c`) — all non-HTTP step kinds now get per-kind field validation instead of incorrectly reporting "HTTP step: URL is empty":
   - `jq` → checks `jq_input` and `jq_expression` are non-empty
   - `set` → checks `vars` is non-empty

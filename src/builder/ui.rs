@@ -2408,6 +2408,26 @@ fn render_status(frame: &mut Frame, app: &BuilderApp, area: Rect) {
             "↑↓: navigate  Enter: edit value  r: launch run  Esc: cancel",
     };
 
+    // Delete confirmation overrides the status bar entirely
+    if app.delete_confirm {
+        let step_name = app.campaign.steps.get(app.cursor)
+            .map(|s| s.name.as_str())
+            .unwrap_or("?");
+        let line1 = Line::from(vec![
+            Span::styled("⚠ Delete ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+            Span::styled(format!("\"{}\"", step_name), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled(" ?", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+        ]);
+        let line2 = Line::from(Span::styled(
+            "d: confirm delete  any other key: cancel",
+            Style::default().fg(Color::Indexed(246)),
+        ));
+        let status = Paragraph::new(vec![line1, line2])
+            .block(Block::default().borders(Borders::TOP));
+        frame.render_widget(status, area);
+        return;
+    }
+
     let status_msg = if app.status_message.is_empty() { "" } else { &app.status_message };
     let modified_flag = if app.modified {
         Span::styled(" [modified]", Style::default().fg(Color::Yellow))

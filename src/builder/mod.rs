@@ -42,6 +42,8 @@ pub struct BuilderApp {
     pub campaign_rx: Option<mpsc::UnboundedReceiver<CampaignEvent>>,
     /// true while the "save before quit?" confirmation overlay is shown
     pub quit_confirm: bool,
+    /// true after first `d` press — waiting for second `d` to confirm delete
+    pub delete_confirm: bool,
     // ── Single-step preview ────────────────────────────────────────────────────
     pub step_preview_running: bool,
     pub step_preview_result: Option<crate::campaign::StepResult>,
@@ -90,6 +92,7 @@ impl BuilderApp {
             run_state: CampaignRunState::Idle,
             campaign_rx: None,
             quit_confirm: false,
+            delete_confirm: false,
             step_preview_running: false,
             step_preview_result: None,
             step_preview_rx: None,
@@ -101,6 +104,9 @@ impl BuilderApp {
     pub fn handle_key(&mut self, key: crossterm::event::KeyEvent) -> Result<()> {
         if self.quit_confirm {
             return self.handle_quit_confirm_key(key);
+        }
+        if self.delete_confirm {
+            return self.handle_delete_confirm_key(key);
         }
         match self.focus.clone() {
             BuilderFocus::Pipeline => self.handle_pipeline_key(key),
@@ -195,7 +201,7 @@ impl BuilderApp {
             KeyCode::Char('K') => editor::move_step_up(self),
             KeyCode::Char('J') => editor::move_step_down(self),
             KeyCode::Char('D') if step_count > 0 => editor::duplicate_step(self),
-            KeyCode::Char('d') if step_count > 0 => editor::delete_step(self),
+            KeyCode::Char('d') if step_count > 0 => { self.delete_confirm = true; }
             KeyCode::Char('c') => {
                 let results = checker::run(self);
                 self.focus = BuilderFocus::Checker { results };
@@ -1189,6 +1195,20 @@ impl BuilderApp {
     }
 
     // ── Persistence ───────────────────────────────────────────────────────────
+
+    fn handle_delete_confirm_key(&mut self, key: crossterm::event::KeyEvent) -> Result<()> {
+        use crossterm::event::KeyCode;
+        match key.code {
+            KeyCode::Char('d') | KeyCode::Char('D') => {
+                editor::delete_step(self);
+                self.delete_confirm = false;
+            }
+            _ => {
+                self.delete_confirm = false;
+            }
+        }
+        Ok(())
+    }
 
     fn handle_quit_confirm_key(&mut self, key: crossterm::event::KeyEvent) -> Result<()> {
         use crossterm::event::KeyCode;

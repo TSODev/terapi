@@ -409,7 +409,7 @@ fn render_context(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         BuilderFocus::Pipeline => render_pipeline_hint(frame, app, area),
         BuilderFocus::Catalog { cursor, .. } => render_catalog(frame, *cursor, area),
         BuilderFocus::StepEditor { step_idx, section_cursor, sub_cursor, mode, desc_active } => {
-            if app.step_preview_result.is_some() || app.step_preview_running {
+            if app.step_preview_visible {
                 render_step_preview(frame, app, area);
             } else {
                 render_step_editor(frame, app, *step_idx, *section_cursor, *sub_cursor, mode, *desc_active, area);

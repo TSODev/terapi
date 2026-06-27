@@ -47,6 +47,9 @@ pub struct BuilderApp {
     pub step_preview_result: Option<crate::campaign::StepResult>,
     pub step_preview_rx: Option<mpsc::UnboundedReceiver<crate::campaign::StepResult>>,
     pub step_preview_scroll: usize,
+    /// Whether the preview panel is currently shown (result is kept in memory even when hidden
+    /// so that Tab → ExtractPicker can still use the JSON body)
+    pub step_preview_visible: bool,
 }
 
 impl BuilderApp {
@@ -91,6 +94,7 @@ impl BuilderApp {
             step_preview_result: None,
             step_preview_rx: None,
             step_preview_scroll: 0,
+            step_preview_visible: false,
         }
     }
 
@@ -105,12 +109,11 @@ impl BuilderApp {
             }
             BuilderFocus::StepEditor { step_idx, section_cursor, sub_cursor, mode, desc_active } => {
                 // When preview is visible it takes the full panel — intercept all keys
-                if self.step_preview_result.is_some() || self.step_preview_running {
+                if self.step_preview_visible {
                     use crossterm::event::KeyCode;
                     match key.code {
                         KeyCode::Esc => {
-                            self.step_preview_result = None;
-                            self.step_preview_running = false;
+                            self.step_preview_visible = false;
                             self.step_preview_scroll = 0;
                         }
                         KeyCode::PageUp => { self.step_preview_scroll = self.step_preview_scroll.saturating_sub(10); }
@@ -1006,6 +1009,7 @@ impl BuilderApp {
         self.step_preview_rx = Some(rx);
         self.step_preview_result = None;
         self.step_preview_running = true;
+        self.step_preview_visible = true;
         self.step_preview_scroll = 0;
         self.status_message = "Running step…".into();
         tokio::spawn(async move {

@@ -870,21 +870,41 @@ fn handle_browse(
                     StepEditorMode::AddPairStage1 { target: PairTarget::BuildFields, buffer: String::new() });
             }
             KeyCode::Char('d') => {
-                let keys = sorted_keys(&app.campaign.steps[step_idx].fields);
+                let keys: Vec<String> = app.campaign.steps[step_idx].fields.keys().cloned().collect();
                 if let Some(k) = keys.get(sub_cursor) {
                     let k = k.clone();
-                    app.campaign.steps[step_idx].fields.remove(&k);
+                    app.campaign.steps[step_idx].fields.shift_remove(&k);
                     app.modified = true;
                 }
             }
             KeyCode::Enter => {
-                let keys = sorted_keys(&app.campaign.steps[step_idx].fields);
+                let keys: Vec<String> = app.campaign.steps[step_idx].fields.keys().cloned().collect();
                 if let Some(k) = keys.get(sub_cursor) {
                     let k = k.clone();
                     let v = app.campaign.steps[step_idx].fields.get(&k).cloned().unwrap_or_default();
                     let cursor = v.chars().count();
                     set_focus(app, step_idx, section_cursor, sub_cursor,
                         StepEditorMode::AddPairStage2 { target: PairTarget::BuildFields, key: k, buffer: v, cursor });
+                }
+            }
+            KeyCode::Char('K') => {
+                let len = app.campaign.steps[step_idx].fields.len();
+                if sub_cursor > 0 && len > 1 {
+                    let mut v: Vec<(String, String)> = app.campaign.steps[step_idx].fields.drain(..).collect();
+                    v.swap(sub_cursor, sub_cursor - 1);
+                    for (k, val) in v { app.campaign.steps[step_idx].fields.insert(k, val); }
+                    set_focus(app, step_idx, section_cursor, sub_cursor - 1, StepEditorMode::Browse);
+                    app.modified = true;
+                }
+            }
+            KeyCode::Char('J') => {
+                let len = app.campaign.steps[step_idx].fields.len();
+                if sub_cursor + 1 < len {
+                    let mut v: Vec<(String, String)> = app.campaign.steps[step_idx].fields.drain(..).collect();
+                    v.swap(sub_cursor, sub_cursor + 1);
+                    for (k, val) in v { app.campaign.steps[step_idx].fields.insert(k, val); }
+                    set_focus(app, step_idx, section_cursor, sub_cursor + 1, StepEditorMode::Browse);
+                    app.modified = true;
                 }
             }
             _ => {}

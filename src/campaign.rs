@@ -4,6 +4,7 @@ use regex::Regex;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::Deserialize;
 use serde_json::Value;
+use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Instant;
@@ -169,7 +170,7 @@ pub struct Step {
     pub message: Option<String>,
     // Build step fields (kind = "build")
     #[serde(default)]
-    pub fields: HashMap<String, String>,
+    pub fields: IndexMap<String, String>,
     #[serde(default)]
     pub build_output: Option<String>,
 }
@@ -851,9 +852,7 @@ async fn run_single_step(
     if step.kind == "build" {
         let output_var = step.build_output.as_deref().unwrap_or("BUILD_RESULT").to_string();
         let mut map = serde_json::Map::new();
-        let mut pairs: Vec<_> = step.fields.iter().collect();
-        pairs.sort_by_key(|(k, _)| k.as_str());
-        for (k, v) in pairs {
+        for (k, v) in &step.fields {
             let resolved = resolve(v, effective);
             let json_val: serde_json::Value = serde_json::from_str(&resolved)
                 .unwrap_or(serde_json::Value::String(resolved));

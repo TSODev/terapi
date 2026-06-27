@@ -31,3 +31,4 @@ dirs = "5"
 tui-textarea = { version = "0.7", features = ["crossterm"] }
 regex = "1"
 base64 = "0.22"
+indexmap = { version = "2", features = ["serde"] }

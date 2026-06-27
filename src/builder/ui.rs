@@ -1328,7 +1328,7 @@ fn step_help_text(kind: &str) -> (&'static str, &'static str, &'static str) {
         "build" => (
             "Construct a JSON object from key/value pairs and store it in a variable.",
             "Values are resolved ({{VAR}} substituted) then parsed as JSON if valid, else kept as strings.",
-            "a: add field  ·  d: delete  ·  Enter: edit key or value",
+            "a: add field  ·  d: delete  ·  Enter: edit  ·  K/J: move field up/down",
         ),
         _ => (
             "Send an HTTP request and capture the response body and headers.",
@@ -1646,8 +1646,8 @@ fn list_items_for(app: &BuilderApp, step_idx: usize, section: &StepSection) -> V
                 .collect()
         }
         StepSection::BuildFields => {
-            sorted_keys(&step.fields).into_iter()
-                .map(|k| format!("{} = {}", k, step.fields.get(&k).cloned().unwrap_or_default()))
+            step.fields.iter()
+                .map(|(k, v)| format!("{} = {}", k, v))
                 .collect()
         }
         StepSection::ParallelSteps => {

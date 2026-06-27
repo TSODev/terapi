@@ -1171,7 +1171,7 @@ fn step_help_text(kind: &str) -> (&'static str, &'static str, &'static str) {
         "poll" => (
             "Poll an HTTP endpoint repeatedly until an until condition is met or timeout expires.",
             "Extracted vars are re-evaluated after each poll to test the until condition.",
-            "←/→: cycle until condition  ·  a: add header or extract",
+            "←/→: cycle condition type  ·  Enter on eq/ne: edit value  ·  a: add header or extract",
         ),
         "set" => (
             "Assign variables directly without HTTP — {{VAR}} substitution supported in values.",
@@ -1181,7 +1181,7 @@ fn step_help_text(kind: &str) -> (&'static str, &'static str, &'static str) {
         "loop" => (
             "Repeat an HTTP request accumulating results until an until condition is met.",
             "Cursor-based or offset pagination; safety cap: 1000 iterations.",
-            "←/→: cycle until condition  ·  a: add extract",
+            "←/→: cycle condition type  ·  Enter on eq/ne/lt: edit value  ·  a: add extract",
         ),
         "comment" => (
             "A TOML comment line — skipped at runtime, has no effect on execution.",

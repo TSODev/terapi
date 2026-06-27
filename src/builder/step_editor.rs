@@ -653,13 +653,12 @@ fn handle_browse(
             }
         }
         StepSection::LoopUntilCond => {
-            // Cycle: exists=false | exists=true | eq="" | ne=""
-            if matches!(key.code, KeyCode::Enter | KeyCode::Left | KeyCode::Right) {
+            // ←/→ cycles the condition type; Enter edits the value when type has one
+            if matches!(key.code, KeyCode::Left | KeyCode::Right) {
                 let step = &mut app.campaign.steps[step_idx];
                 let until = step.until.get_or_insert(crate::campaign::StepCondition {
                     var: "CURSOR".into(), eq: None, ne: None, exists: Some(false), lt: None, lte: None,
                 });
-                // Determine current state index
                 let idx = if until.exists == Some(false) { 0 }
                     else if until.exists == Some(true) { 1 }
                     else if until.eq.is_some() { 2 }
@@ -676,6 +675,31 @@ fn handle_browse(
                     _ => until.lt     = Some(0.0),
                 }
                 app.modified = true;
+            } else if key.code == KeyCode::Enter {
+                let step = &app.campaign.steps[step_idx];
+                if let Some(until) = &step.until {
+                    if let Some(eq) = &until.eq {
+                        let buf = eq.clone();
+                        return Ok(set_focus(app, step_idx, section_cursor, sub_cursor,
+                            StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf }));
+                    }
+                    if let Some(ne) = &until.ne {
+                        let buf = ne.clone();
+                        return Ok(set_focus(app, step_idx, section_cursor, sub_cursor,
+                            StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf }));
+                    }
+                    if let Some(&lt) = until.lt.as_ref() {
+                        let buf = if lt == 0.0 { String::new() } else { lt.to_string() };
+                        return Ok(set_focus(app, step_idx, section_cursor, sub_cursor,
+                            StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf }));
+                    }
+                    if let Some(&lte) = until.lte.as_ref() {
+                        let buf = if lte == 0.0 { String::new() } else { lte.to_string() };
+                        return Ok(set_focus(app, step_idx, section_cursor, sub_cursor,
+                            StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf }));
+                    }
+                }
+                // exists / not exists: no value to edit — ignore Enter
             }
         }
         StepSection::LoopAccumulateVar => {
@@ -829,7 +853,8 @@ fn handle_browse(
             }
         }
         StepSection::PollUntilCond => {
-            if matches!(key.code, KeyCode::Enter | KeyCode::Left | KeyCode::Right) {
+            // ←/→ cycles the condition type; Enter edits the value when type has one
+            if matches!(key.code, KeyCode::Left | KeyCode::Right) {
                 let step = &mut app.campaign.steps[step_idx];
                 let until = step.until.get_or_insert(crate::campaign::StepCondition {
                     var: "STATUS".into(), eq: Some("done".into()), ne: None, exists: None, lt: None, lte: None,
@@ -848,6 +873,21 @@ fn handle_browse(
                     _ => until.ne     = Some(String::new()),
                 }
                 app.modified = true;
+            } else if key.code == KeyCode::Enter {
+                let step = &app.campaign.steps[step_idx];
+                if let Some(until) = &step.until {
+                    if let Some(eq) = &until.eq {
+                        let buf = eq.clone();
+                        return Ok(set_focus(app, step_idx, section_cursor, sub_cursor,
+                            StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf }));
+                    }
+                    if let Some(ne) = &until.ne {
+                        let buf = ne.clone();
+                        return Ok(set_focus(app, step_idx, section_cursor, sub_cursor,
+                            StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf }));
+                    }
+                }
+                // exists / not exists: no value to edit — ignore Enter
             }
         }
         StepSection::PollHeaders => match key.code {
@@ -1122,6 +1162,21 @@ fn apply_text_edit(app: &mut BuilderApp, step_idx: usize, section: &StepSection,
                     var: String::new(), from: String::new(),
                 });
                 a.from = value.to_string();
+            }
+            // Condition value fields (type cycling is handled in handle_browse; Enter edits value)
+            StepSection::LoopUntilCond => {
+                if let Some(u) = step.until.as_mut() {
+                    if u.eq.is_some()  { u.eq  = Some(value.to_string()); }
+                    else if u.ne.is_some()  { u.ne  = Some(value.to_string()); }
+                    else if u.lt.is_some()  { u.lt  = value.parse().ok().or(Some(0.0)); }
+                    else if u.lte.is_some() { u.lte = value.parse().ok().or(Some(0.0)); }
+                }
+            }
+            StepSection::PollUntilCond => {
+                if let Some(u) = step.until.as_mut() {
+                    if u.eq.is_some() { u.eq = Some(value.to_string()); }
+                    else if u.ne.is_some() { u.ne = Some(value.to_string()); }
+                }
             }
             // JQ sections
             StepSection::JqInput      => step.jq_input      = Some(value.to_string()),

@@ -44,6 +44,22 @@ pub fn run(app: &BuilderApp) -> Vec<CheckResult> {
         for var in step.extract.keys() {
             defined.insert(var.clone());
         }
+        // Set step vars
+        for var in step.vars.keys() {
+            defined.insert(var.clone());
+        }
+        // JQ output var
+        if step.kind == "jq" {
+            defined.insert(step.jq_output.clone().unwrap_or_else(|| "JQ_RESULT".into()));
+        }
+        // Search output var
+        if let Some(cfg) = &step.search {
+            defined.insert(cfg.output.clone());
+        }
+        // File loader output var
+        if step.kind == "file" {
+            defined.insert(step.file_output.clone().unwrap_or_else(|| "FILE_DATA".into()));
+        }
     }
 
     // ── Output `from_step` validation ─────────────────────────────────────────
@@ -129,8 +145,69 @@ fn check_step_fields(idx: usize, step: &Step, results: &mut Vec<CheckResult>) {
             }
         }
         "comment" | "pause" | "seed" => {}
+        "set" => {
+            if step.vars.is_empty() {
+                results.push(CheckResult {
+                    level: CheckLevel::Warning,
+                    step_idx: Some(idx),
+                    message: format!("[{}] Set: no variables defined", idx + 1),
+                });
+            }
+        }
+        "jq" => {
+            if step.jq_input.as_deref().unwrap_or("").trim().is_empty() {
+                results.push(CheckResult {
+                    level: CheckLevel::Warning,
+                    step_idx: Some(idx),
+                    message: format!("[{}] JQ: jq_input is empty", idx + 1),
+                });
+            }
+            if step.jq_expression.as_deref().unwrap_or("").trim().is_empty() {
+                results.push(CheckResult {
+                    level: CheckLevel::Warning,
+                    step_idx: Some(idx),
+                    message: format!("[{}] JQ: jq_expression is empty", idx + 1),
+                });
+            }
+        }
+        "search" => {
+            if step.search.as_ref().map_or(true, |c| c.input.trim().is_empty()) {
+                results.push(CheckResult {
+                    level: CheckLevel::Warning,
+                    step_idx: Some(idx),
+                    message: format!("[{}] Search: input variable is empty", idx + 1),
+                });
+            }
+        }
+        "notify" => {
+            if step.url.trim().is_empty() {
+                results.push(CheckResult {
+                    level: CheckLevel::Warning,
+                    step_idx: Some(idx),
+                    message: format!("[{}] Notify: webhook URL is empty", idx + 1),
+                });
+            }
+        }
+        "loop" | "poll" => {
+            if step.url.trim().is_empty() {
+                results.push(CheckResult {
+                    level: CheckLevel::Warning,
+                    step_idx: Some(idx),
+                    message: format!("[{}] {}: URL is empty", idx + 1, step.kind.to_uppercase()),
+                });
+            }
+        }
+        "parallel" => {
+            if step.parallel_steps.is_empty() {
+                results.push(CheckResult {
+                    level: CheckLevel::Warning,
+                    step_idx: Some(idx),
+                    message: format!("[{}] Parallel: no steps listed", idx + 1),
+                });
+            }
+        }
         _ => {
-            // HTTP step
+            // HTTP / GraphQL step
             if step.url.trim().is_empty() {
                 results.push(CheckResult {
                     level: CheckLevel::Warning,
@@ -185,6 +262,18 @@ fn check_step_vars(
     for v in step.graphql_variables.values() {
         collect_vars(v, &mut refs);
     }
+    // JQ step vars
+    if let Some(v) = &step.jq_input      { collect_vars(v, &mut refs); }
+    if let Some(v) = &step.jq_expression  { collect_vars(v, &mut refs); }
+    for v in step.jq_args.values()        { collect_vars(v, &mut refs); }
+    // Set step vars
+    for v in step.vars.values()           { collect_vars(v, &mut refs); }
+    // Search step vars
+    if let Some(cfg) = &step.search {
+        collect_vars(&cfg.input, &mut refs);
+    }
+    // Notify step vars
+    if let Some(msg) = &step.message      { collect_vars(msg, &mut refs); }
 
     for var in refs {
         if !defined.contains(&var) {

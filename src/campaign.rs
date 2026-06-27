@@ -858,8 +858,8 @@ async fn run_single_step(
                 .unwrap_or(serde_json::Value::String(resolved));
             map.insert(k.clone(), json_val);
         }
-        let json_str = serde_json::to_string(&serde_json::Value::Object(map))
-            .unwrap_or_else(|_| "{}".into());
+        let body_val = serde_json::Value::Object(map);
+        let json_str = serde_json::to_string(&body_val).unwrap_or_else(|_| "{}".into());
         let mut extracted = HashMap::new();
         extracted.insert(output_var, json_str);
         return StepResult {
@@ -874,7 +874,7 @@ async fn run_single_step(
             error:             None,
             extracted,
             assertion_results: vec![],
-            body_json:         None,
+            body_json:         Some(body_val),
             graphql:           false,
             request_headers:   vec![],
             request_body:      None,

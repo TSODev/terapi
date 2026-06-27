@@ -3078,17 +3078,17 @@ Press `n` (append) or `i` (insert after cursor) to open the catalog:
 | Description | Step comment block (textarea, stored above `[[steps]]` in TOML) |
 | Method | GET / POST / PUT / PATCH / DELETE — cycle with `←/→` |
 | URL | Free text, `{{VAR}}` supported |
-| Headers | Key=value list; `a` opens two-stage entry (key → value) |
+| Headers | Key=value list; `a` opens two-stage entry (key → value); `↑/↓` navigate; `d` deletes at cursor; `Enter` edits selected header |
 | Body | `Enter` opens a full multi-line textarea (yellow border); `Esc` saves |
-| Multipart parts | `a` opens a three-stage form (name → value or `@/path` → content_type); `d` removes last |
-| Extract | Key=path list; value is a JSON dot-path (`data.*.id`); `Tab` opens JSON path picker |
-| Assertions | `a` opens a three-stage form (path → operator → value) |
+| Multipart parts | `a` opens a three-stage form (name → value or `@/path` → content_type); `↑/↓` navigate; `d` deletes at cursor; `Enter` edits selected part |
+| Extract | Key=path list; value is a JSON dot-path (`data.*.id`); `↑/↓` navigate; `d` deletes at cursor; `Enter` edits; `Tab` in value field opens JSON path picker |
+| Assertions | `a` opens a three-stage form (path → operator → value); `↑/↓` navigate; `d` deletes at cursor |
 | Foreach | `{{VAR}}` that resolves to a JSON array |
 | When | Conditional; three-stage form (var → operator → value) |
 | Continue on error | Toggle — step failure is non-blocking |
 | [L] Load from collection | Opens collection browser → fills Method/URL/Headers/Body |
 
-**Transform step fields:** Name · Description · Kind (cycle) · Input · Output var
+**Transform step fields:** Name · Description · **Transforms** (navigable list — `a` adds a new transform, `↑/↓` navigates, `Enter` edits selected: kind `←/→` cycle → input var → output var via Tab/Enter, `d` deletes at cursor) · Continue on error
 
 **Pause step fields:** Name · Description · Wait (ms)
 

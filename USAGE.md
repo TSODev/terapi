@@ -3082,7 +3082,7 @@ Press `n` (append) or `i` (insert after cursor) to open the catalog:
 | Body | `Enter` opens a full multi-line textarea (yellow border); `Esc` saves |
 | Multipart parts | `a` opens a three-stage form (name → value or `@/path` → content_type); `↑/↓` navigate; `d` deletes at cursor; `Enter` edits selected part |
 | Extract | Key=path list; value is a JSON dot-path (`data.*.id`); `↑/↓` navigate; `d` deletes at cursor; `Enter` edits; `Tab` in value field opens JSON path picker |
-| Assertions | `a` opens a three-stage form (path → operator → value); `↑/↓` navigate; `d` deletes at cursor |
+| Assertions | `a` adds (path → operator → value); `↑/↓` navigate; `d` deletes at cursor; `Enter` edits selected (path pre-filled, operator pre-selected, value pre-filled) |
 | Foreach | `{{VAR}}` that resolves to a JSON array |
 | When | Conditional; three-stage form (var → operator → value) |
 | Continue on error | Toggle — step failure is non-blocking |
@@ -3098,7 +3098,7 @@ Press `n` (append) or `i` (insert after cursor) to open the catalog:
 
 **JQ step fields:** Name · Description · Input (JSON var, e.g. `{{RESPONSE}}`) · Expression (jq filter) · Output var · Raw output (toggle — passes `-r` to jq)
 
-**Poll step fields:** Name · Description · Method · URL · Headers (key=value list) · Extract (key=value list) · Until — var · Until — condition (cycle: `not exists → exists → == → != → < → <=`) · Interval ms · Timeout secs · Continue on error
+**Poll step fields:** Name · Description · Method · URL · Headers (key=value list) · Extract (key=value list) · Until — var · Until — condition (`←/→` cycles type: `not exists → exists → == → !=`; `Enter` when `==`/`!=` edits the comparison value) · Interval ms · Timeout secs · Continue on error
 
 **Set step fields:** Name · Description · Vars (key=value list — `a` to add, `d` to delete, `Enter` to edit)
 
@@ -3116,7 +3116,7 @@ Press `n` (append) or `i` (insert after cursor) to open the catalog:
 | URL | `{{VAR}}` supported; re-resolved from current env before each iteration |
 | Headers | Key=value list; `a` two-stage entry |
 | Until — var | Variable name to test after each iteration |
-| Until — condition | Cycle with `Enter`/`←`/`→`: `not exists → exists → == → != → <` |
+| Until — condition | `←/→` cycles type: `not exists → exists → == → != → <`; `Enter` when `==`/`!=`/`<` opens text editor for the comparison value |
 | Accumulate — var | Output variable that receives the accumulated JSON array |
 | Accumulate — from | Dot-path (supports `*`) evaluated on each response body |
 | Extract (per-iter) | Variables extracted from each response; feed back into URL/headers for the next iteration |

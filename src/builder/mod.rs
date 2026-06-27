@@ -1347,6 +1347,15 @@ fn toml_escape(s: &str) -> String {
      .replace('\t', "\\t")
 }
 
+// TOML bare keys only allow [A-Za-z0-9_-]; anything else must be quoted.
+fn toml_key(k: &str) -> String {
+    if k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') && !k.is_empty() {
+        k.to_string()
+    } else {
+        format!("\"{}\"", toml_escape(k))
+    }
+}
+
 fn empty_campaign(name: &str) -> Campaign {
     Campaign {
         campaign: Meta { name: name.to_string(), description: String::new() },
@@ -1738,7 +1747,7 @@ pub(super) fn generate_toml(campaign: &Campaign, step_comments: &[String], heade
         let mut vars: Vec<_> = campaign.env.iter().collect();
         vars.sort_by_key(|(k, _)| k.as_str());
         for (k, v) in vars {
-            out.push_str(&format!("{} = \"{}\"\n", k, v));
+            out.push_str(&format!("{} = \"{}\"\n", toml_key(k), toml_escape(v)));
         }
     }
 
@@ -1863,7 +1872,7 @@ pub(super) fn generate_toml(campaign: &Campaign, step_comments: &[String], heade
                 let mut args: Vec<_> = step.jq_args.iter().collect();
                 args.sort_by_key(|(k, _)| k.as_str());
                 for (k, v) in args {
-                    out.push_str(&format!("{} = \"{}\"\n", k, toml_escape(v)));
+                    out.push_str(&format!("{} = \"{}\"\n", toml_key(k), toml_escape(v)));
                 }
             }
         }
@@ -1872,7 +1881,7 @@ pub(super) fn generate_toml(campaign: &Campaign, step_comments: &[String], heade
             let mut vars: Vec<_> = step.vars.iter().collect();
             vars.sort_by_key(|(k, _)| k.as_str());
             for (k, v) in vars {
-                out.push_str(&format!("{} = \"{}\"\n", k, toml_escape(v)));
+                out.push_str(&format!("{} = \"{}\"\n", toml_key(k), toml_escape(v)));
             }
         }
         if step.kind == "build" {
@@ -1884,7 +1893,7 @@ pub(super) fn generate_toml(campaign: &Campaign, step_comments: &[String], heade
             if !step.fields.is_empty() {
                 out.push_str("[steps.fields]\n");
                 for (k, v) in &step.fields {
-                    out.push_str(&format!("{} = \"{}\"\n", k, toml_escape(v)));
+                    out.push_str(&format!("{} = \"{}\"\n", toml_key(k), toml_escape(v)));
                 }
             }
         }
@@ -1927,7 +1936,7 @@ pub(super) fn generate_toml(campaign: &Campaign, step_comments: &[String], heade
             let mut headers: Vec<_> = step.headers.iter().collect();
             headers.sort_by_key(|(k, _)| k.as_str());
             for (k, v) in headers {
-                out.push_str(&format!("{} = \"{}\"\n", k, v));
+                out.push_str(&format!("{} = \"{}\"\n", toml_key(k), toml_escape(v)));
             }
         }
         if !step.graphql_variables.is_empty() {
@@ -1935,7 +1944,7 @@ pub(super) fn generate_toml(campaign: &Campaign, step_comments: &[String], heade
             let mut vars: Vec<_> = step.graphql_variables.iter().collect();
             vars.sort_by_key(|(k, _)| k.as_str());
             for (k, v) in vars {
-                out.push_str(&format!("{} = \"{}\"\n", k, toml_escape(v)));
+                out.push_str(&format!("{} = \"{}\"\n", toml_key(k), toml_escape(v)));
             }
         }
         if !step.extract.is_empty() {
@@ -1943,7 +1952,7 @@ pub(super) fn generate_toml(campaign: &Campaign, step_comments: &[String], heade
             let mut ex: Vec<_> = step.extract.iter().collect();
             ex.sort_by_key(|(k, _)| k.as_str());
             for (k, v) in ex {
-                out.push_str(&format!("{} = \"{}\"\n", k, v));
+                out.push_str(&format!("{} = \"{}\"\n", toml_key(k), toml_escape(v)));
             }
         }
         for mp in &step.multipart_parts {

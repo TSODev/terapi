@@ -43,6 +43,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Campaign Builder: pipeline panel and all context panels now have 1 line of top padding inside the border for visual breathing room
 - Campaign Builder: step run result panel now shows the **full JSON body** (no truncation) with syntax highlighting (keys=cyan, strings=green, numbers=yellow, booleans=magenta); scrollable with `[` / `]` (or `Fn+↑` / `Fn+↓` on Mac)
 - Campaign Builder: **Parallel step picker** — adding a step to a parallel's list now opens a visual picker overlay (↑/↓ + Enter) instead of a free-text prompt; only `http`, `graphql`, `seed`, `poll`, `loop` steps are listed (steps that perform network requests)
+- Campaign Builder ergonomics — **all list sections** (Headers, Extractions, Assertions, GQL Variables, Multipart Parts, Transforms, Parallel Steps, Set Vars) now support:
+  - `↑`/`↓` navigates items within the section before jumping to the next section
+  - `d` deletes **at the cursor** (not always the last item)
+  - `Enter` opens the item **under the cursor** for editing (Headers, GQL Variables, Loop/Poll Headers, Multipart Parts, Transforms)
+- Campaign Builder: **`transform` step supports multiple transforms** — the Transforms section is now a navigable list; `a` adds a new transform, `Enter` edits the selected one (kind ←/→ cycle, then input var, then output var via Tab/Enter flow), `d` deletes at cursor; replaces the old single-transform Kind/Input/Output fields
+- Campaign Builder: `AddPairStage2` hint (value field) now shows `Tab: JSON path picker` when the target is an Extract field
 
 ---
 

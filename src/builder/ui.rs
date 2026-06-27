@@ -9,7 +9,8 @@ use crate::campaign::{CampaignRunState, StepResult};
 
 use super::BuilderApp;
 use super::step_editor::{current_value, sections_for, sorted_keys};
-use super::types::{ASSERT_OPS, BRICK_KINDS, BuilderFocus, CampaignSettingsMode, CheckLevel, IoEditorMode, ParamEditorMode, StepEditorMode, StepSection, VariablesMode, WHEN_OPS};
+use super::step_editor::TRANSFORM_KINDS;
+use super::types::{ASSERT_OPS, BRICK_KINDS, BuilderFocus, CampaignSettingsMode, CheckLevel, IoEditorMode, PairTarget, ParamEditorMode, StepEditorMode, StepSection, VariablesMode, WHEN_OPS};
 
 pub fn render(frame: &mut Frame, app: &BuilderApp) {
     let area = frame.area();
@@ -943,6 +944,8 @@ fn render_step_editor(
                 StepEditorMode::EditWhenVar { .. } | StepEditorMode::EditWhenOp { .. } | StepEditorMode::EditWhenValue { .. }
                     if *section == StepSection::When =>
                     Span::styled("editing…", Style::default().fg(Color::Yellow)),
+                StepEditorMode::EditTransform { .. } if *section == StepSection::Transforms =>
+                    Span::styled("editing…", Style::default().fg(Color::Yellow)),
                 _ => value_span_for(app, step_idx, section, is_cursor),
             }
         } else {
@@ -950,15 +953,13 @@ fn render_step_editor(
         };
 
         let hint_span = if is_cursor && matches!(mode, StepEditorMode::Browse) {
-            if matches!(section, StepSection::Extract | StepSection::LoopExtract) {
-                let has_items = !app.campaign.steps[step_idx].extract.is_empty();
-                if has_items {
+            if section.is_list() {
+                let count = list_count(app, step_idx, section);
+                if count > 0 {
                     Span::styled("  a: add  d: del  Enter: edit  ↑↓: navigate", Style::default().fg(Color::Indexed(246)))
                 } else {
                     Span::styled("  a: add", Style::default().fg(Color::Indexed(246)))
                 }
-            } else if section.is_list() {
-                Span::styled("  a: add  d: del", Style::default().fg(Color::Indexed(246)))
             } else if *section == StepSection::When {
                 Span::styled("  Enter: edit  d: clear", Style::default().fg(Color::Indexed(246)))
             } else if *section == StepSection::GraphqlQuery {
@@ -1036,6 +1037,17 @@ fn render_step_editor(
                         ));
                     }
                 }
+                StepEditorMode::EditTransform { kind_idx, input, output, field, .. }
+                    if *section == StepSection::Transforms =>
+                {
+                    let kind = TRANSFORM_KINDS[*kind_idx];
+                    let row_str = match field {
+                        0 => format!("Kind : [ {} ▾ ]  ←/→ cycle  Enter: next", kind),
+                        1 => format!("Kind: {}   Input : [ {}_]", kind, input),
+                        _ => format!("Kind: {}  Input: {}   Output : [ {}_]", kind, input, output),
+                    };
+                    rows.push(sub_row(row_str, Color::Yellow));
+                }
                 StepEditorMode::EditWhenVar { buffer } if *section == StepSection::When => {
                     rows.push(sub_row(format!("Var : [ {}_]", buffer), Color::Yellow));
                 }
@@ -1064,8 +1076,12 @@ fn render_step_editor(
             "Type  Enter: confirm  Esc: cancel",
         StepEditorMode::AddPairStage1 { .. } =>
             "Key name  Enter: next  Esc: cancel",
-        StepEditorMode::AddPairStage2 { .. } =>
-            "Value  Enter: add  Esc: cancel",
+        StepEditorMode::AddPairStage2 { target, .. } =>
+            if *target == PairTarget::Extract {
+                "Value  Enter: add  Tab: JSON path picker  Esc: cancel"
+            } else {
+                "Value  Enter: add  Esc: cancel"
+            },
         StepEditorMode::AddAssertPath { .. } =>
             "Path (dot-notation)  Enter: next  Esc: cancel",
         StepEditorMode::AddAssertOp { .. } =>
@@ -1087,6 +1103,11 @@ fn render_step_editor(
         StepEditorMode::EditGraphqlQuery => "", // full-screen, hints rendered by render_graphql_query_editor
         StepEditorMode::ExtractPicker { .. } => "", // overlay rendered below
         StepEditorMode::AddParallelStep { .. } => "", // overlay rendered below
+        StepEditorMode::EditTransform { field, .. } => match field {
+            0 => "Kind  ←/→: cycle  Enter/Tab: next field  Esc: cancel",
+            1 => "Input var  Enter/Tab: next  Esc: cancel",
+            _ => "Output var  Enter: save  Esc: cancel",
+        },
     };
     rows.push(ListItem::new(Line::from(
         Span::styled(hints, Style::default().fg(Color::Indexed(246)))
@@ -1108,6 +1129,7 @@ fn render_step_editor(
     if let StepEditorMode::AddParallelStep { cursor } = mode {
         render_parallel_step_picker(frame, app, step_idx, *cursor, inner);
     }
+    // EditTransform is rendered inline as a sub_row, no overlay needed
 }
 
 fn step_help_text(kind: &str) -> (&'static str, &'static str, &'static str) {
@@ -1388,7 +1410,7 @@ fn value_span_for<'a>(app: &'a BuilderApp, step_idx: usize, section: &StepSectio
                 Style::default().fg(Color::Yellow).add_modifier(if is_cursor { Modifier::BOLD } else { Modifier::empty() }),
             )
         }
-        StepSection::TransformKind | StepSection::FileEncoding => {
+        StepSection::FileEncoding => {
             Span::styled(
                 format!("[ {} ▾ ]", val),
                 Style::default().fg(Color::Yellow).add_modifier(if is_cursor { Modifier::BOLD } else { Modifier::empty() }),
@@ -1413,11 +1435,14 @@ fn value_span_for<'a>(app: &'a BuilderApp, step_idx: usize, section: &StepSectio
 fn list_count(app: &BuilderApp, step_idx: usize, section: &StepSection) -> usize {
     let step = &app.campaign.steps[step_idx];
     match section {
-        StepSection::Headers          => step.headers.len(),
-        StepSection::Extract          => step.extract.len(),
+        StepSection::Headers | StepSection::LoopHeaders | StepSection::PollHeaders => step.headers.len(),
+        StepSection::Extract | StepSection::LoopExtract | StepSection::PollExtract => step.extract.len(),
         StepSection::Assertions       => step.assert.len(),
         StepSection::MultipartParts   => step.multipart_parts.len(),
         StepSection::GraphqlVariables => step.graphql_variables.len(),
+        StepSection::SetVars          => step.vars.len(),
+        StepSection::ParallelSteps    => step.parallel_steps.len(),
+        StepSection::Transforms       => step.transforms.len(),
         _ => 0,
     }
 }
@@ -1459,14 +1484,27 @@ fn list_items_for(app: &BuilderApp, step_idx: usize, section: &StepSection) -> V
                 }
             }).collect()
         }
-        StepSection::LoopHeaders => {
+        StepSection::LoopHeaders | StepSection::PollHeaders => {
             sorted_keys(&step.headers).into_iter()
                 .map(|k| format!("{}: {}", k, step.headers.get(&k).cloned().unwrap_or_default()))
                 .collect()
         }
-        StepSection::LoopExtract => {
+        StepSection::LoopExtract | StepSection::PollExtract => {
             sorted_keys(&step.extract).into_iter()
                 .map(|k| format!("{} = {}", k, step.extract.get(&k).cloned().unwrap_or_default()))
+                .collect()
+        }
+        StepSection::SetVars => {
+            sorted_keys(&step.vars).into_iter()
+                .map(|k| format!("{} = {}", k, step.vars.get(&k).cloned().unwrap_or_default()))
+                .collect()
+        }
+        StepSection::ParallelSteps => {
+            step.parallel_steps.iter().map(|s| s.clone()).collect()
+        }
+        StepSection::Transforms => {
+            step.transforms.iter()
+                .map(|t| format!("{:<9}  {} → {}", t.kind, t.input, t.output))
                 .collect()
         }
         _ => vec![],

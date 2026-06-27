@@ -132,6 +132,8 @@ pub enum StepEditorMode {
     EditGraphqlQuery,
     // Step name picker for Parallel step's steps list
     AddParallelStep { cursor: usize },
+    // Transform add/edit flow: field 0=kind, 1=input, 2=output
+    EditTransform { idx: Option<usize>, kind_idx: usize, input: String, output: String, field: u8 },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -148,9 +150,6 @@ pub enum StepSection {
     When,
     ContinueOnError,
     WaitMs,
-    TransformKind,
-    TransformInput,
-    TransformOutput,
     FilePath,
     FileOutput,
     FileEncoding,
@@ -193,6 +192,8 @@ pub enum StepSection {
     PollContinueOnError,
     // Parallel step sections
     ParallelSteps,
+    // Transform list section (replaces TransformKind/Input/Output for multi-transform)
+    Transforms,
     // Notify step sections
     NotifyUrl,
     NotifyMethod,
@@ -214,9 +215,6 @@ impl StepSection {
             StepSection::When               => "When",
             StepSection::ContinueOnError    => "Continue on error",
             StepSection::WaitMs             => "Wait (ms)",
-            StepSection::TransformKind      => "Kind",
-            StepSection::TransformInput     => "Input",
-            StepSection::TransformOutput    => "Output var",
             StepSection::FilePath           => "File path",
             StepSection::FileOutput         => "Output var",
             StepSection::FileEncoding       => "Encoding",
@@ -253,6 +251,7 @@ impl StepSection {
             StepSection::PollTimeoutSecs    => "Timeout (s)",
             StepSection::PollContinueOnError => "Continue on error",
             StepSection::ParallelSteps => "Steps (run in parallel)",
+            StepSection::Transforms    => "Transforms",
             StepSection::NotifyUrl     => "Webhook URL",
             StepSection::NotifyMethod  => "Method",
             StepSection::NotifyMessage => "Message (body)",
@@ -265,7 +264,7 @@ impl StepSection {
             StepSection::MultipartParts | StepSection::GraphqlVariables |
             StepSection::LoopExtract | StepSection::LoopHeaders |
             StepSection::PollHeaders | StepSection::PollExtract |
-            StepSection::SetVars | StepSection::ParallelSteps
+            StepSection::SetVars | StepSection::ParallelSteps | StepSection::Transforms
         )
     }
 }

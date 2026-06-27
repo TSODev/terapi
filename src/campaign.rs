@@ -139,9 +139,26 @@ pub struct Step {
     pub until: Option<StepCondition>,
     #[serde(default)]
     pub accumulate: Option<AccumulateConfig>,
+    // Poll step fields (kind = "poll")
+    #[serde(default = "default_poll_interval")]
+    pub interval_ms: u64,
+    #[serde(default = "default_poll_timeout")]
+    pub timeout_secs: u64,
     // Search step fields (kind = "search")
     #[serde(default)]
     pub search: Option<SearchConfig>,
+    // Set step fields (kind = "set")
+    #[serde(default)]
+    pub vars: HashMap<String, String>,
+    // JQ step fields (kind = "jq")
+    #[serde(default)]
+    pub jq_input: Option<String>,
+    #[serde(default)]
+    pub jq_expression: Option<String>,
+    #[serde(default)]
+    pub jq_output: Option<String>,
+    #[serde(default)]
+    pub jq_raw: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -164,6 +181,8 @@ pub struct MultipartPart {
 }
 
 fn default_http() -> String { "http".into() }
+fn default_poll_interval() -> u64 { 1000 }
+fn default_poll_timeout()  -> u64 { 60   }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Assertion {
@@ -257,6 +276,7 @@ pub enum CampaignEvent {
     IterationStarted { idx: usize, total: usize, row_summary: String },
     StepStarted { name: String },
     StepRetry { name: String, attempt: usize, max: usize, delay_secs: u64 },
+    StepPoll  { name: String, attempt: usize, elapsed_secs: u64 },
     StepDone(StepResult),
     Finished(Vec<IterationResult>),
     Warning(String),
@@ -621,6 +641,11 @@ pub async fn run(
                     eprintln!("  ⟳ retry {}/{} — {} — waiting {}s...", attempt, max, name, delay_secs);
                 }
             }
+            CampaignEvent::StepPoll { name, attempt, elapsed_secs } => {
+                if !silent && text {
+                    eprintln!("  ⟳ poll #{} — {} — {}s elapsed", attempt, name, elapsed_secs);
+                }
+            }
             CampaignEvent::Warning(msg) => {
                 if !silent && text { eprintln!("  Warning: {}", msg); }
             }
@@ -807,6 +832,69 @@ async fn run_single_step(
             graphql: false,
             request_headers: vec![],
             request_body: None,
+        };
+    }
+
+    if step.kind == "set" {
+        let extracted: HashMap<String, String> = step.vars.iter()
+            .map(|(k, v)| (k.clone(), resolve(v, effective)))
+            .collect();
+        return StepResult {
+            name:              step.name.clone(),
+            method:            "SET".into(),
+            url:               String::new(),
+            status:            None,
+            duration_ms:       0,
+            success:           true,
+            skipped:           false,
+            non_blocking:      effective_coe,
+            error:             None,
+            extracted,
+            assertion_results: vec![],
+            body_json:         None,
+            graphql:           false,
+            request_headers:   vec![],
+            request_body:      None,
+        };
+    }
+
+    if step.kind == "jq" {
+        let t0 = Instant::now();
+        return match run_jq_step(step, effective).await {
+            Ok(extracted) => StepResult {
+                name:              step.name.clone(),
+                method:            "JQ  ".into(),
+                url:               String::new(),
+                status:            None,
+                duration_ms:       t0.elapsed().as_millis() as u64,
+                success:           true,
+                skipped:           false,
+                non_blocking:      effective_coe,
+                error:             None,
+                extracted,
+                assertion_results: vec![],
+                body_json:         None,
+                graphql:           false,
+                request_headers:   vec![],
+                request_body:      None,
+            },
+            Err(e) => StepResult {
+                name:              step.name.clone(),
+                method:            "JQ  ".into(),
+                url:               String::new(),
+                status:            None,
+                duration_ms:       t0.elapsed().as_millis() as u64,
+                success:           false,
+                skipped:           false,
+                non_blocking:      effective_coe,
+                error:             Some(e.to_string()),
+                extracted:         HashMap::new(),
+                assertion_results: vec![],
+                body_json:         None,
+                graphql:           false,
+                request_headers:   vec![],
+                request_body:      None,
+            },
         };
     }
 
@@ -1242,6 +1330,21 @@ async fn run_steps_streaming(
             continue;
         }
 
+        // ── poll step ─────────────────────────────────────────────────────────
+        if step.kind == "poll" {
+            let _ = tx.send(CampaignEvent::StepStarted { name: step.name.clone() });
+            let (poll_result, poll_extracted) =
+                run_poll_step(client, step, &effective, effective_coe, tx).await;
+            if poll_result.success {
+                extracted.extend(poll_extracted);
+            }
+            let failed = !poll_result.success;
+            let _ = tx.send(CampaignEvent::StepDone(poll_result.clone()));
+            results.push(poll_result);
+            if failed && !effective_coe { break; }
+            continue;
+        }
+
         // ── loop step ─────────────────────────────────────────────────────────
         if step.kind == "loop" {
             let _ = tx.send(CampaignEvent::StepStarted { name: step.name.clone() });
@@ -1409,6 +1512,179 @@ async fn run_loop_step(
         request_headers: vec![],
         request_body: None,
     }, outer_extracted)
+}
+
+// ── poll step ─────────────────────────────────────────────────────────────────
+
+async fn run_poll_step(
+    client: &reqwest::Client,
+    step: &Step,
+    base_env: &HashMap<String, String>,
+    effective_coe: bool,
+    tx: &mpsc::UnboundedSender<CampaignEvent>,
+) -> (StepResult, HashMap<String, String>) {
+    const MAX_POLLS: usize = 500;
+    let interval_ms = step.interval_ms.max(100);
+    let timeout = std::time::Duration::from_secs(step.timeout_secs.max(1));
+    let t0 = std::time::Instant::now();
+
+    let mut http_step = step.clone();
+    http_step.kind       = "http".into();
+    http_step.until      = None;
+    http_step.accumulate = None;
+
+    let mut iter_env = base_env.clone();
+    let mut last_result: Option<StepResult> = None;
+    let mut poll_count = 0usize;
+
+    loop {
+        let elapsed = t0.elapsed();
+        if elapsed >= timeout {
+            let elapsed_secs = elapsed.as_secs();
+            let err = format!("poll timeout after {}s ({} attempts)", elapsed_secs, poll_count);
+            return (StepResult {
+                name:              step.name.clone(),
+                method:            "POLL".into(),
+                url:               last_result.as_ref().map(|r| r.url.clone()).unwrap_or_default(),
+                status:            last_result.as_ref().and_then(|r| r.status),
+                duration_ms:       elapsed.as_millis() as u64,
+                success:           false,
+                skipped:           false,
+                non_blocking:      effective_coe,
+                error:             Some(err),
+                extracted:         HashMap::new(),
+                assertion_results: vec![],
+                body_json:         None,
+                graphql:           false,
+                request_headers:   vec![],
+                request_body:      None,
+            }, HashMap::new());
+        }
+
+        if poll_count >= MAX_POLLS {
+            let elapsed_secs = elapsed.as_secs();
+            let err = format!("poll safety cap: {} iterations in {}s", MAX_POLLS, elapsed_secs);
+            return (StepResult {
+                name:              step.name.clone(),
+                method:            "POLL".into(),
+                url:               last_result.as_ref().map(|r| r.url.clone()).unwrap_or_default(),
+                status:            last_result.as_ref().and_then(|r| r.status),
+                duration_ms:       elapsed.as_millis() as u64,
+                success:           false,
+                skipped:           false,
+                non_blocking:      effective_coe,
+                error:             Some(err),
+                extracted:         HashMap::new(),
+                assertion_results: vec![],
+                body_json:         None,
+                graphql:           false,
+                request_headers:   vec![],
+                request_body:      None,
+            }, HashMap::new());
+        }
+
+        poll_count += 1;
+        let result = run_single_step(client, &http_step, &iter_env, true).await;
+        iter_env.extend(result.extracted.clone());
+
+        let _ = tx.send(CampaignEvent::StepPoll {
+            name:         step.name.clone(),
+            attempt:      poll_count,
+            elapsed_secs: t0.elapsed().as_secs(),
+        });
+
+        last_result = Some(result.clone());
+
+        // Check until condition on extracted vars
+        if let Some(ref until) = step.until {
+            if evaluate_until_condition(until, &iter_env) {
+                let duration_ms = t0.elapsed().as_millis() as u64;
+                let outer_extracted: HashMap<String, String> = iter_env.into_iter()
+                    .filter(|(k, _)| !base_env.contains_key(k))
+                    .collect();
+                return (StepResult {
+                    name:              step.name.clone(),
+                    method:            "POLL".into(),
+                    url:               result.url,
+                    status:            result.status,
+                    duration_ms,
+                    success:           true,
+                    skipped:           false,
+                    non_blocking:      effective_coe,
+                    error:             None,
+                    extracted:         outer_extracted.clone(),
+                    assertion_results: result.assertion_results,
+                    body_json:         result.body_json,
+                    graphql:           false,
+                    request_headers:   result.request_headers,
+                    request_body:      result.request_body,
+                }, outer_extracted);
+            }
+        } else {
+            // No until condition — single shot (degenerate case)
+            break;
+        }
+
+        tokio::time::sleep(std::time::Duration::from_millis(interval_ms)).await;
+    }
+
+    // Fallback (no until)
+    let duration_ms = t0.elapsed().as_millis() as u64;
+    let outer_extracted: HashMap<String, String> = iter_env.into_iter()
+        .filter(|(k, _)| !base_env.contains_key(k))
+        .collect();
+    (StepResult {
+        name:              step.name.clone(),
+        method:            "POLL".into(),
+        url:               last_result.as_ref().map(|r| r.url.clone()).unwrap_or_default(),
+        status:            last_result.as_ref().and_then(|r| r.status),
+        duration_ms,
+        success:           true,
+        skipped:           false,
+        non_blocking:      effective_coe,
+        error:             None,
+        extracted:         outer_extracted.clone(),
+        assertion_results: vec![],
+        body_json:         None,
+        graphql:           false,
+        request_headers:   vec![],
+        request_body:      None,
+    }, outer_extracted)
+}
+
+// ── jq step ───────────────────────────────────────────────────────────────────
+
+async fn run_jq_step(step: &Step, env: &HashMap<String, String>) -> anyhow::Result<HashMap<String, String>> {
+    let input      = resolve(step.jq_input.as_deref().unwrap_or(""), env);
+    let expr       = resolve(step.jq_expression.as_deref().unwrap_or("."), env);
+    let output_var = step.jq_output.as_deref().unwrap_or("JQ_RESULT").to_string();
+
+    let mut cmd = tokio::process::Command::new("jq");
+    cmd.arg("-c"); // compact JSON output
+    if step.jq_raw { cmd.arg("-r"); }
+    cmd.arg(&expr);
+    cmd.stdin(std::process::Stdio::piped());
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
+
+    let mut child = cmd.spawn()
+        .map_err(|e| anyhow::anyhow!("`jq` not found — install jq first (https://jqlang.org): {}", e))?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        use tokio::io::AsyncWriteExt;
+        stdin.write_all(input.as_bytes()).await?;
+    }
+
+    let output = child.wait_with_output().await?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow::anyhow!("jq: {}", stderr.trim()));
+    }
+
+    let result = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let mut extracted = HashMap::new();
+    extracted.insert(output_var, result);
+    Ok(extracted)
 }
 
 // ── transform step ────────────────────────────────────────────────────────────

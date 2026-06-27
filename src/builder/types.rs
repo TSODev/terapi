@@ -83,6 +83,7 @@ pub enum PairTarget {
     Headers,
     Extract,
     GraphqlVariables,
+    Vars,
 }
 
 /// (label, needs_value)
@@ -170,6 +171,23 @@ pub enum StepSection {
     SearchMatch,
     SearchOutput,
     SearchFirstOnly,
+    // Set step sections
+    SetVars,
+    // JQ step sections
+    JqInput,
+    JqExpression,
+    JqOutput,
+    JqRaw,
+    // Poll step sections
+    PollUrl,
+    PollMethod,
+    PollHeaders,
+    PollExtract,
+    PollUntilVar,
+    PollUntilCond,
+    PollIntervalMs,
+    PollTimeoutSecs,
+    PollContinueOnError,
 }
 
 impl StepSection {
@@ -211,6 +229,20 @@ impl StepSection {
             StepSection::SearchMatch    => "Pattern (regex)",
             StepSection::SearchOutput   => "Output var",
             StepSection::SearchFirstOnly => "First match only",
+            StepSection::SetVars            => "Variables",
+            StepSection::JqInput            => "Input (JSON var)",
+            StepSection::JqExpression       => "Expression (jq filter)",
+            StepSection::JqOutput           => "Output var",
+            StepSection::JqRaw              => "Raw output (-r)",
+            StepSection::PollUrl            => "URL",
+            StepSection::PollMethod         => "Method",
+            StepSection::PollHeaders        => "Headers",
+            StepSection::PollExtract        => "Extract (per-poll)",
+            StepSection::PollUntilVar       => "Until — var",
+            StepSection::PollUntilCond      => "Until — condition",
+            StepSection::PollIntervalMs     => "Interval (ms)",
+            StepSection::PollTimeoutSecs    => "Timeout (s)",
+            StepSection::PollContinueOnError => "Continue on error",
         }
     }
 
@@ -218,7 +250,9 @@ impl StepSection {
         matches!(self,
             StepSection::Headers | StepSection::Extract | StepSection::Assertions |
             StepSection::MultipartParts | StepSection::GraphqlVariables |
-            StepSection::LoopExtract | StepSection::LoopHeaders
+            StepSection::LoopExtract | StepSection::LoopHeaders |
+            StepSection::PollHeaders | StepSection::PollExtract |
+            StepSection::SetVars
         )
     }
 }
@@ -231,6 +265,9 @@ pub enum BrickKind {
     GraphQL,
     Search,
     Loop,
+    Poll,
+    Set,
+    Jq,
     Transform,
     Pause,
     Seed,
@@ -247,6 +284,9 @@ impl BrickKind {
             BrickKind::GraphQL    => "GraphQL step",
             BrickKind::Search     => "Search / Filter",
             BrickKind::Loop       => "Loop (pagination)",
+            BrickKind::Poll       => "Poll (wait for condition)",
+            BrickKind::Set        => "Set variables",
+            BrickKind::Jq         => "JQ transform",
             BrickKind::Transform  => "Transform",
             BrickKind::Pause      => "Pause",
             BrickKind::Seed       => "Seed",
@@ -262,6 +302,9 @@ impl BrickKind {
             BrickKind::GraphQL    => "GraphQL query (POST, body built from query + variables)",
             BrickKind::Search     => "filter a JSON array by regex on a field, store matches",
             BrickKind::Loop       => "repeat HTTP until condition, accumulate results (pagination)",
+            BrickKind::Poll       => "poll an endpoint until a condition is true (async job polling)",
+            BrickKind::Set        => "assign literal values to variables ({{VAR}} supported in values)",
+            BrickKind::Jq         => "apply a jq expression to a JSON variable (requires jq installed)",
             BrickKind::Transform  => "variable transform",
             BrickKind::Pause      => "wait (ms)",
             BrickKind::Seed       => "seed connector (inline)",
@@ -277,7 +320,10 @@ pub const BRICK_KINDS: &[BrickKind] = &[
     BrickKind::Http,
     BrickKind::GraphQL,
     BrickKind::Loop,
+    BrickKind::Poll,
     BrickKind::Search,
+    BrickKind::Set,
+    BrickKind::Jq,
     BrickKind::Transform,
     BrickKind::Pause,
     BrickKind::Seed,

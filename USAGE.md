@@ -33,6 +33,7 @@
   - [Transform steps](#transform-steps)
   - [File Loader steps](#file-loader-steps)
   - [Search / Filter steps](#search--filter-steps)
+  - [JQ steps](#jq-steps)
   - [Loop steps (pagination)](#loop-steps-pagination)
   - [Multipart form-data](#multipart-form-data)
   - [Input connectors](#input-connectors)
@@ -2022,6 +2023,62 @@ In the TUI Campaign panel idle view, search steps show `SRCH` (cyan badge) in th
 
 ---
 
+### JQ steps
+
+A `kind = "jq"` step applies a [`jq`](https://jqlang.org) filter expression to a JSON variable and stores the result in another variable.
+
+> **Prerequisite:** `jq` must be installed on your system.
+> ```bash
+> brew install jq        # macOS
+> apt install jq         # Debian/Ubuntu
+> winget install jqlang.jq  # Windows
+> ```
+
+#### Fields
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `jq_input` | `""` | Variable holding the JSON to process (e.g. `"{{RESPONSE}}"`) |
+| `jq_expression` | `"."` | jq filter expression |
+| `jq_output` | `"JQ_RESULT"` | Variable to store the result |
+| `jq_raw` | `false` | If `true`, pass `-r` (raw string output); default is compact JSON |
+
+#### Examples
+
+```toml
+# Extract all active user IDs as a JSON array
+[[steps]]
+name          = "Extract active IDs"
+kind          = "jq"
+jq_input      = "{{USERS}}"
+jq_expression = "[.[] | select(.active) | .id]"
+jq_output     = "ACTIVE_IDS"
+
+# Get a nested value as a raw string
+[[steps]]
+name          = "Get token"
+kind          = "jq"
+jq_input      = "{{AUTH_RESPONSE}}"
+jq_expression = ".data.access_token"
+jq_output     = "TOKEN"
+jq_raw        = true
+
+# Count items
+[[steps]]
+name          = "Count results"
+kind          = "jq"
+jq_input      = "{{ITEMS}}"
+jq_expression = "length | tostring"
+jq_output     = "ITEM_COUNT"
+jq_raw        = true
+```
+
+`jq_input` and `jq_expression` both support `{{VAR}}` substitution. The output is stored as a string (JSON-encoded when `jq_raw = false`, raw string when `jq_raw = true`). If `jq` is not found or the expression fails, the step is marked as failed with the jq error message.
+
+In the Campaign Builder, add a **JQ transform** brick from the catalog (badge `JQ`, green).
+
+---
+
 ### Loop steps (pagination)
 
 A `kind = "loop"` step repeats an HTTP request in a loop — resolving `{{VAR}}` from the current env before each request, extracting variables from each response, and stopping when an `until` condition is met. Results from every iteration can be accumulated into a single JSON array.
@@ -2774,6 +2831,7 @@ Press `n` (append) or `i` (insert after cursor) to open the catalog:
 | Seed | `SEED` | HTTP step that feeds a JSON connector |
 | File Loader | `FILE` | `kind = "file"` — reads a file into a campaign variable |
 | Search / Filter | `SRCH` | `kind = "search"` — filter a JSON array variable by regex on a field |
+| JQ transform | `JQ  ` | `kind = "jq"` — apply a jq filter to a JSON variable (**requires `jq`**) |
 | Comment | `#` | TOML comment line between steps, skipped at runtime |
 | Connector [IN] | — | `[[connectors]]` block (CSV or JSON data source) |
 | Output [OUT] | — | `[[outputs]]` block (collects step responses to a JSON file) |
@@ -2809,6 +2867,8 @@ Press `n` (append) or `i` (insert after cursor) to open the catalog:
 **File Loader step fields:** Name · Description · File path · Output var · Encoding (base64 / text / hex — cycle)
 
 **Search / Filter step fields:** Name · Description · Input (JSON array var, e.g. `{{USERS}}`) · Match on field (dot-path, empty = element itself) · Pattern (regex) · Output var · First match only (toggle)
+
+**JQ step fields:** Name · Description · Input (JSON var, e.g. `{{RESPONSE}}`) · Expression (jq filter) · Output var · Raw output (toggle — passes `-r` to jq)
 
 **Loop step fields:**
 

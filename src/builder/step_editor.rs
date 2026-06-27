@@ -62,6 +62,34 @@ pub fn sections_for(kind: &str) -> Vec<StepSection> {
             StepSection::LoopExtract,
             StepSection::LoopContinueOnError,
         ],
+        "jq" => vec![
+            StepSection::Name,
+            StepSection::Description,
+            StepSection::JqInput,
+            StepSection::JqExpression,
+            StepSection::JqOutput,
+            StepSection::JqRaw,
+            StepSection::When,
+        ],
+        "set" => vec![
+            StepSection::Name,
+            StepSection::Description,
+            StepSection::SetVars,
+            StepSection::When,
+        ],
+        "poll" => vec![
+            StepSection::Name,
+            StepSection::Description,
+            StepSection::PollMethod,
+            StepSection::PollUrl,
+            StepSection::PollHeaders,
+            StepSection::PollUntilVar,
+            StepSection::PollUntilCond,
+            StepSection::PollIntervalMs,
+            StepSection::PollTimeoutSecs,
+            StepSection::PollExtract,
+            StepSection::PollContinueOnError,
+        ],
         "search" => vec![
             StepSection::Name,
             StepSection::Description,
@@ -673,6 +701,149 @@ fn handle_browse(
             }
         }
 
+        // ── JQ step sections ──────────────────────────────────────────────────
+        StepSection::JqInput | StepSection::JqExpression | StepSection::JqOutput => {
+            if key.code == KeyCode::Enter {
+                let step = &app.campaign.steps[step_idx];
+                let buf = match section {
+                    StepSection::JqInput      => step.jq_input.clone().unwrap_or_else(|| "{{RESPONSE}}".into()),
+                    StepSection::JqExpression => step.jq_expression.clone().unwrap_or_else(|| ".".into()),
+                    StepSection::JqOutput     => step.jq_output.clone().unwrap_or_else(|| "JQ_RESULT".into()),
+                    _ => unreachable!(),
+                };
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
+            }
+        }
+        StepSection::JqRaw => {
+            if matches!(key.code, KeyCode::Enter | KeyCode::Char(' ')) {
+                app.campaign.steps[step_idx].jq_raw = !app.campaign.steps[step_idx].jq_raw;
+                app.modified = true;
+            }
+        }
+
+        // ── Set step sections ─────────────────────────────────────────────────
+        StepSection::SetVars => match key.code {
+            KeyCode::Char('a') => {
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::AddPairStage1 { target: PairTarget::Vars, buffer: String::new() });
+            }
+            KeyCode::Char('d') => {
+                let keys = sorted_keys(&app.campaign.steps[step_idx].vars);
+                if let Some(k) = keys.get(sub_cursor) {
+                    let k = k.clone();
+                    app.campaign.steps[step_idx].vars.remove(&k);
+                    app.modified = true;
+                }
+            }
+            KeyCode::Enter => {
+                let keys = sorted_keys(&app.campaign.steps[step_idx].vars);
+                if let Some(k) = keys.get(sub_cursor) {
+                    let k = k.clone();
+                    let v = app.campaign.steps[step_idx].vars.get(&k).cloned().unwrap_or_default();
+                    let cursor = v.chars().count();
+                    set_focus(app, step_idx, section_cursor, sub_cursor,
+                        StepEditorMode::AddPairStage2 { target: PairTarget::Vars, key: k, buffer: v, cursor });
+                }
+            }
+            _ => {}
+        },
+
+        // ── Poll step sections ────────────────────────────────────────────────
+        StepSection::PollUrl | StepSection::PollIntervalMs | StepSection::PollTimeoutSecs | StepSection::PollUntilVar => {
+            if key.code == KeyCode::Enter {
+                let step = &app.campaign.steps[step_idx];
+                let buf = match section {
+                    StepSection::PollUrl         => step.url.clone(),
+                    StepSection::PollIntervalMs  => step.interval_ms.to_string(),
+                    StepSection::PollTimeoutSecs => step.timeout_secs.to_string(),
+                    StepSection::PollUntilVar    => step.until.as_ref().map(|u| u.var.clone()).unwrap_or_default(),
+                    _ => unreachable!(),
+                };
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
+            }
+        }
+        StepSection::PollMethod => {
+            if matches!(key.code, KeyCode::Left | KeyCode::Right | KeyCode::Enter) {
+                let step = &mut app.campaign.steps[step_idx];
+                let idx = METHODS.iter().position(|&m| m == step.method).unwrap_or(0);
+                let next = if key.code == KeyCode::Left { (idx + METHODS.len() - 1) % METHODS.len() }
+                           else { (idx + 1) % METHODS.len() };
+                step.method = METHODS[next].to_string();
+                app.modified = true;
+            }
+        }
+        StepSection::PollUntilCond => {
+            if matches!(key.code, KeyCode::Enter | KeyCode::Left | KeyCode::Right) {
+                let step = &mut app.campaign.steps[step_idx];
+                let until = step.until.get_or_insert(crate::campaign::StepCondition {
+                    var: "STATUS".into(), eq: Some("done".into()), ne: None, exists: None, lt: None, lte: None,
+                });
+                let idx = if until.exists == Some(false) { 0 }
+                    else if until.exists == Some(true) { 1 }
+                    else if until.eq.is_some() { 2 }
+                    else if until.ne.is_some() { 3 }
+                    else { 2 };
+                let next = if key.code == KeyCode::Left { (idx + 3) % 4 } else { (idx + 1) % 4 };
+                until.eq = None; until.ne = None; until.exists = None; until.lt = None; until.lte = None;
+                match next {
+                    0 => until.exists = Some(false),
+                    1 => until.exists = Some(true),
+                    2 => until.eq     = Some(String::new()),
+                    _ => until.ne     = Some(String::new()),
+                }
+                app.modified = true;
+            }
+        }
+        StepSection::PollHeaders => match key.code {
+            KeyCode::Char('a') => {
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::AddPairStage1 { target: PairTarget::Headers, buffer: String::new() });
+            }
+            KeyCode::Char('d') => {
+                let keys = sorted_keys(&app.campaign.steps[step_idx].headers);
+                if let Some(k) = keys.get(sub_cursor) {
+                    let k = k.clone();
+                    app.campaign.steps[step_idx].headers.remove(&k);
+                    app.modified = true;
+                }
+            }
+            _ => {}
+        },
+        StepSection::PollExtract => match key.code {
+            KeyCode::Char('a') => {
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::AddPairStage1 { target: PairTarget::Extract, buffer: String::new() });
+            }
+            KeyCode::Char('d') => {
+                let keys = sorted_keys(&app.campaign.steps[step_idx].extract);
+                if let Some(k) = keys.get(sub_cursor) {
+                    let k = k.clone();
+                    app.campaign.steps[step_idx].extract.remove(&k);
+                    app.modified = true;
+                }
+            }
+            KeyCode::Enter => {
+                let keys = sorted_keys(&app.campaign.steps[step_idx].extract);
+                if let Some(k) = keys.get(sub_cursor) {
+                    let k = k.clone();
+                    let v = app.campaign.steps[step_idx].extract.get(&k).cloned().unwrap_or_default();
+                    let cursor = v.chars().count();
+                    set_focus(app, step_idx, section_cursor, sub_cursor,
+                        StepEditorMode::AddPairStage2 { target: PairTarget::Extract, key: k, buffer: v, cursor });
+                }
+            }
+            _ => {}
+        },
+        StepSection::PollContinueOnError => {
+            if matches!(key.code, KeyCode::Enter | KeyCode::Char(' ')) {
+                let cur = app.campaign.steps[step_idx].continue_on_error.unwrap_or(false);
+                app.campaign.steps[step_idx].continue_on_error = Some(!cur);
+                app.modified = true;
+            }
+        }
+
         // ── Action ───────────────────────────────────────────────────────────
         StepSection::LoadFromCollection => {
             if matches!(key.code, KeyCode::Enter | KeyCode::Char('L')) {
@@ -810,6 +981,20 @@ fn apply_text_edit(app: &mut BuilderApp, step_idx: usize, section: &StepSection,
                 });
                 a.from = value.to_string();
             }
+            // JQ sections
+            StepSection::JqInput      => step.jq_input      = Some(value.to_string()),
+            StepSection::JqExpression => step.jq_expression = Some(value.to_string()),
+            StepSection::JqOutput     => step.jq_output     = Some(value.to_string()),
+            // Poll sections
+            StepSection::PollUrl         => step.url          = value.to_string(),
+            StepSection::PollIntervalMs  => step.interval_ms  = value.parse().unwrap_or(1000),
+            StepSection::PollTimeoutSecs => step.timeout_secs = value.parse().unwrap_or(60),
+            StepSection::PollUntilVar => {
+                let u = step.until.get_or_insert(crate::campaign::StepCondition {
+                    var: String::new(), eq: Some("done".into()), ne: None, exists: None, lt: None, lte: None,
+                });
+                u.var = value.to_string();
+            }
             // Search sections
             StepSection::SearchInput | StepSection::SearchPath | StepSection::SearchMatch | StepSection::SearchOutput => {
                 let cfg = step.search.get_or_insert(crate::campaign::SearchConfig {
@@ -903,6 +1088,7 @@ fn handle_add_stage2(
                 PairTarget::Headers          => { step.headers.insert(pair_key, buffer.trim().to_string()); }
                 PairTarget::Extract          => { step.extract.insert(pair_key, buffer.trim().to_string()); }
                 PairTarget::GraphqlVariables => { step.graphql_variables.insert(pair_key, buffer.trim().to_string()); }
+                PairTarget::Vars             => { step.vars.insert(pair_key, buffer.trim().to_string()); }
             }
             app.modified = true;
             set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
@@ -1304,6 +1490,30 @@ pub fn current_value(app: &BuilderApp, step_idx: usize, section: &StepSection) -
         StepSection::SearchMatch    => step.search.as_ref().map(|c| c.pattern.clone()).unwrap_or_default(),
         StepSection::SearchOutput   => step.search.as_ref().map(|c| c.output.clone()).unwrap_or_else(|| "RESULTS".into()),
         StepSection::SearchFirstOnly => if step.search.as_ref().map_or(false, |c| c.first_only) { "[x] first match only".into() } else { "[ ] all matches (array)".into() },
+        // JQ sections
+        StepSection::JqInput      => step.jq_input.clone().unwrap_or_else(|| "{{RESPONSE}}".into()),
+        StepSection::JqExpression => step.jq_expression.clone().unwrap_or_else(|| ".".into()),
+        StepSection::JqOutput     => step.jq_output.clone().unwrap_or_else(|| "JQ_RESULT".into()),
+        StepSection::JqRaw        => if step.jq_raw { "[x] raw string (-r)".into() } else { "[ ] compact JSON".into() },
+        // Set sections
+        StepSection::SetVars => format!("({} vars)", step.vars.len()),
+        // Poll sections
+        StepSection::PollUrl            => step.url.clone(),
+        StepSection::PollMethod         => step.method.clone(),
+        StepSection::PollHeaders        => format!("({} items)", step.headers.len()),
+        StepSection::PollExtract        => format!("({} items)", step.extract.len()),
+        StepSection::PollUntilVar       => step.until.as_ref().map(|u| u.var.clone()).unwrap_or_default(),
+        StepSection::PollUntilCond      => step.until.as_ref().map(|u| {
+            if u.exists == Some(false) { "not exists".into() }
+            else if u.exists == Some(true) { "exists".into() }
+            else if let Some(eq) = &u.eq { format!("== \"{}\"", eq) }
+            else if let Some(ne) = &u.ne { format!("!= \"{}\"", ne) }
+            else { "not exists".into() }
+        }).unwrap_or_else(|| "== \"done\"".into()),
+        StepSection::PollIntervalMs     => step.interval_ms.to_string(),
+        StepSection::PollTimeoutSecs    => step.timeout_secs.to_string(),
+        StepSection::PollContinueOnError =>
+            if step.continue_on_error.unwrap_or(false) { "[x]".into() } else { "[ ]".into() },
     }
 }
 

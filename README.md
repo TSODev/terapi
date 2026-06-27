@@ -342,6 +342,8 @@ cp examples/collections/sncf.toml .terapi/collections/
 
 Terapi includes a headless campaign runner for API automation — and the same campaigns can be run interactively from the **Campaigns** TUI tab (see above).
 
+> **Prerequisites:** most step types require no extra tools. The `kind = "jq"` step requires [`jq`](https://jqlang.org) to be installed on your system (`brew install jq` / `apt install jq`).
+
 ### Campaign TOML format
 
 ```toml

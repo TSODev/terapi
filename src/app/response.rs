@@ -39,6 +39,9 @@ impl App {
                 CampaignEvent::StepRetry { name, attempt, max, .. } => {
                     self.status_message = format!("⟳ retry {}/{} — {}", attempt, max, name);
                 }
+                CampaignEvent::StepPoll { name, attempt, elapsed_secs } => {
+                    self.status_message = format!("⟳ poll #{} — {} — {}s", attempt, name, elapsed_secs);
+                }
                 CampaignEvent::Warning(msg) => {
                     self.status_message = format!("Campaign warning: {}", msg);
                 }

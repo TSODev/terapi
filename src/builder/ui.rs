@@ -307,6 +307,9 @@ fn step_badge(kind: &str) -> (&'static str, Color) {
         "file"      => ("FILE", Color::Magenta),
         "graphql"   => ("GQL ", Color::Magenta),
         "loop"      => ("LOOP", Color::Green),
+        "poll"      => ("POLL", Color::Yellow),
+        "set"       => ("SET ", Color::Blue),
+        "jq"        => ("JQ  ", Color::Green),
         "search"    => ("SRCH", Color::Cyan),
         _           => ("HTTP", Color::Cyan),
     }

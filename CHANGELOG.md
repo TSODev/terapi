@@ -54,6 +54,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Campaign Builder: **Assertions now support `Enter` to edit** — `Enter` on an existing assertion pre-fills path, operator (pre-selected to current op), and value; `Enter` saves by replacing the assertion at that position (not pushing a new one); hints show `(edit mode)` to distinguish from add flow
 - Campaign Builder: **`LoopUntilCond` and `PollUntilCond` values are now editable** — `←/→` cycles the condition type as before; `Enter` when the type is `eq`/`ne`/`lt`/`lte` opens an inline text editor pre-filled with the current value; previously the comparison value was always stuck at empty string or 0
 
+- Campaign Builder: **`D` duplicates the selected step** — inserts a clone immediately below the cursor, appends `" copy"` to the name (successive duplicates: `" copy 2"`, `" copy 3"`), and moves the cursor to the new step; step comment is also duplicated
+
 ### Fixed
 - Campaign Builder checker (`c`) — all non-HTTP step kinds now get per-kind field validation instead of incorrectly reporting "HTTP step: URL is empty":
   - `jq` → checks `jq_input` and `jq_expression` are non-empty

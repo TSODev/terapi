@@ -640,6 +640,76 @@ jq_raw        = true   # pass -r: raw string output, not quoted JSON
 
 If `jq` is not found on the system, the step fails immediately with a clear error message. The `JQ` badge (green) appears in the pipeline.
 
+### Parallel steps (`kind = "parallel"`)
+
+Run multiple named steps concurrently and wait for all to complete. Useful for independent requests that don't depend on each other's output:
+
+```toml
+[[steps]]
+name  = "Fetch data in parallel"
+kind  = "parallel"
+steps = ["Fetch users", "Fetch products", "Fetch config"]
+
+[[steps]]
+name   = "Fetch users"
+method = "GET"
+url    = "{{BASE_URL}}/users"
+[steps.extract]
+USERS = "data"
+
+[[steps]]
+name   = "Fetch products"
+method = "GET"
+url    = "{{BASE_URL}}/products"
+[steps.extract]
+PRODUCTS = "data"
+
+[[steps]]
+name   = "Fetch config"
+method = "GET"
+url    = "{{BASE_URL}}/config"
+[steps.extract]
+CONFIG = "settings"
+```
+
+| Field | Description |
+|-------|-------------|
+| `steps` | Array of step names to run concurrently |
+| `continue_on_error` | If `true`, the parallel step succeeds even if some children fail |
+
+**Behaviour:** all referenced steps are skipped in the normal sequential flow and run concurrently by the parallel step. Extracted variables from all children are merged into the campaign env (last-write-wins on conflict). The parallel step itself fails if any child fails (unless `continue_on_error = true`). The `PAR` badge (cyan) appears in the pipeline.
+
+By convention, place the referenced steps immediately after the parallel step in the TOML — the runner handles them in any order.
+
+### Notify steps (`kind = "notify"`)
+
+Send a message to a webhook without writing a full HTTP step. Ideal for Slack, Discord, Teams, or any custom endpoint:
+
+```toml
+[[steps]]
+name    = "Notify Slack"
+kind    = "notify"
+url     = "https://hooks.slack.com/services/T.../B.../xxx"
+message = '{"text": "Pipeline complete — {{ITEM_COUNT}} items processed in {{DURATION}}ms"}'
+
+[[steps]]
+name    = "Notify Discord"
+kind    = "notify"
+url     = "https://discord.com/api/webhooks/..."
+message = '{"content": "✓ {{CAMPAIGN_NAME}} done"}'
+[steps.headers]
+X-Custom-Auth = "{{WEBHOOK_TOKEN}}"
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `url` | `""` | Webhook URL |
+| `message` | `""` | Request body — supports `{{VAR}}` interpolation |
+| `method` | `POST` | HTTP method |
+| `headers` | `{}` | Additional headers (`Content-Type: application/json` injected by default) |
+
+The `NTFY` badge (magenta) appears in the pipeline.
+
 ---
 
 ### Campaign examples
@@ -809,9 +879,9 @@ terapi build my_campaign.toml       # edit an existing file
 
 **What's in the builder:**
 
-- **Numbered pipeline** — steps with badges (`HTTP` `TRSF` `WAIT` `SEED` `FILE` `SRCH` `LOOP` `POLL` `SET` `JQ` `#`) and inline hints (`↻` foreach, `⊘` when, `?` assertions)
+- **Numbered pipeline** — steps with badges (`HTTP` `TRSF` `WAIT` `SEED` `FILE` `SRCH` `LOOP` `POLL` `SET` `JQ` `PAR` `NTFY` `#`) and inline hints (`↻` foreach, `⊘` when, `?` assertions)
 - **[IN] / [OUT] sections** — navigable connectors above steps and output blocks below
-- **Brick catalog** — HTTP, Transform, Pause, Seed, File Loader, Search / Filter, JQ transform, Loop, Poll, Set, Comment, Connector [IN], Output [OUT]
+- **Brick catalog** — HTTP, Transform, Pause, Seed, File Loader, Search / Filter, JQ transform, Loop, Poll, Parallel, Set, Notify, Comment, Connector [IN], Output [OUT]
 - **Step editor** — all fields for every step type; multi-line body textarea; assertions, when, foreach guided entry
 - **Run step** (`r`) — execute the current step immediately; response shown in the right panel below the editor; status, assertions, extracted vars, body preview
 - **JSON path autocomplete** (`Tab` on Extract value) — after running a step, picks dot-paths from the response JSON

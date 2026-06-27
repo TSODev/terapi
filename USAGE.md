@@ -36,6 +36,8 @@
   - [Poll steps](#poll-steps)
   - [Set steps](#set-steps)
   - [JQ steps](#jq-steps)
+  - [Parallel steps](#parallel-steps)
+  - [Notify steps](#notify-steps)
   - [Loop steps (pagination)](#loop-steps-pagination)
   - [Multipart form-data](#multipart-form-data)
   - [Input connectors](#input-connectors)
@@ -2181,6 +2183,126 @@ In the Campaign Builder, add a **JQ transform** brick from the catalog (badge `J
 
 ---
 
+### Parallel steps
+
+A `kind = "parallel"` step launches multiple named steps concurrently and waits for all of them to finish before continuing. Useful for independent HTTP requests that do not depend on each other's results.
+
+#### How it works
+
+- The `steps` array lists the names of steps to run in parallel.
+- Those steps are **skipped** in the normal sequential flow — the runner pre-scans the pipeline and manages them exclusively through the parallel step.
+- Extracted variables from all children are merged into the campaign env (**last-write-wins** on key conflicts).
+- The parallel step fails if any child fails (unless `continue_on_error = true`).
+- By convention, place the referenced steps immediately after the parallel step in the TOML for readability.
+
+#### Example
+
+```toml
+[[steps]]
+name  = "Fetch data in parallel"
+kind  = "parallel"
+steps = ["Fetch users", "Fetch products", "Fetch config"]
+
+[[steps]]
+name   = "Fetch users"
+method = "GET"
+url    = "{{BASE_URL}}/users"
+[steps.extract]
+USERS = "data"
+
+[[steps]]
+name   = "Fetch products"
+method = "GET"
+url    = "{{BASE_URL}}/products"
+[steps.extract]
+PRODUCTS = "data"
+
+[[steps]]
+name   = "Fetch config"
+method = "GET"
+url    = "{{BASE_URL}}/config"
+[steps.extract]
+CONFIG = "settings"
+
+# All three variables (USERS, PRODUCTS, CONFIG) are available here
+[[steps]]
+name   = "Process data"
+kind   = "jq"
+jq_input      = "{{USERS}}"
+jq_expression = "length"
+jq_output     = "USER_COUNT"
+jq_raw        = true
+```
+
+#### Fields
+
+| Field | Description |
+|-------|-------------|
+| `steps` | Array of step names to run concurrently |
+| `continue_on_error` | `true` → parallel step succeeds even if some children fail |
+
+The `PAR` badge (cyan) appears in the pipeline idle view and CLI output.
+
+In the Campaign Builder, add a **Parallel** brick from the catalog. Use `a` to add step names to the list, `d` to remove.
+
+---
+
+### Notify steps
+
+A `kind = "notify"` step sends a webhook message without requiring a full HTTP step configuration. The `message` field is sent as the request body with `Content-Type: application/json` injected by default.
+
+#### Examples
+
+```toml
+# Slack incoming webhook
+[[steps]]
+name    = "Notify Slack"
+kind    = "notify"
+url     = "https://hooks.slack.com/services/T.../B.../xxx"
+message = '{"text": "Pipeline complete — {{ITEM_COUNT}} items processed"}'
+
+# Discord webhook
+[[steps]]
+name    = "Notify Discord"
+kind    = "notify"
+url     = "https://discord.com/api/webhooks/..."
+message = '{"content": "✓ Campaign done in {{DURATION}}ms"}'
+
+# Custom endpoint with auth header
+[[steps]]
+name    = "Notify monitoring"
+kind    = "notify"
+url     = "https://monitoring.example.com/events"
+message = '{"event": "pipeline_done", "status": "{{STATUS}}", "run": "{{RUN_ID}}"}'
+[steps.headers]
+Authorization = "Bearer {{NOTIFY_TOKEN}}"
+
+# Conditionally notify only on failure
+[[steps]]
+name    = "Alert on failure"
+kind    = "notify"
+when    = { var = "PIPELINE_OK", eq = "false" }
+url     = "{{SLACK_WEBHOOK}}"
+message = '{"text": "⚠ Pipeline failed at step {{FAILED_STEP}}"}'
+```
+
+#### Fields
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `url` | `""` | Webhook URL — supports `{{VAR}}` |
+| `message` | `""` | Request body — supports `{{VAR}}` interpolation |
+| `method` | `POST` | HTTP method (cycle with `←/→` in builder) |
+| `headers` | `{}` | Additional headers; `Content-Type: application/json` added automatically |
+| `when` | — | Optional condition — skip the notification when condition is false |
+| `continue_on_error` | `false` | Non-blocking failure if webhook is unreachable |
+
+The `NTFY` badge (magenta) appears in the pipeline idle view and CLI output.
+
+In the Campaign Builder, add a **Notify (webhook)** brick from the catalog.
+
+---
+
 ### Loop steps (pagination)
 
 A `kind = "loop"` step repeats an HTTP request in a loop — resolving `{{VAR}}` from the current env before each request, extracting variables from each response, and stopping when an `until` condition is met. Results from every iteration can be accumulated into a single JSON array.
@@ -2936,6 +3058,8 @@ Press `n` (append) or `i` (insert after cursor) to open the catalog:
 | JQ transform | `JQ  ` | `kind = "jq"` — apply a jq filter to a JSON variable (**requires `jq`**) |
 | Poll | `POLL` | `kind = "poll"` — repeat HTTP until an `until` condition is met (or timeout) |
 | Set | `SET ` | `kind = "set"` — assign literal/template variables without HTTP |
+| Parallel | `PAR ` | `kind = "parallel"` — run multiple named steps concurrently, wait for all |
+| Notify | `NTFY` | `kind = "notify"` — POST a message to a webhook (Slack, Discord, custom) |
 | Comment | `#` | TOML comment line between steps, skipped at runtime |
 | Connector [IN] | — | `[[connectors]]` block (CSV or JSON data source) |
 | Output [OUT] | — | `[[outputs]]` block (collects step responses to a JSON file) |
@@ -2977,6 +3101,10 @@ Press `n` (append) or `i` (insert after cursor) to open the catalog:
 **Poll step fields:** Name · Description · Method · URL · Headers (key=value list) · Extract (key=value list) · Until — var · Until — condition (cycle: `not exists → exists → == → != → < → <=`) · Interval ms · Timeout secs · Continue on error
 
 **Set step fields:** Name · Description · Vars (key=value list — `a` to add, `d` to delete, `Enter` to edit)
+
+**Parallel step fields:** Name · Description · Steps (list of step names — `a` to add a name, `d` to remove) · Continue on error
+
+**Notify step fields:** Name · Description · Webhook URL · Method (cycle `←/→`: POST/GET/PUT/PATCH/DELETE) · Message (body with `{{VAR}}`) · Headers (key=value list) · When · Continue on error
 
 **Loop step fields:**
 

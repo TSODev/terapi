@@ -24,9 +24,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Badge `JQ` (green) in pipeline and CLI output
   - Full step editor in `terapi build`
 
+- `kind = "parallel"` campaign step — run multiple named steps concurrently, wait for all to complete
+  - `steps = ["Step A", "Step B"]` — named steps are pre-scanned and skipped in the sequential flow
+  - Extractions from all children are merged (last-write-wins on conflict)
+  - `continue_on_error = true` makes the parallel step succeed even if some children fail
+  - Badge `PAR` (cyan) in pipeline and CLI output
+  - Full step editor in `terapi build`: Steps list with `a`/`d` to add/remove names
+- `kind = "notify"` campaign step — POST a webhook message (Slack, Discord, Teams, custom)
+  - `url` + `message` (supports `{{VAR}}`) + optional `headers` + `method` (default POST)
+  - `Content-Type: application/json` injected automatically unless overridden
+  - Supports `when` for conditional notification
+  - Badge `NTFY` (magenta) in pipeline and CLI output
+  - Full step editor in `terapi build`
+
 ### Changed
 - `jq` availability is now checked explicitly before spawning the process; missing binary produces a user-friendly error instead of an OS error code
-- Campaign Builder: step editor now shows a contextual **Help** strip at the bottom of the editor panel when a step is selected — 3-line description (what it does · key behavior · keybindings), adapts to each step type (`http`, `seed`, `transform`, `pause`, `file`, `search`, `jq`, `poll`, `set`, `loop`, `comment`)
+- Campaign Builder: step editor now shows a contextual **Help** strip at the bottom of the editor panel when a step is selected — 3-line description (what it does · key behavior · keybindings), adapts to each step type (`http`, `seed`, `transform`, `pause`, `file`, `search`, `jq`, `poll`, `set`, `loop`, `parallel`, `notify`, `comment`)
 
 ---
 

@@ -159,6 +159,12 @@ pub struct Step {
     pub jq_output: Option<String>,
     #[serde(default)]
     pub jq_raw: bool,
+    // Parallel step fields (kind = "parallel")
+    #[serde(default)]
+    pub parallel_steps: Vec<String>,
+    // Notify step fields (kind = "notify")
+    #[serde(default)]
+    pub message: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -1108,6 +1114,64 @@ async fn run_single_step(
         }
     }
 
+    // Notify step — lightweight webhook POST; reuses HTTP machinery with message as body.
+    if step.kind == "notify" {
+        let mut http_step = step.clone();
+        http_step.kind   = "http".into();
+        if http_step.method.is_empty() { http_step.method = "POST".into(); }
+        if let Some(ref msg) = step.message {
+            http_step.body = Some(resolve(msg, effective));
+        }
+        http_step.headers.entry("Content-Type".to_string())
+            .or_insert_with(|| "application/json".to_string());
+        let url = resolve(&http_step.url, effective);
+        let body = http_step.body.as_deref().map(|b| resolve(b, effective));
+        let request_headers: Vec<(String, String)> = http_step.headers.iter()
+            .map(|(k, v)| (k.clone(), resolve(v, effective)))
+            .collect();
+        let request_body = body.clone();
+        let t0 = Instant::now();
+        return match execute_step(client, &http_step, &url, body.as_deref(), effective).await {
+            Ok(http) => {
+                let success = http.status < 400;
+                StepResult {
+                    name:            step.name.clone(),
+                    method:          "NTFY".into(),
+                    url,
+                    status:          Some(http.status),
+                    duration_ms:     t0.elapsed().as_millis() as u64,
+                    success,
+                    skipped:         false,
+                    non_blocking:    effective_coe,
+                    error:           if !success { Some(format!("HTTP {}", http.status)) } else { None },
+                    extracted:       HashMap::new(),
+                    assertion_results: vec![],
+                    body_json:       None,
+                    graphql:         false,
+                    request_headers,
+                    request_body,
+                }
+            }
+            Err(e) => StepResult {
+                name:            step.name.clone(),
+                method:          "NTFY".into(),
+                url:             resolve(&step.url, effective),
+                status:          None,
+                duration_ms:     t0.elapsed().as_millis() as u64,
+                success:         false,
+                skipped:         false,
+                non_blocking:    effective_coe,
+                error:           Some(e.to_string()),
+                extracted:       HashMap::new(),
+                assertion_results: vec![],
+                body_json:       None,
+                graphql:         false,
+                request_headers,
+                request_body,
+            },
+        };
+    }
+
     // HTTP step — capture the fully-resolved request snapshot for the TUI "Load in Request" feature.
     let url     = resolve(&step.url, effective);
     let body    = step.body.as_deref().map(|b| resolve(b, effective));
@@ -1193,6 +1257,13 @@ async fn run_steps_streaming(
     let mut extracted: HashMap<String, String> = HashMap::new();
     let mut results = Vec::new();
 
+    // Pre-scan: collect step names referenced by any parallel step so they can be skipped
+    // in the main loop (they will be launched concurrently by their parent parallel step).
+    let parallel_children: std::collections::HashSet<String> = steps.iter()
+        .filter(|s| s.kind == "parallel")
+        .flat_map(|s| s.parallel_steps.iter().cloned())
+        .collect();
+
     for step in steps {
         let effective_coe = step.continue_on_error.unwrap_or(campaign_coe);
         let mut effective = base_env.clone();
@@ -1229,6 +1300,11 @@ async fn run_steps_streaming(
             };
             let _ = tx.send(CampaignEvent::StepDone(skipped.clone()));
             results.push(skipped);
+            continue;
+        }
+
+        // ── parallel child — managed by its parent parallel step ─────────────
+        if parallel_children.contains(&step.name) {
             continue;
         }
 
@@ -1356,6 +1432,18 @@ async fn run_steps_streaming(
             let failed = !loop_result.success;
             let _ = tx.send(CampaignEvent::StepDone(loop_result.clone()));
             results.push(loop_result);
+            if failed && !effective_coe { break; }
+            continue;
+        }
+
+        // ── parallel step ─────────────────────────────────────────────────────
+        if step.kind == "parallel" {
+            let _ = tx.send(CampaignEvent::StepStarted { name: step.name.clone() });
+            let (result, new_extracted) = run_parallel_step(client, step, steps, &effective, effective_coe, tx).await;
+            if result.success { extracted.extend(new_extracted); }
+            let failed = !result.success;
+            let _ = tx.send(CampaignEvent::StepDone(result.clone()));
+            results.push(result);
             if failed && !effective_coe { break; }
             continue;
         }
@@ -1701,6 +1789,84 @@ async fn run_jq_step(step: &Step, env: &HashMap<String, String>) -> anyhow::Resu
     let mut extracted = HashMap::new();
     extracted.insert(output_var, result);
     Ok(extracted)
+}
+
+// ── parallel step ─────────────────────────────────────────────────────────────
+
+async fn run_parallel_step(
+    client: &reqwest::Client,
+    step: &Step,
+    all_steps: &[Step],
+    effective: &HashMap<String, String>,
+    effective_coe: bool,
+    tx: &mpsc::UnboundedSender<CampaignEvent>,
+) -> (StepResult, HashMap<String, String>) {
+    let t0 = Instant::now();
+
+    let children: Vec<Step> = all_steps.iter()
+        .filter(|s| step.parallel_steps.contains(&s.name))
+        .cloned()
+        .collect();
+
+    if children.is_empty() {
+        let result = StepResult {
+            name: step.name.clone(), method: "PAR ".into(), url: String::new(),
+            status: None, duration_ms: 0, success: true, skipped: false,
+            non_blocking: effective_coe, error: None, extracted: HashMap::new(),
+            assertion_results: vec![], body_json: None, graphql: false,
+            request_headers: vec![], request_body: None,
+        };
+        return (result, HashMap::new());
+    }
+
+    let mut set = tokio::task::JoinSet::new();
+    for child in children {
+        let client = client.clone();
+        let env = effective.clone();
+        let coe = child.continue_on_error.unwrap_or(effective_coe);
+        set.spawn(async move {
+            run_single_step(&client, &child, &env, coe).await
+        });
+    }
+
+    let mut merged: HashMap<String, String> = HashMap::new();
+    let mut any_failed = false;
+    while let Some(res) = set.join_next().await {
+        match res {
+            Ok(result) => {
+                if result.success {
+                    merged.extend(result.extracted.clone());
+                } else {
+                    any_failed = true;
+                }
+                let _ = tx.send(CampaignEvent::StepDone(result));
+            }
+            Err(e) => {
+                any_failed = true;
+                let _ = tx.send(CampaignEvent::Warning(format!("parallel spawn error: {e}")));
+            }
+        }
+    }
+
+    let duration_ms = t0.elapsed().as_millis() as u64;
+    let outer = StepResult {
+        name:            step.name.clone(),
+        method:          "PAR ".into(),
+        url:             String::new(),
+        status:          None,
+        duration_ms,
+        success:         !any_failed,
+        skipped:         false,
+        non_blocking:    effective_coe,
+        error:           if any_failed { Some("one or more parallel steps failed".into()) } else { None },
+        extracted:       merged.clone(),
+        assertion_results: vec![],
+        body_json:       None,
+        graphql:         false,
+        request_headers: vec![],
+        request_body:    None,
+    };
+    (outer, merged)
 }
 
 // ── transform step ────────────────────────────────────────────────────────────

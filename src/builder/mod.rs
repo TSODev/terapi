@@ -1489,6 +1489,35 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             timeout_secs: 60,
             vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false,
         },
+        BrickKind::Parallel => Step {
+            name: "Run in parallel".into(),
+            kind: "parallel".into(),
+            parallel_steps: vec![],
+            method: String::new(), url: String::new(),
+            headers: std::collections::HashMap::new(), body: None, wait_ms: 0, env: None,
+            extract: std::collections::HashMap::new(), assert: vec![], transforms: vec![],
+            continue_on_error: None, foreach: None, when: None, description: String::new(),
+            file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(),
+            until: None, accumulate: None, search: None, interval_ms: 1000, timeout_secs: 60,
+            vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None,
+            jq_output: None, jq_raw: false, message: None,
+        },
+        BrickKind::Notify => Step {
+            name: "Notify webhook".into(),
+            kind: "notify".into(),
+            url: String::new(),
+            method: "POST".into(),
+            message: Some(r#"{"text": "Pipeline done"}"#.into()),
+            headers: std::collections::HashMap::new(), body: None, wait_ms: 0, env: None,
+            extract: std::collections::HashMap::new(), assert: vec![], transforms: vec![],
+            continue_on_error: None, foreach: None, when: None, description: String::new(),
+            file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(),
+            until: None, accumulate: None, search: None, interval_ms: 1000, timeout_secs: 60,
+            vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None,
+            jq_output: None, jq_raw: false, parallel_steps: vec![],
+        },
         // Connector and Output are handled directly in handle_catalog_key — not steps
         BrickKind::Connector | BrickKind::Output => unreachable!(),
     }
@@ -1690,6 +1719,21 @@ pub(super) fn generate_toml(campaign: &Campaign, step_comments: &[String], heade
             }
             if step.timeout_secs != 60 {
                 out.push_str(&format!("timeout_secs = {}\n", step.timeout_secs));
+            }
+        }
+        if !step.parallel_steps.is_empty() {
+            let names: Vec<String> = step.parallel_steps.iter().map(|n| format!("\"{}\"", toml_escape(n))).collect();
+            out.push_str(&format!("steps = [{}]\n", names.join(", ")));
+        }
+        if step.kind == "notify" {
+            if let Some(ref msg) = step.message {
+                if !msg.is_empty() {
+                    if msg.contains('\n') {
+                        out.push_str(&format!("message = '''\n{}\n'''\n", msg));
+                    } else {
+                        out.push_str(&format!("message = '{}'\n", msg.replace('\'', "\\'")));
+                    }
+                }
             }
         }
         if let Some(ref cfg) = step.search {

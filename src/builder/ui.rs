@@ -311,6 +311,8 @@ fn step_badge(kind: &str) -> (&'static str, Color) {
         "set"       => ("SET ", Color::Blue),
         "jq"        => ("JQ  ", Color::Green),
         "search"    => ("SRCH", Color::Cyan),
+        "parallel"  => ("PAR ", Color::Cyan),
+        "notify"    => ("NTFY", Color::Magenta),
         _           => ("HTTP", Color::Cyan),
     }
 }
@@ -1155,6 +1157,16 @@ fn step_help_text(kind: &str) -> (&'static str, &'static str, &'static str) {
             "Use to separate pipeline sections or annotate intent for future readers.",
             "Enter: edit comment text",
         ),
+        "parallel" => (
+            "Run multiple named steps concurrently, then wait for all to complete.",
+            "Extractions are merged (last-write-wins on conflict). Steps listed here are skipped in the main flow.",
+            "a: add step name  ·  d: remove  ·  place referenced steps just after this one by convention",
+        ),
+        "notify" => (
+            "POST a message to a webhook URL — Slack, Discord, Teams, or any HTTP endpoint.",
+            "message field is sent as the body; Content-Type: application/json injected by default.",
+            "Enter: edit URL or message  ·  ←/→: cycle method  ·  a: add header",
+        ),
         _ => (
             "Send an HTTP request and capture the response body and headers.",
             "Use [extract] to pull JSON values into variables for use in later steps.",
@@ -1642,7 +1654,9 @@ fn render_output_step_picker(frame: &mut Frame, app: &BuilderApp, step_cursor: u
     rows.push(ListItem::new(Line::from("")));
 
     let steps: Vec<&crate::campaign::Step> = app.campaign.steps.iter()
-        .filter(|s| s.kind != "comment" && s.kind != "transform" && s.kind != "pause" && s.kind != "file")
+        .filter(|s| s.kind != "comment" && s.kind != "transform" && s.kind != "pause"
+                 && s.kind != "file" && s.kind != "parallel" && s.kind != "notify"
+                 && s.kind != "set" && s.kind != "jq" && s.kind != "search")
         .collect();
 
     if steps.is_empty() {

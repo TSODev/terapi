@@ -84,6 +84,7 @@ pub enum PairTarget {
     Extract,
     GraphqlVariables,
     Vars,
+    ParallelSteps,  // single-stage: step name only (no value)
 }
 
 /// (label, needs_value)
@@ -188,6 +189,12 @@ pub enum StepSection {
     PollIntervalMs,
     PollTimeoutSecs,
     PollContinueOnError,
+    // Parallel step sections
+    ParallelSteps,
+    // Notify step sections
+    NotifyUrl,
+    NotifyMethod,
+    NotifyMessage,
 }
 
 impl StepSection {
@@ -243,6 +250,10 @@ impl StepSection {
             StepSection::PollIntervalMs     => "Interval (ms)",
             StepSection::PollTimeoutSecs    => "Timeout (s)",
             StepSection::PollContinueOnError => "Continue on error",
+            StepSection::ParallelSteps => "Steps (run in parallel)",
+            StepSection::NotifyUrl     => "Webhook URL",
+            StepSection::NotifyMethod  => "Method",
+            StepSection::NotifyMessage => "Message (body)",
         }
     }
 
@@ -252,7 +263,7 @@ impl StepSection {
             StepSection::MultipartParts | StepSection::GraphqlVariables |
             StepSection::LoopExtract | StepSection::LoopHeaders |
             StepSection::PollHeaders | StepSection::PollExtract |
-            StepSection::SetVars
+            StepSection::SetVars | StepSection::ParallelSteps
         )
     }
 }
@@ -268,6 +279,8 @@ pub enum BrickKind {
     Poll,
     Set,
     Jq,
+    Parallel,
+    Notify,
     Transform,
     Pause,
     Seed,
@@ -287,6 +300,8 @@ impl BrickKind {
             BrickKind::Poll       => "Poll (wait for condition)",
             BrickKind::Set        => "Set variables",
             BrickKind::Jq         => "JQ transform",
+            BrickKind::Parallel   => "Parallel",
+            BrickKind::Notify     => "Notify (webhook)",
             BrickKind::Transform  => "Transform",
             BrickKind::Pause      => "Pause",
             BrickKind::Seed       => "Seed",
@@ -305,6 +320,8 @@ impl BrickKind {
             BrickKind::Poll       => "poll an endpoint until a condition is true (async job polling)",
             BrickKind::Set        => "assign literal values to variables ({{VAR}} supported in values)",
             BrickKind::Jq         => "apply a jq expression to a JSON variable (requires jq installed)",
+            BrickKind::Parallel   => "run multiple named steps concurrently, wait for all to complete",
+            BrickKind::Notify     => "POST a message to a webhook URL (Slack, Discord, Teams, custom)",
             BrickKind::Transform  => "variable transform",
             BrickKind::Pause      => "wait (ms)",
             BrickKind::Seed       => "seed connector (inline)",
@@ -321,9 +338,11 @@ pub const BRICK_KINDS: &[BrickKind] = &[
     BrickKind::GraphQL,
     BrickKind::Loop,
     BrickKind::Poll,
+    BrickKind::Parallel,
     BrickKind::Search,
     BrickKind::Set,
     BrickKind::Jq,
+    BrickKind::Notify,
     BrickKind::Transform,
     BrickKind::Pause,
     BrickKind::Seed,

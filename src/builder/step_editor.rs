@@ -99,6 +99,22 @@ pub fn sections_for(kind: &str) -> Vec<StepSection> {
             StepSection::SearchOutput,
             StepSection::SearchFirstOnly,
         ],
+        "parallel" => vec![
+            StepSection::Name,
+            StepSection::Description,
+            StepSection::ParallelSteps,
+            StepSection::ContinueOnError,
+        ],
+        "notify" => vec![
+            StepSection::Name,
+            StepSection::Description,
+            StepSection::NotifyUrl,
+            StepSection::NotifyMethod,
+            StepSection::NotifyMessage,
+            StepSection::Headers,
+            StepSection::When,
+            StepSection::ContinueOnError,
+        ],
         _ => vec![
             StepSection::Name,
             StepSection::Description,
@@ -844,6 +860,55 @@ fn handle_browse(
             }
         }
 
+        // ── Parallel step sections ────────────────────────────────────────────
+        StepSection::ParallelSteps => match key.code {
+            KeyCode::Char('a') => {
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::AddPairStage1 { target: PairTarget::ParallelSteps, buffer: String::new() });
+            }
+            KeyCode::Char('d') => {
+                let step = &mut app.campaign.steps[step_idx];
+                if !step.parallel_steps.is_empty() {
+                    let remove_idx = sub_cursor.min(step.parallel_steps.len() - 1);
+                    step.parallel_steps.remove(remove_idx);
+                    app.modified = true;
+                    let new_len = step.parallel_steps.len();
+                    let new_sub = if new_len == 0 { 0 } else { sub_cursor.min(new_len - 1) };
+                    set_focus(app, step_idx, section_cursor, new_sub, StepEditorMode::Browse);
+                }
+            }
+            _ => {}
+        },
+
+        // ── Notify step sections ──────────────────────────────────────────────
+        StepSection::NotifyUrl => {
+            if key.code == KeyCode::Enter {
+                let buf = app.campaign.steps[step_idx].url.clone();
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
+            }
+        }
+        StepSection::NotifyMethod => {
+            if matches!(key.code, KeyCode::Enter | KeyCode::Left | KeyCode::Right) {
+                let step = &mut app.campaign.steps[step_idx];
+                let methods = ["POST", "GET", "PUT", "PATCH", "DELETE"];
+                let idx = methods.iter().position(|&m| m == step.method).unwrap_or(0);
+                step.method = methods[if key.code == KeyCode::Left {
+                    (idx + methods.len() - 1) % methods.len()
+                } else {
+                    (idx + 1) % methods.len()
+                }].to_string();
+                app.modified = true;
+            }
+        }
+        StepSection::NotifyMessage => {
+            if key.code == KeyCode::Enter {
+                let buf = app.campaign.steps[step_idx].message.clone().unwrap_or_default();
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
+            }
+        }
+
         // ── Action ───────────────────────────────────────────────────────────
         StepSection::LoadFromCollection => {
             if matches!(key.code, KeyCode::Enter | KeyCode::Char('L')) {
@@ -995,6 +1060,9 @@ fn apply_text_edit(app: &mut BuilderApp, step_idx: usize, section: &StepSection,
                 });
                 u.var = value.to_string();
             }
+            // Notify sections
+            StepSection::NotifyUrl     => step.url     = value.to_string(),
+            StepSection::NotifyMessage => step.message = if value.is_empty() { None } else { Some(value.to_string()) },
             // Search sections
             StepSection::SearchInput | StepSection::SearchPath | StepSection::SearchMatch | StepSection::SearchOutput => {
                 let cfg = step.search.get_or_insert(crate::campaign::SearchConfig {
@@ -1032,8 +1100,15 @@ fn handle_add_stage1(
         }
         KeyCode::Enter if !buffer.is_empty() => {
             let key_str = buffer.trim().to_string();
-            set_focus(app, step_idx, section_cursor, sub_cursor,
-                StepEditorMode::AddPairStage2 { target, key: key_str, buffer: String::new(), cursor: 0 });
+            // ParallelSteps: single-stage — just append the step name (no value stage)
+            if target == PairTarget::ParallelSteps {
+                app.campaign.steps[step_idx].parallel_steps.push(key_str);
+                app.modified = true;
+                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
+            } else {
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::AddPairStage2 { target, key: key_str, buffer: String::new(), cursor: 0 });
+            }
         }
         KeyCode::Backspace => {
             buffer.pop();
@@ -1514,6 +1589,12 @@ pub fn current_value(app: &BuilderApp, step_idx: usize, section: &StepSection) -
         StepSection::PollTimeoutSecs    => step.timeout_secs.to_string(),
         StepSection::PollContinueOnError =>
             if step.continue_on_error.unwrap_or(false) { "[x]".into() } else { "[ ]".into() },
+        // Parallel sections
+        StepSection::ParallelSteps => format!("({} steps)", step.parallel_steps.len()),
+        // Notify sections
+        StepSection::NotifyUrl     => step.url.clone(),
+        StepSection::NotifyMethod  => if step.method.is_empty() { "POST".into() } else { step.method.clone() },
+        StepSection::NotifyMessage => step.message.clone().unwrap_or_default(),
     }
 }
 

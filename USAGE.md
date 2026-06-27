@@ -3322,7 +3322,7 @@ When there are unsaved changes (`*` in the pipeline title), pressing `q` shows a
 | `n` | New step (append) → Catalog |
 | `i` | Insert step after cursor → Catalog |
 | `D` | Duplicate selected step (inserts copy below, cursor follows) |
-| `d` | Delete selected step |
+| `d` | Delete selected step (requires confirmation — press `d` again to confirm, any other key cancels) |
 | `K` / `J` | Move step up / down |
 | `r` | Run full campaign → Run view |
 | `s` | Campaign settings |

@@ -891,7 +891,7 @@ terapi build my_campaign.toml       # edit an existing file
 
 **What's in the builder:**
 
-- **Numbered pipeline** — steps with badges (`HTTP` `TRSF` `WAIT` `SEED` `FILE` `SRCH` `LOOP` `POLL` `SET` `JQ` `PAR` `NTFY` `#`) and inline hints (`↻` foreach, `⊘` when, `?` assertions); `D` duplicates the selected step, `d` deletes, `K`/`J` reorder
+- **Numbered pipeline** — steps with badges (`HTTP` `TRSF` `WAIT` `SEED` `FILE` `SRCH` `LOOP` `POLL` `SET` `JQ` `PAR` `NTFY` `#`) and inline hints (`↻` foreach, `⊘` when, `?` assertions); `D` duplicates the selected step, `d` deletes (with confirmation — press `d` again to confirm), `K`/`J` reorder
 - **[IN] / [OUT] sections** — navigable connectors above steps and output blocks below
 - **Brick catalog** — HTTP, Transform, Pause, Seed, File Loader, Search / Filter, JQ transform, Loop, Poll, Parallel, Set, Notify, Comment, Connector [IN], Output [OUT]
 - **Step editor** — all fields for every step type; multi-line body textarea; assertions, when, foreach guided entry

@@ -130,6 +130,8 @@ pub enum StepEditorMode {
     ExtractPicker { key: String, paths: Vec<String>, filter: String, cursor: usize },
     // GraphQL query editor (multi-line textarea)
     EditGraphqlQuery,
+    // Step name picker for Parallel step's steps list
+    AddParallelStep { cursor: usize },
 }
 
 #[derive(Debug, Clone, PartialEq)]

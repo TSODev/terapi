@@ -40,6 +40,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 - `jq` availability is now checked explicitly before spawning the process; missing binary produces a user-friendly error instead of an OS error code
 - Campaign Builder: step editor now shows a contextual **Help** strip at the bottom of the editor panel when a step is selected — 3-line description (what it does · key behavior · keybindings), adapts to each step type (`http`, `seed`, `transform`, `pause`, `file`, `search`, `jq`, `poll`, `set`, `loop`, `parallel`, `notify`, `comment`)
+- Campaign Builder: pipeline panel and all context panels now have 1 line of top padding inside the border for visual breathing room
+- Campaign Builder: step run result panel now shows the **full JSON body** (no truncation) with syntax highlighting (keys=cyan, strings=green, numbers=yellow, booleans=magenta); scrollable with `[` / `]` (or `Fn+↑` / `Fn+↓` on Mac)
+- Campaign Builder: **Parallel step picker** — adding a step to a parallel's list now opens a visual picker overlay (↑/↓ + Enter) instead of a free-text prompt; only `http`, `graphql`, `seed`, `poll`, `loop` steps are listed (steps that perform network requests)
 
 ---
 

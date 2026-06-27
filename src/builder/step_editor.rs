@@ -226,6 +226,8 @@ pub fn handle_key(
             handle_extract_picker(app, key, step_idx, section_cursor, sub_cursor, pair_key, paths, filter, cursor),
         StepEditorMode::EditBody => Ok(()), // handled at the top of handle_key
         StepEditorMode::EditGraphqlQuery => Ok(()), // handled at the top of handle_key
+        StepEditorMode::AddParallelStep { cursor } =>
+            handle_add_parallel_step(app, key, step_idx, section_cursor, sub_cursor, cursor),
     }
 }
 
@@ -862,9 +864,9 @@ fn handle_browse(
 
         // ── Parallel step sections ────────────────────────────────────────────
         StepSection::ParallelSteps => match key.code {
-            KeyCode::Char('a') => {
+            KeyCode::Char('a') | KeyCode::Enter => {
                 set_focus(app, step_idx, section_cursor, sub_cursor,
-                    StepEditorMode::AddPairStage1 { target: PairTarget::ParallelSteps, buffer: String::new() });
+                    StepEditorMode::AddParallelStep { cursor: 0 });
             }
             KeyCode::Char('d') => {
                 let step = &mut app.campaign.steps[step_idx];
@@ -1100,15 +1102,8 @@ fn handle_add_stage1(
         }
         KeyCode::Enter if !buffer.is_empty() => {
             let key_str = buffer.trim().to_string();
-            // ParallelSteps: single-stage — just append the step name (no value stage)
-            if target == PairTarget::ParallelSteps {
-                app.campaign.steps[step_idx].parallel_steps.push(key_str);
-                app.modified = true;
-                set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
-            } else {
-                set_focus(app, step_idx, section_cursor, sub_cursor,
-                    StepEditorMode::AddPairStage2 { target, key: key_str, buffer: String::new(), cursor: 0 });
-            }
+            set_focus(app, step_idx, section_cursor, sub_cursor,
+                StepEditorMode::AddPairStage2 { target, key: key_str, buffer: String::new(), cursor: 0 });
         }
         KeyCode::Backspace => {
             buffer.pop();
@@ -1164,6 +1159,7 @@ fn handle_add_stage2(
                 PairTarget::Extract          => { step.extract.insert(pair_key, buffer.trim().to_string()); }
                 PairTarget::GraphqlVariables => { step.graphql_variables.insert(pair_key, buffer.trim().to_string()); }
                 PairTarget::Vars             => { step.vars.insert(pair_key, buffer.trim().to_string()); }
+                PairTarget::ParallelSteps    => unreachable!("ParallelSteps is single-stage, never reaches stage 2"),
             }
             app.modified = true;
             set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
@@ -1738,4 +1734,47 @@ fn collect_paths_recursive(value: &Value, prefix: String, paths: &mut Vec<String
         }
         _ => {}
     }
+}
+
+// ── Parallel step picker ───────────────────────────────────────────────────────
+
+fn handle_add_parallel_step(
+    app: &mut BuilderApp,
+    key: KeyEvent,
+    step_idx: usize,
+    section_cursor: usize,
+    sub_cursor: usize,
+    mut cursor: usize,
+) -> Result<()> {
+    // Build list of candidate step names (all steps except self and already-added)
+    let already: std::collections::HashSet<String> = app.campaign.steps[step_idx]
+        .parallel_steps.iter().cloned().collect();
+    let candidates: Vec<String> = app.campaign.steps.iter().enumerate()
+        .filter(|(i, s)| *i != step_idx
+            && matches!(s.kind.as_str(), "http" | "graphql" | "seed" | "poll" | "loop")
+            && !already.contains(&s.name))
+        .map(|(_, s)| s.name.clone())
+        .collect();
+
+    match key.code {
+        KeyCode::Esc => {
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
+        }
+        KeyCode::Up => {
+            cursor = cursor.saturating_sub(1);
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddParallelStep { cursor });
+        }
+        KeyCode::Down => {
+            if !candidates.is_empty() { cursor = (cursor + 1).min(candidates.len() - 1); }
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddParallelStep { cursor });
+        }
+        KeyCode::Enter if !candidates.is_empty() => {
+            let name = candidates[cursor.min(candidates.len() - 1)].clone();
+            app.campaign.steps[step_idx].parallel_steps.push(name);
+            app.modified = true;
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
+        }
+        _ => {}
+    }
+    Ok(())
 }

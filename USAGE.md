@@ -2243,7 +2243,7 @@ jq_raw        = true
 
 The `PAR` badge (cyan) appears in the pipeline idle view and CLI output.
 
-In the Campaign Builder, add a **Parallel** brick from the catalog. Use `a` to add step names to the list, `d` to remove.
+In the Campaign Builder, add a **Parallel** brick from the catalog. Press `a` (or `Enter`) on the **Steps** row to open a visual picker listing all eligible steps (`http`, `graphql`, `seed`, `poll`, `loop`) that are not already in the list. Use `↑/↓` to navigate, `Enter` to add, `Esc` to cancel. Press `d` to remove the highlighted entry.
 
 ---
 
@@ -3102,7 +3102,7 @@ Press `n` (append) or `i` (insert after cursor) to open the catalog:
 
 **Set step fields:** Name · Description · Vars (key=value list — `a` to add, `d` to delete, `Enter` to edit)
 
-**Parallel step fields:** Name · Description · Steps (list of step names — `a` to add a name, `d` to remove) · Continue on error
+**Parallel step fields:** Name · Description · Steps (list of network-request step names — `a`/`Enter` opens a visual picker, `d` removes) · Continue on error
 
 **Notify step fields:** Name · Description · Webhook URL · Method (cycle `←/→`: POST/GET/PUT/PATCH/DELETE) · Message (body with `{{VAR}}`) · Headers (key=value list) · When · Continue on error
 
@@ -3133,7 +3133,7 @@ Press `r` in the step editor (Browse mode) to execute the current step immediate
 The right panel splits: step editor on top (55%), run result below (45%):
 
 ```
-┌─ ✓ Run result ─────────────────────────────────┐
+┌─ ✓ Run result  [/]: scroll ────────────────────┐
 │  200  142 ms  https://api.example.com/users      │
 │  ✓ status eq 200                                 │
 │  ↳ USER_ID = 42                                  │
@@ -3141,7 +3141,7 @@ The right panel splits: step editor on top (55%), run result below (45%):
 │  {                                               │
 │    "id": 42,                                     │
 │    "name": "Alice",                              │
-│    …                                             │
+│    "email": "alice@example.com"                  │
 │  }                                               │
 └──────────────────────────────────────────────────┘
 ```
@@ -3149,7 +3149,9 @@ The right panel splits: step editor on top (55%), run result below (45%):
 - Status code is colour-coded (green < 300, yellow 3xx, red 4xx/5xx)
 - Assertion results shown as `✓` / `✗`
 - Extracted variables shown as `↳ KEY = value`
-- First 6 lines of the JSON body previewed
+- Full JSON body displayed with syntax highlighting (keys=cyan, strings=green, numbers=yellow, booleans=magenta)
+- `[` / `]` scroll the body 10 lines at a time (`Fn+↑` / `Fn+↓` on Mac keyboards)
+- The result panel persists when navigating to adjacent steps — useful for referencing the JSON structure while configuring the next step
 
 Works for all step types: HTTP, File Loader, Transform, Pause. Comment steps are excluded.
 

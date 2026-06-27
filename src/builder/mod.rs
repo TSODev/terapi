@@ -46,6 +46,7 @@ pub struct BuilderApp {
     pub step_preview_running: bool,
     pub step_preview_result: Option<crate::campaign::StepResult>,
     pub step_preview_rx: Option<mpsc::UnboundedReceiver<crate::campaign::StepResult>>,
+    pub step_preview_scroll: usize,
 }
 
 impl BuilderApp {
@@ -89,6 +90,7 @@ impl BuilderApp {
             step_preview_running: false,
             step_preview_result: None,
             step_preview_rx: None,
+            step_preview_scroll: 0,
         }
     }
 
@@ -102,6 +104,15 @@ impl BuilderApp {
                 self.handle_catalog_key(key, cursor, insert_after)
             }
             BuilderFocus::StepEditor { step_idx, section_cursor, sub_cursor, mode, desc_active } => {
+                // PageUp/PageDown scroll the preview panel when a result is visible
+                if self.step_preview_result.is_some() || self.step_preview_running {
+                    use crossterm::event::KeyCode;
+                    match key.code {
+                        KeyCode::PageUp | KeyCode::Char('[') => { self.step_preview_scroll = self.step_preview_scroll.saturating_sub(10); return Ok(()); }
+                        KeyCode::PageDown | KeyCode::Char(']') => { self.step_preview_scroll += 10; return Ok(()); }
+                        _ => {}
+                    }
+                }
                 step_editor::handle_key(self, key, step_idx, section_cursor, sub_cursor, mode, desc_active)
             }
             BuilderFocus::CollectionBrowser { for_step, col_cursor, expanded } => {
@@ -989,6 +1000,7 @@ impl BuilderApp {
         self.step_preview_rx = Some(rx);
         self.step_preview_result = None;
         self.step_preview_running = true;
+        self.step_preview_scroll = 0;
         self.status_message = "Running step…".into();
         tokio::spawn(async move {
             let result = crate::campaign::run_step_preview_with_context(steps, step_idx, env).await;
@@ -1245,7 +1257,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
-            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None, interval_ms: 1000, timeout_secs: 60, vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false, jq_input: None, jq_expression: None, jq_output: None, jq_raw: false,
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None, interval_ms: 1000, timeout_secs: 60, vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false, parallel_steps: vec![], message: None,
         },
         BrickKind::Loop => Step {
             name: "Paginate".into(),
@@ -1278,7 +1290,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             search: None,
             interval_ms: 1000,
             timeout_secs: 60,
-            vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false,
+            vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false, parallel_steps: vec![], message: None,
         },
         BrickKind::GraphQL => Step {
             name: "GraphQL query".into(),
@@ -1298,7 +1310,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
             graphql_query: Some("{\n  \n}".into()),
-            graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None, interval_ms: 1000, timeout_secs: 60, vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false, },
+            graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None, interval_ms: 1000, timeout_secs: 60, vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false, parallel_steps: vec![], message: None, },
         BrickKind::Transform => Step {
             name: "New transform".into(),
             kind: "transform".into(),
@@ -1316,7 +1328,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
-            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None, interval_ms: 1000, timeout_secs: 60, vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false, jq_input: None, jq_expression: None, jq_output: None, jq_raw: false,
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None, interval_ms: 1000, timeout_secs: 60, vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false, parallel_steps: vec![], message: None,
         },
         BrickKind::Pause => Step {
             name: "Pause".into(),
@@ -1335,7 +1347,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
-            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None, interval_ms: 1000, timeout_secs: 60, vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false, jq_input: None, jq_expression: None, jq_output: None, jq_raw: false,
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None, interval_ms: 1000, timeout_secs: 60, vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false, parallel_steps: vec![], message: None,
         },
         BrickKind::Seed => Step {
             name: "Seed".into(),
@@ -1354,7 +1366,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
-            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None, interval_ms: 1000, timeout_secs: 60, vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false, jq_input: None, jq_expression: None, jq_output: None, jq_raw: false,
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None, interval_ms: 1000, timeout_secs: 60, vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false, parallel_steps: vec![], message: None,
         },
         BrickKind::Comment => Step {
             name: "Comment text here".into(),
@@ -1373,7 +1385,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
-            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None, interval_ms: 1000, timeout_secs: 60, vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false, jq_input: None, jq_expression: None, jq_output: None, jq_raw: false,
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None, interval_ms: 1000, timeout_secs: 60, vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false, parallel_steps: vec![], message: None,
         },
         BrickKind::FileLoader => Step {
             name: "Load file".into(),
@@ -1395,7 +1407,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             file_output: Some("FILE_DATA".into()),
             file_encoding: Some("base64".into()),
             multipart_parts: vec![],
-            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None, interval_ms: 1000, timeout_secs: 60, vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false, jq_input: None, jq_expression: None, jq_output: None, jq_raw: false,
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, search: None, interval_ms: 1000, timeout_secs: 60, vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false, parallel_steps: vec![], message: None,
         },
         BrickKind::Search => Step {
             name: "Search / Filter".into(),
@@ -1421,7 +1433,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             when: None,
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
-            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, interval_ms: 1000, timeout_secs: 60,
+            graphql_query: None, graphql_variables: std::collections::HashMap::new(), until: None, accumulate: None, interval_ms: 1000, timeout_secs: 60, vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false, parallel_steps: vec![], message: None,
         },
         BrickKind::Jq => Step {
             name: "JQ transform".into(),
@@ -1437,7 +1449,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
             graphql_query: None, graphql_variables: std::collections::HashMap::new(),
             until: None, accumulate: None, search: None, interval_ms: 1000, timeout_secs: 60,
-            vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false,
+            vars: std::collections::HashMap::new(), parallel_steps: vec![], message: None,
         },
         BrickKind::Set => Step {
             name: "Set variables".into(),
@@ -1458,7 +1470,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             description: String::new(),
             file_path: None, file_output: None, file_encoding: None, multipart_parts: vec![],
             graphql_query: None, graphql_variables: std::collections::HashMap::new(),
-            until: None, accumulate: None, search: None, interval_ms: 1000, timeout_secs: 60, vars: std::collections::HashMap::new(),
+            until: None, accumulate: None, search: None, interval_ms: 1000, timeout_secs: 60, jq_input: None, jq_expression: None, jq_output: None, jq_raw: false, parallel_steps: vec![], message: None,
         },
         BrickKind::Poll => Step {
             name: "Poll job status".into(),
@@ -1487,7 +1499,7 @@ fn new_step_for(kind: &BrickKind) -> crate::campaign::Step {
             search: None,
             interval_ms: 2000,
             timeout_secs: 60,
-            vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false,
+            vars: std::collections::HashMap::new(), jq_input: None, jq_expression: None, jq_output: None, jq_raw: false, parallel_steps: vec![], message: None,
         },
         BrickKind::Parallel => Step {
             name: "Run in parallel".into(),

@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
+    widgets::{Block, Borders, Clear, List, ListItem, Padding, Paragraph, Wrap},
 };
 use crate::campaign::{CampaignRunState, StepResult};
 
@@ -92,7 +92,8 @@ fn render_pipeline(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
-        .border_style(border_style);
+        .border_style(border_style)
+        .padding(Padding::new(0, 0, 1, 0));
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -413,7 +414,8 @@ fn render_pipeline_hint(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     let block = Block::default()
         .title(" Help ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Indexed(246)));
+        .border_style(Style::default().fg(Color::Indexed(246)))
+        .padding(Padding::new(0, 0, 1, 0));
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -449,7 +451,8 @@ fn render_catalog(frame: &mut Frame, cursor: usize, area: Rect) {
     let block = Block::default()
         .title(" Catalog — choose a brick ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Magenta));
+        .border_style(Style::default().fg(Color::Magenta))
+        .padding(Padding::new(0, 0, 1, 0));
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -490,7 +493,8 @@ fn render_campaign_settings(
     let block = Block::default()
         .title(" Campaign Settings ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(Color::Cyan))
+        .padding(Padding::new(0, 0, 1, 0));
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -504,7 +508,6 @@ fn render_campaign_settings(
     ];
 
     let mut rows: Vec<ListItem> = Vec::new();
-    rows.push(ListItem::new(Line::from("")));
 
     for &(label, idx) in fields {
         let is_cursor = idx == cursor;
@@ -583,7 +586,8 @@ fn render_checker(frame: &mut Frame, results: &[super::types::CheckResult], area
     let block = Block::default()
         .title(" Check Report ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(Color::Cyan))
+        .padding(Padding::new(0, 0, 1, 0));
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -611,7 +615,8 @@ fn render_toml_preview(frame: &mut Frame, app: &BuilderApp, scroll: usize, area:
     let block = Block::default()
         .title(" TOML Preview ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(Color::Cyan))
+        .padding(Padding::new(0, 0, 1, 0));
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -627,7 +632,8 @@ fn render_variables(frame: &mut Frame, app: &BuilderApp, cursor: usize, mode: &V
     let block = Block::default()
         .title(" Variables [env] ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(Color::Cyan))
+        .padding(Padding::new(0, 0, 1, 0));
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -775,25 +781,28 @@ fn render_step_preview(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         None                => if result.success { Color::Green } else { Color::Red },
     };
 
+    let scroll = app.step_preview_scroll;
+    let title = format!(" {} Run result  [/]: scroll ", title_icon);
+
     let block = Block::default()
-        .title(format!(" {} Run result ", title_icon))
+        .title(title)
         .borders(Borders::ALL)
         .border_style(Style::default().fg(border_color));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let mut lines: Vec<Line> = Vec::new();
+    let mut header_lines: Vec<Line> = Vec::new();
 
     // Status + duration + url
     let status_str = result.status
         .map(|s| s.to_string())
         .unwrap_or_else(|| result.method.clone());
-    let url_display = if result.url.chars().count() > 35 {
-        format!("…{}", result.url.chars().rev().take(34).collect::<String>().chars().rev().collect::<String>())
+    let url_display = if result.url.chars().count() > 45 {
+        format!("…{}", result.url.chars().rev().take(44).collect::<String>().chars().rev().collect::<String>())
     } else {
         result.url.clone()
     };
-    lines.push(Line::from(vec![
+    header_lines.push(Line::from(vec![
         Span::styled(status_str, Style::default().fg(status_color).add_modifier(Modifier::BOLD)),
         Span::raw("  "),
         Span::styled(format!("{} ms", result.duration_ms), Style::default().fg(Color::Indexed(246))),
@@ -803,7 +812,7 @@ fn render_step_preview(frame: &mut Frame, app: &BuilderApp, area: Rect) {
 
     // Error
     if let Some(ref err) = result.error {
-        lines.push(Line::from(Span::styled(
+        header_lines.push(Line::from(Span::styled(
             format!("⚠ {}", err),
             Style::default().fg(Color::Red),
         )));
@@ -812,7 +821,7 @@ fn render_step_preview(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     // Assertions
     for (label, passed) in &result.assertion_results {
         let (icon, color) = if *passed { ("✓", Color::Green) } else { ("✗", Color::Red) };
-        lines.push(Line::from(vec![
+        header_lines.push(Line::from(vec![
             Span::styled(icon, Style::default().fg(color)),
             Span::raw(format!(" {}", label)),
         ]));
@@ -820,38 +829,29 @@ fn render_step_preview(frame: &mut Frame, app: &BuilderApp, area: Rect) {
 
     // Extracted vars
     for (key, val) in &result.extracted {
-        let v = if val.chars().count() > 38 {
-            format!("{}…", val.chars().take(38).collect::<String>())
-        } else {
-            val.clone()
-        };
-        lines.push(Line::from(vec![
+        header_lines.push(Line::from(vec![
             Span::styled("↳ ", Style::default().fg(Color::Cyan)),
             Span::styled(key.clone(), Style::default().fg(Color::Cyan)),
-            Span::raw(format!(" = {}", v)),
+            Span::raw(format!(" = {}", val)),
         ]));
     }
 
-    // Body preview (first 6 lines)
+    // Body: full content with syntax highlight, scrollable
+    let mut body_lines: Vec<Line> = Vec::new();
     if let Some(ref body) = result.body_json {
-        lines.push(Line::from(""));
+        body_lines.push(Line::from(""));
         let body_str = serde_json::to_string_pretty(body).unwrap_or_default();
-        let total = body_str.lines().count();
-        for line in body_str.lines().take(6) {
-            lines.push(Line::from(Span::styled(
-                line.to_string(),
-                Style::default().fg(Color::Indexed(246)),
-            )));
-        }
-        if total > 6 {
-            lines.push(Line::from(Span::styled(
-                format!("… ({} more lines)", total - 6),
-                Style::default().fg(Color::Indexed(242)),
-            )));
+        for line in body_str.lines() {
+            body_lines.push(highlight_json_line(line));
         }
     }
 
-    frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), inner);
+    // Combine header + body, apply scroll offset to body portion only
+    let scrolled_body: Vec<Line> = body_lines.into_iter().skip(scroll).collect();
+    let mut all_lines = header_lines;
+    all_lines.extend(scrolled_body);
+
+    frame.render_widget(Paragraph::new(all_lines).wrap(Wrap { trim: false }), inner);
 }
 
 fn render_step_editor(
@@ -875,7 +875,8 @@ fn render_step_editor(
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(Color::Cyan))
+        .padding(Padding::new(0, 0, 1, 0));
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -1085,6 +1086,7 @@ fn render_step_editor(
         StepEditorMode::EditBody => "", // full-screen, hints rendered by render_body_editor
         StepEditorMode::EditGraphqlQuery => "", // full-screen, hints rendered by render_graphql_query_editor
         StepEditorMode::ExtractPicker { .. } => "", // overlay rendered below
+        StepEditorMode::AddParallelStep { .. } => "", // overlay rendered below
     };
     rows.push(ListItem::new(Line::from(
         Span::styled(hints, Style::default().fg(Color::Indexed(246)))
@@ -1099,9 +1101,12 @@ fn render_step_editor(
     frame.render_widget(List::new(rows), editor_chunks[0]);
     render_step_help(frame, &step.kind, editor_chunks[1]);
 
-    // Picker overlay (drawn last so it sits on top)
+    // Picker overlays (drawn last so they sit on top)
     if let StepEditorMode::ExtractPicker { paths, filter, cursor, .. } = mode {
         render_extract_picker(frame, paths, filter, *cursor, inner);
+    }
+    if let StepEditorMode::AddParallelStep { cursor } = mode {
+        render_parallel_step_picker(frame, app, step_idx, *cursor, inner);
     }
 }
 
@@ -1257,6 +1262,67 @@ fn render_extract_picker(
     } else {
         frame.render_widget(List::new(items), list_area);
     }
+}
+
+fn render_parallel_step_picker(
+    frame: &mut Frame,
+    app: &BuilderApp,
+    step_idx: usize,
+    cursor: usize,
+    area: Rect,
+) {
+    use super::types::StepEditorMode;
+    let already: std::collections::HashSet<String> = app.campaign.steps[step_idx]
+        .parallel_steps.iter().cloned().collect();
+    let candidates: Vec<&crate::campaign::Step> = app.campaign.steps.iter().enumerate()
+        .filter(|(i, s)| *i != step_idx
+            && matches!(s.kind.as_str(), "http" | "graphql" | "seed" | "poll" | "loop")
+            && !already.contains(&s.name))
+        .map(|(_, s)| s)
+        .collect();
+
+    let popup_height = (candidates.len().min(10) + 4) as u16;
+    let popup = centered_rect(area.width.saturating_sub(4), popup_height, area);
+    frame.render_widget(Clear, popup);
+
+    let block = Block::default()
+        .title(" Add step to parallel — ↑↓: choose  Enter: add  Esc: cancel ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+    let inner = block.inner(popup);
+    frame.render_widget(block, popup);
+
+    if candidates.is_empty() {
+        frame.render_widget(
+            Paragraph::new(Span::styled(
+                "No other steps available",
+                Style::default().fg(Color::Indexed(246)),
+            )),
+            inner,
+        );
+        return;
+    }
+
+    let items: Vec<ListItem> = candidates.iter().enumerate()
+        .take(inner.height as usize)
+        .map(|(i, step)| {
+            let selected = i == cursor;
+            let prefix = if selected { "▶ " } else { "  " };
+            let (badge, badge_color) = step_badge(&step.kind);
+            let style = if selected {
+                Style::default().fg(Color::White).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::Indexed(250))
+            };
+            ListItem::new(Line::from(vec![
+                Span::styled(prefix, style),
+                Span::styled(format!("{:<4} ", badge), Style::default().fg(badge_color)),
+                Span::styled(truncate(&step.name, 40), style),
+            ]))
+        })
+        .collect();
+
+    frame.render_widget(List::new(items), inner);
 }
 
 fn render_description_area(
@@ -1427,7 +1493,8 @@ fn render_collection_browser(
     let block = Block::default()
         .title(" Collections — select a request ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Magenta));
+        .border_style(Style::default().fg(Color::Magenta))
+        .padding(Padding::new(0, 0, 1, 0));
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -1513,7 +1580,8 @@ fn render_params_editor(
     let block = Block::default()
         .title(" Input Parameters [[params]] ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(Color::Cyan))
+        .padding(Padding::new(0, 0, 1, 0));
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -1642,7 +1710,8 @@ fn render_output_step_picker(frame: &mut Frame, app: &BuilderApp, step_cursor: u
     let block = Block::default()
         .title(" Output — choose source step ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Magenta));
+        .border_style(Style::default().fg(Color::Magenta))
+        .padding(Padding::new(0, 0, 1, 0));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -1715,7 +1784,8 @@ fn render_connectors_editor(frame: &mut Frame, app: &BuilderApp, cursor: usize, 
     let block = Block::default()
         .title(" Input Connectors [[connectors]] ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(Color::Cyan))
+        .padding(Padding::new(0, 0, 1, 0));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -1794,7 +1864,8 @@ fn render_outputs_editor(frame: &mut Frame, app: &BuilderApp, cursor: usize, mod
     let block = Block::default()
         .title(" Outputs [[outputs]] ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
+        .border_style(Style::default().fg(Color::Cyan))
+        .padding(Padding::new(0, 0, 1, 0));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -1875,7 +1946,8 @@ fn render_run_view(frame: &mut Frame, app: &BuilderApp, scroll: usize, area: Rec
     let (title, border_color, step_results, current_step, done) = match &app.run_state {
         CampaignRunState::Idle => {
             let block = Block::default().title(" Run ").borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Indexed(246)));
+                .border_style(Style::default().fg(Color::Indexed(246)))
+                .padding(Padding::new(0, 0, 1, 0));
             frame.render_widget(block, area);
             return;
         }
@@ -1894,7 +1966,8 @@ fn render_run_view(frame: &mut Frame, app: &BuilderApp, scroll: usize, area: Rec
             let title = format!(" {} Done: {}  ✓ {}  ✗ {} ", if fail > 0 { "✗" } else { "✓" }, name, ok, fail);
             // Render done state inline
             let block = Block::default().title(title).borders(Borders::ALL)
-                .border_style(Style::default().fg(color));
+                .border_style(Style::default().fg(color))
+                .padding(Padding::new(0, 0, 1, 0));
             let inner = block.inner(area);
             frame.render_widget(block, area);
             render_run_results(frame, app, &flat, None, true, scroll, inner);
@@ -1903,7 +1976,8 @@ fn render_run_view(frame: &mut Frame, app: &BuilderApp, scroll: usize, area: Rec
     };
 
     let block = Block::default().title(title).borders(Borders::ALL)
-        .border_style(Style::default().fg(border_color));
+        .border_style(Style::default().fg(border_color))
+        .padding(Padding::new(0, 0, 1, 0));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -2296,6 +2370,76 @@ fn truncate(s: &str, max: usize) -> String {
     } else {
         format!("{}…", s.chars().take(max - 1).collect::<String>())
     }
+}
+
+fn highlight_json_line(line: &str) -> Line<'static> {
+    let s_key   = Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD);
+    let s_str   = Style::default().fg(Color::Green);
+    let s_num   = Style::default().fg(Color::Yellow);
+    let s_bool  = Style::default().fg(Color::Magenta);
+    let s_null  = Style::default().fg(Color::Indexed(245));
+    let s_punct = Style::default().fg(Color::Indexed(240)).add_modifier(Modifier::BOLD);
+    let s_sep   = Style::default().fg(Color::Indexed(240));
+
+    let chars: Vec<char> = line.chars().collect();
+    let mut spans: Vec<Span<'static>> = Vec::new();
+    let mut i = 0;
+    while i < chars.len() {
+        let c = chars[i];
+        match c {
+            ' ' | '\t' => {
+                let start = i;
+                while i < chars.len() && (chars[i] == ' ' || chars[i] == '\t') { i += 1; }
+                spans.push(Span::raw(chars[start..i].iter().collect::<String>()));
+            }
+            '"' => {
+                let mut s = String::from('"');
+                i += 1;
+                let mut escaped = false;
+                while i < chars.len() {
+                    let ch = chars[i];
+                    s.push(ch);
+                    if escaped { escaped = false; }
+                    else if ch == '\\' { escaped = true; }
+                    else if ch == '"' { i += 1; break; }
+                    i += 1;
+                }
+                let mut j = i;
+                while j < chars.len() && chars[j] == ' ' { j += 1; }
+                let style = if j < chars.len() && chars[j] == ':' { s_key } else { s_str };
+                spans.push(Span::styled(s, style));
+            }
+            '0'..='9' | '-' => {
+                let start = i;
+                while i < chars.len() && matches!(chars[i], '0'..='9' | '.' | '-' | 'e' | 'E' | '+') { i += 1; }
+                spans.push(Span::styled(chars[start..i].iter().collect::<String>(), s_num));
+            }
+            'a'..='z' | 'A'..='Z' => {
+                let start = i;
+                while i < chars.len() && chars[i].is_ascii_alphabetic() { i += 1; }
+                let word: String = chars[start..i].iter().collect();
+                let style = match word.as_str() {
+                    "true" | "false" => s_bool,
+                    "null"           => s_null,
+                    _                => s_sep,
+                };
+                spans.push(Span::styled(word, style));
+            }
+            '{' | '}' | '[' | ']' => {
+                spans.push(Span::styled(c.to_string(), s_punct));
+                i += 1;
+            }
+            ':' | ',' => {
+                spans.push(Span::styled(c.to_string(), s_sep));
+                i += 1;
+            }
+            _ => {
+                spans.push(Span::raw(c.to_string()));
+                i += 1;
+            }
+        }
+    }
+    if spans.is_empty() { Line::from("") } else { Line::from(spans) }
 }
 
 fn hint_line<'a>(key: &'a str, desc: &'a str) -> Line<'a> {

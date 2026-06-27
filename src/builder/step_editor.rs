@@ -68,6 +68,7 @@ pub fn sections_for(kind: &str) -> Vec<StepSection> {
             StepSection::JqExpression,
             StepSection::JqOutput,
             StepSection::JqRaw,
+            StepSection::JqArgs,
             StepSection::When,
         ],
         "set" => vec![
@@ -255,6 +256,7 @@ fn section_list_len(step: &crate::campaign::Step, section: &StepSection) -> usiz
         StepSection::GraphqlVariables => step.graphql_variables.len(),
         StepSection::ParallelSteps => step.parallel_steps.len(),
         StepSection::SetVars       => step.vars.len(),
+        StepSection::JqArgs        => step.jq_args.len(),
         StepSection::Transforms    => step.transforms.len(),
         _ => 0,
     }
@@ -827,6 +829,32 @@ fn handle_browse(
             _ => {}
         },
 
+        StepSection::JqArgs => match key.code {
+            KeyCode::Char('a') => {
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::AddPairStage1 { target: PairTarget::JqArgs, buffer: String::new() });
+            }
+            KeyCode::Char('d') => {
+                let keys = sorted_keys(&app.campaign.steps[step_idx].jq_args);
+                if let Some(k) = keys.get(sub_cursor) {
+                    let k = k.clone();
+                    app.campaign.steps[step_idx].jq_args.remove(&k);
+                    app.modified = true;
+                }
+            }
+            KeyCode::Enter => {
+                let keys = sorted_keys(&app.campaign.steps[step_idx].jq_args);
+                if let Some(k) = keys.get(sub_cursor) {
+                    let k = k.clone();
+                    let v = app.campaign.steps[step_idx].jq_args.get(&k).cloned().unwrap_or_default();
+                    let cursor = v.chars().count();
+                    set_focus(app, step_idx, section_cursor, sub_cursor,
+                        StepEditorMode::AddPairStage2 { target: PairTarget::JqArgs, key: k, buffer: v, cursor });
+                }
+            }
+            _ => {}
+        },
+
         // ── Poll step sections ────────────────────────────────────────────────
         StepSection::PollUrl | StepSection::PollIntervalMs | StepSection::PollTimeoutSecs | StepSection::PollUntilVar => {
             if key.code == KeyCode::Enter {
@@ -1289,6 +1317,7 @@ fn handle_add_stage2(
                 PairTarget::Extract          => { step.extract.insert(pair_key, buffer.trim().to_string()); }
                 PairTarget::GraphqlVariables => { step.graphql_variables.insert(pair_key, buffer.trim().to_string()); }
                 PairTarget::Vars             => { step.vars.insert(pair_key, buffer.trim().to_string()); }
+                PairTarget::JqArgs           => { step.jq_args.insert(pair_key, buffer.trim().to_string()); }
                 PairTarget::ParallelSteps    => unreachable!("ParallelSteps is single-stage, never reaches stage 2"),
             }
             app.modified = true;
@@ -1743,6 +1772,7 @@ pub fn current_value(app: &BuilderApp, step_idx: usize, section: &StepSection) -
         StepSection::JqExpression => step.jq_expression.clone().unwrap_or_else(|| ".".into()),
         StepSection::JqOutput     => step.jq_output.clone().unwrap_or_else(|| "JQ_RESULT".into()),
         StepSection::JqRaw        => if step.jq_raw { "[x] raw string (-r)".into() } else { "[ ] compact JSON".into() },
+        StepSection::JqArgs       => format!("({} args)", step.jq_args.len()),
         // Set sections
         StepSection::SetVars => format!("({} vars)", step.vars.len()),
         // Poll sections

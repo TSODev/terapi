@@ -30,6 +30,9 @@ pub enum BuilderFocus {
         f1: String, f2: String, f3: String, // path, select, include_vars
         output_cursor: usize,         // return cursor in OutputsEditor
     },
+    /// Param values to fill before launching a campaign run
+    /// Each entry: (name, description, value)
+    RunParamsPrompt { params: Vec<(String, String, String)>, cursor: usize, editing: bool, input: String },
 }
 
 // ── I/O editors (connectors + outputs share the same mode shape) ──────────────
@@ -84,6 +87,7 @@ pub enum PairTarget {
     Extract,
     GraphqlVariables,
     Vars,
+    JqArgs,
     ParallelSteps,  // single-stage: step name only (no value)
 }
 
@@ -180,6 +184,7 @@ pub enum StepSection {
     JqExpression,
     JqOutput,
     JqRaw,
+    JqArgs,
     // Poll step sections
     PollUrl,
     PollMethod,
@@ -241,6 +246,7 @@ impl StepSection {
             StepSection::JqExpression       => "Expression (jq filter)",
             StepSection::JqOutput           => "Output var",
             StepSection::JqRaw              => "Raw output (-r)",
+            StepSection::JqArgs             => "Extra args (--argjson)",
             StepSection::PollUrl            => "URL",
             StepSection::PollMethod         => "Method",
             StepSection::PollHeaders        => "Headers",
@@ -264,7 +270,8 @@ impl StepSection {
             StepSection::MultipartParts | StepSection::GraphqlVariables |
             StepSection::LoopExtract | StepSection::LoopHeaders |
             StepSection::PollHeaders | StepSection::PollExtract |
-            StepSection::SetVars | StepSection::ParallelSteps | StepSection::Transforms
+            StepSection::SetVars | StepSection::JqArgs |
+            StepSection::ParallelSteps | StepSection::Transforms
         )
     }
 }

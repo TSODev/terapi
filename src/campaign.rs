@@ -159,6 +159,8 @@ pub struct Step {
     pub jq_output: Option<String>,
     #[serde(default)]
     pub jq_raw: bool,
+    #[serde(default)]
+    pub jq_args: HashMap<String, String>,
     // Parallel step fields (kind = "parallel")
     #[serde(default)]
     pub parallel_steps: Vec<String>,
@@ -1764,6 +1766,13 @@ async fn run_jq_step(step: &Step, env: &HashMap<String, String>) -> anyhow::Resu
     let mut cmd = tokio::process::Command::new("jq");
     cmd.arg("-c"); // compact JSON output
     if step.jq_raw { cmd.arg("-r"); }
+    // Pass extra variables via --argjson (values resolved from env then parsed as JSON)
+    let mut jq_args_keys: Vec<&String> = step.jq_args.keys().collect();
+    jq_args_keys.sort();
+    for k in jq_args_keys {
+        let resolved_val = resolve(step.jq_args.get(k).map(|s| s.as_str()).unwrap_or(""), env);
+        cmd.arg("--argjson").arg(k).arg(&resolved_val);
+    }
     cmd.arg(&expr);
     cmd.stdin(std::process::Stdio::piped());
     cmd.stdout(std::process::Stdio::piped());

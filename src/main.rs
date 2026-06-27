@@ -83,9 +83,25 @@ async fn main() -> Result<()> {
     match cli.command {
         Some(Commands::Run { file, silent, param, only, format, retry }) => {
             let camp = campaign::load(&file)?;
-            let overrides: std::collections::HashMap<String, String> = param.iter()
+            let mut overrides: std::collections::HashMap<String, String> = param.iter()
                 .filter_map(|p| p.split_once('=').map(|(k, v)| (k.to_string(), v.to_string())))
                 .collect();
+            // Prompt for params that have no default and were not supplied via --param
+            if !silent {
+                for p in &camp.params {
+                    if !overrides.contains_key(&p.name) && p.default.is_none() {
+                        let prompt = if p.description.is_empty() {
+                            format!("{}: ", p.name)
+                        } else {
+                            format!("{} ({}): ", p.name, p.description)
+                        };
+                        eprint!("{}", prompt);
+                        let mut line = String::new();
+                        std::io::stdin().read_line(&mut line)?;
+                        overrides.insert(p.name.clone(), line.trim().to_string());
+                    }
+                }
+            }
             let fmt = match format.as_str() {
                 "json" => campaign::OutputFormat::Json,
                 "csv"  => campaign::OutputFormat::Csv,

@@ -431,7 +431,79 @@ fn render_context(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         BuilderFocus::OutputStepPicker { step_cursor, f1, f2, f3, .. } => {
             render_output_step_picker(frame, app, *step_cursor, f1, f2, f3, area)
         }
+        BuilderFocus::RunParamsPrompt { params, cursor, editing, input } => {
+            render_run_params_prompt(frame, params, *cursor, *editing, input, area)
+        }
     }
+}
+
+fn render_run_params_prompt(
+    frame: &mut Frame,
+    params: &[(String, String, String)],
+    cursor: usize,
+    editing: bool,
+    input: &str,
+    area: Rect,
+) {
+    let block = Block::default()
+        .title(" Run — Campaign Parameters ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Yellow))
+        .padding(Padding::new(0, 0, 1, 0));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let mut rows: Vec<ListItem> = Vec::new();
+    rows.push(ListItem::new(Line::from(Span::styled(
+        "Fill parameter values then press r to run — Esc: cancel",
+        Style::default().fg(Color::Indexed(246)),
+    ))));
+    rows.push(ListItem::new(Line::from("")));
+
+    for (i, (name, desc, value)) in params.iter().enumerate() {
+        let selected = i == cursor;
+        let name_style = if selected {
+            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::White)
+        };
+        let value_span = if selected && editing {
+            Span::styled(
+                format!("[ {}_]", input),
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            )
+        } else {
+            let display = if value.is_empty() { "—" } else { value.as_str() };
+            Span::styled(
+                display.to_string(),
+                if selected { Style::default().fg(Color::White) } else { Style::default().fg(Color::Indexed(246)) },
+            )
+        };
+        let mut line = vec![
+            Span::styled(if selected { "▶ " } else { "  " }, name_style),
+            Span::styled(format!("{:<20}", name), name_style),
+            value_span,
+        ];
+        if !desc.is_empty() {
+            line.push(Span::styled(
+                format!("  ({})", desc),
+                Style::default().fg(Color::Indexed(240)),
+            ));
+        }
+        rows.push(ListItem::new(Line::from(line)));
+    }
+
+    rows.push(ListItem::new(Line::from("")));
+    let hint = if editing {
+        "Enter/Tab: next field  Esc: done editing"
+    } else {
+        "↑↓: navigate  Enter: edit value  r: run  Esc: cancel"
+    };
+    rows.push(ListItem::new(Line::from(
+        Span::styled(hint, Style::default().fg(Color::Indexed(246))),
+    )));
+
+    frame.render_widget(List::new(rows), inner);
 }
 
 fn render_pipeline_hint(frame: &mut Frame, app: &BuilderApp, area: Rect) {
@@ -815,14 +887,15 @@ fn render_step_preview(frame: &mut Frame, app: &BuilderApp, area: Rect) {
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
+    // ── Header (fixed, never scrolled) ───────────────────────────────────────
     let mut header_lines: Vec<Line> = Vec::new();
 
     // Status + duration + url
     let status_str = result.status
         .map(|s| s.to_string())
         .unwrap_or_else(|| result.method.clone());
-    let url_display = if result.url.chars().count() > 45 {
-        format!("…{}", result.url.chars().rev().take(44).collect::<String>().chars().rev().collect::<String>())
+    let url_display = if result.url.chars().count() > 55 {
+        format!("…{}", result.url.chars().rev().take(54).collect::<String>().chars().rev().collect::<String>())
     } else {
         result.url.clone()
     };
@@ -834,7 +907,6 @@ fn render_step_preview(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         Span::styled(url_display, Style::default().fg(Color::Indexed(246))),
     ]));
 
-    // Error
     if let Some(ref err) = result.error {
         header_lines.push(Line::from(Span::styled(
             format!("⚠ {}", err),
@@ -842,7 +914,6 @@ fn render_step_preview(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         )));
     }
 
-    // Assertions
     for (label, passed) in &result.assertion_results {
         let (icon, color) = if *passed { ("✓", Color::Green) } else { ("✗", Color::Red) };
         header_lines.push(Line::from(vec![
@@ -851,31 +922,58 @@ fn render_step_preview(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         ]));
     }
 
-    // Extracted vars
-    for (key, val) in &result.extracted {
-        header_lines.push(Line::from(vec![
-            Span::styled("↳ ", Style::default().fg(Color::Cyan)),
-            Span::styled(key.clone(), Style::default().fg(Color::Cyan)),
-            Span::raw(format!(" = {}", val)),
-        ]));
+    if !result.extracted.is_empty() {
+        header_lines.push(Line::from(Span::styled(
+            "── Extracted ────────────────────────────────────",
+            Style::default().fg(Color::Indexed(240)),
+        )));
+        for (key, val) in &result.extracted {
+            let val_display = if val.chars().count() > 50 {
+                format!("{}…", val.chars().take(49).collect::<String>())
+            } else {
+                val.clone()
+            };
+            header_lines.push(Line::from(vec![
+                Span::styled("↳ ", Style::default().fg(Color::Cyan)),
+                Span::styled(format!("{:<20}", key), Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+                Span::raw(val_display),
+            ]));
+        }
     }
 
-    // Body: full content with syntax highlight, scrollable
+    // ── Body (scrollable JSON) ────────────────────────────────────────────────
     let mut body_lines: Vec<Line> = Vec::new();
     if let Some(ref body) = result.body_json {
-        body_lines.push(Line::from(""));
         let body_str = serde_json::to_string_pretty(body).unwrap_or_default();
         for line in body_str.lines() {
             body_lines.push(highlight_json_line(line));
         }
     }
 
-    // Combine header + body, apply scroll offset to body portion only
-    let scrolled_body: Vec<Line> = body_lines.into_iter().skip(scroll).collect();
-    let mut all_lines = header_lines;
-    all_lines.extend(scrolled_body);
+    // Split inner: header gets its exact height, body gets the rest
+    let header_h = header_lines.len() as u16;
+    if inner.height == 0 { return; }
 
-    frame.render_widget(Paragraph::new(all_lines).wrap(Wrap { trim: false }), inner);
+    if header_h >= inner.height || body_lines.is_empty() {
+        // No room for body, or no body — render header only
+        frame.render_widget(Paragraph::new(header_lines), inner);
+    } else {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(header_h), Constraint::Min(0)])
+            .split(inner);
+        frame.render_widget(Paragraph::new(header_lines), chunks[0]);
+
+        let body_sep = Block::default()
+            .title(format!(" JSON body  ({} lines) ", body_lines.len()))
+            .borders(Borders::TOP)
+            .border_style(Style::default().fg(Color::Indexed(240)));
+        let body_inner = body_sep.inner(chunks[1]);
+        frame.render_widget(body_sep, chunks[1]);
+
+        let scrolled: Vec<Line> = body_lines.into_iter().skip(scroll).collect();
+        frame.render_widget(Paragraph::new(scrolled).wrap(Wrap { trim: false }), body_inner);
+    }
 }
 
 fn render_step_editor(
@@ -1471,6 +1569,7 @@ fn list_count(app: &BuilderApp, step_idx: usize, section: &StepSection) -> usize
         StepSection::MultipartParts   => step.multipart_parts.len(),
         StepSection::GraphqlVariables => step.graphql_variables.len(),
         StepSection::SetVars          => step.vars.len(),
+        StepSection::JqArgs           => step.jq_args.len(),
         StepSection::ParallelSteps    => step.parallel_steps.len(),
         StepSection::Transforms       => step.transforms.len(),
         _ => 0,
@@ -1527,6 +1626,11 @@ fn list_items_for(app: &BuilderApp, step_idx: usize, section: &StepSection) -> V
         StepSection::SetVars => {
             sorted_keys(&step.vars).into_iter()
                 .map(|k| format!("{} = {}", k, step.vars.get(&k).cloned().unwrap_or_default()))
+                .collect()
+        }
+        StepSection::JqArgs => {
+            sorted_keys(&step.jq_args).into_iter()
+                .map(|k| format!("${}  ←  {}", k, step.jq_args.get(&k).cloned().unwrap_or_default()))
                 .collect()
         }
         StepSection::ParallelSteps => {
@@ -2229,6 +2333,7 @@ fn render_status(frame: &mut Frame, app: &BuilderApp, area: Rect) {
         BuilderFocus::PipelineConnectors { .. }  => "Builder › Pipeline [Inputs]",
         BuilderFocus::PipelineOutputs { .. }     => "Builder › Pipeline [Outputs]",
         BuilderFocus::OutputStepPicker { .. }    => "Builder › Output — step picker",
+        BuilderFocus::RunParamsPrompt { .. }     => "Builder › Run — Parameters",
     };
 
     let hints: &str = match &app.focus {
@@ -2294,6 +2399,10 @@ fn render_status(frame: &mut Frame, app: &BuilderApp, area: Rect) {
             "↑↓: navigate  Enter: edit  d: delete  ↑ (first): back to steps  Esc: back",
         BuilderFocus::OutputStepPicker { .. } =>
             "↑↓: navigate  Enter: select step  Esc: cancel",
+        BuilderFocus::RunParamsPrompt { editing: true, .. } =>
+            "Type value  Enter/Tab: next field  Esc: done",
+        BuilderFocus::RunParamsPrompt { .. } =>
+            "↑↓: navigate  Enter: edit value  r: launch run  Esc: cancel",
     };
 
     let status_msg = if app.status_message.is_empty() { "" } else { &app.status_message };

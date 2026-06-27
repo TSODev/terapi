@@ -207,12 +207,12 @@ pub fn handle_key(
             handle_add_stage1(app, key, step_idx, section_cursor, sub_cursor, target, buffer),
         StepEditorMode::AddPairStage2 { target, key: pair_key, buffer, cursor } =>
             handle_add_stage2(app, key, step_idx, section_cursor, sub_cursor, target, pair_key, buffer, cursor),
-        StepEditorMode::AddAssertPath { buffer } =>
-            handle_assert_path(app, key, step_idx, section_cursor, sub_cursor, buffer),
-        StepEditorMode::AddAssertOp { path, op } =>
-            handle_assert_op(app, key, step_idx, section_cursor, sub_cursor, path, op),
-        StepEditorMode::AddAssertValue { path, op, buffer } =>
-            handle_assert_value(app, key, step_idx, section_cursor, sub_cursor, path, op, buffer),
+        StepEditorMode::AddAssertPath { buffer, idx } =>
+            handle_assert_path(app, key, step_idx, section_cursor, sub_cursor, buffer, idx),
+        StepEditorMode::AddAssertOp { path, op, idx } =>
+            handle_assert_op(app, key, step_idx, section_cursor, sub_cursor, path, op, idx),
+        StepEditorMode::AddAssertValue { path, op, buffer, idx } =>
+            handle_assert_value(app, key, step_idx, section_cursor, sub_cursor, path, op, buffer, idx),
         StepEditorMode::EditWhenVar { buffer } =>
             handle_when_var(app, key, step_idx, section_cursor, sub_cursor, buffer),
         StepEditorMode::EditWhenOp { var, op } =>
@@ -490,7 +490,7 @@ fn handle_browse(
         StepSection::Assertions => match key.code {
             KeyCode::Char('a') => {
                 set_focus(app, step_idx, section_cursor, sub_cursor,
-                    StepEditorMode::AddAssertPath { buffer: String::new() });
+                    StepEditorMode::AddAssertPath { buffer: String::new(), idx: None });
             }
             KeyCode::Char('d') => {
                 let step = &mut app.campaign.steps[step_idx];
@@ -500,6 +500,15 @@ fn handle_browse(
                     let new_len = step.assert.len();
                     let new_sub = if new_len == 0 { 0 } else { sub_cursor.min(new_len - 1) };
                     set_focus(app, step_idx, section_cursor, new_sub, StepEditorMode::Browse);
+                }
+            }
+            KeyCode::Enter => {
+                if let Some(a) = app.campaign.steps[step_idx].assert.get(sub_cursor) {
+                    set_focus(app, step_idx, section_cursor, sub_cursor,
+                        StepEditorMode::AddAssertPath {
+                            buffer: a.on.clone(),
+                            idx: Some(sub_cursor),
+                        });
                 }
             }
             _ => {}
@@ -1331,20 +1340,25 @@ fn handle_assert_path(
     section_cursor: usize,
     sub_cursor: usize,
     mut buffer: String,
+    idx: Option<usize>,
 ) -> Result<()> {
     match key.code {
         KeyCode::Esc => set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse),
         KeyCode::Enter if !buffer.is_empty() => {
+            // Pre-fill op from existing assertion when editing
+            let pre_op = idx.and_then(|i| app.campaign.steps[step_idx].assert.get(i))
+                .map(assertion_op_idx)
+                .unwrap_or(0);
             set_focus(app, step_idx, section_cursor, sub_cursor,
-                StepEditorMode::AddAssertOp { path: buffer.trim().to_string(), op: 0 });
+                StepEditorMode::AddAssertOp { path: buffer.trim().to_string(), op: pre_op, idx });
         }
         KeyCode::Backspace => {
             buffer.pop();
-            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddAssertPath { buffer });
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddAssertPath { buffer, idx });
         }
         KeyCode::Char(c) => {
             buffer.push(c);
-            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddAssertPath { buffer });
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddAssertPath { buffer, idx });
         }
         _ => {}
     }
@@ -1359,27 +1373,29 @@ fn handle_assert_op(
     sub_cursor: usize,
     path: String,
     op: usize,
+    idx: Option<usize>,
 ) -> Result<()> {
     match key.code {
         KeyCode::Esc => set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse),
         KeyCode::Left => {
             let new_op = if op == 0 { ASSERT_OPS.len() - 1 } else { op - 1 };
-            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddAssertOp { path, op: new_op });
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddAssertOp { path, op: new_op, idx });
         }
         KeyCode::Right => {
             let new_op = (op + 1) % ASSERT_OPS.len();
-            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddAssertOp { path, op: new_op });
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddAssertOp { path, op: new_op, idx });
         }
         KeyCode::Enter => {
             if ASSERT_OPS[op].1 {
-                // needs a value
+                // Pre-fill value from existing assertion when editing
+                let pre_val = idx.and_then(|i| app.campaign.steps[step_idx].assert.get(i))
+                    .map(|a| assertion_pre_value(a, op))
+                    .unwrap_or_default();
                 set_focus(app, step_idx, section_cursor, sub_cursor,
-                    StepEditorMode::AddAssertValue { path, op, buffer: String::new() });
+                    StepEditorMode::AddAssertValue { path, op, buffer: pre_val, idx });
             } else {
-                // no value needed (exists / not exists)
                 let a = build_assertion(&path, op, "");
-                app.campaign.steps[step_idx].assert.push(a);
-                app.modified = true;
+                save_assertion(app, step_idx, idx, a);
                 set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
             }
         }
@@ -1397,26 +1413,72 @@ fn handle_assert_value(
     path: String,
     op: usize,
     mut buffer: String,
+    idx: Option<usize>,
 ) -> Result<()> {
     match key.code {
         KeyCode::Esc => set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse),
         KeyCode::Enter => {
             let a = build_assertion(&path, op, buffer.trim());
-            app.campaign.steps[step_idx].assert.push(a);
-            app.modified = true;
+            save_assertion(app, step_idx, idx, a);
             set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::Browse);
         }
         KeyCode::Backspace => {
             buffer.pop();
-            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddAssertValue { path, op, buffer });
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddAssertValue { path, op, buffer, idx });
         }
         KeyCode::Char(c) => {
             buffer.push(c);
-            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddAssertValue { path, op, buffer });
+            set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::AddAssertValue { path, op, buffer, idx });
         }
         _ => {}
     }
     Ok(())
+}
+
+fn save_assertion(app: &mut BuilderApp, step_idx: usize, idx: Option<usize>, a: crate::campaign::Assertion) {
+    match idx {
+        Some(i) if i < app.campaign.steps[step_idx].assert.len() => {
+            app.campaign.steps[step_idx].assert[i] = a;
+        }
+        _ => app.campaign.steps[step_idx].assert.push(a),
+    }
+    app.modified = true;
+}
+
+fn assertion_op_idx(a: &crate::campaign::Assertion) -> usize {
+    if a.eq.is_some()          { return 0; }
+    if a.ne.is_some()          { return 1; }
+    if a.lt.is_some()          { return 2; }
+    if a.lte.is_some()         { return 3; }
+    if a.gt.is_some()          { return 4; }
+    if a.gte.is_some()         { return 5; }
+    if a.contains.is_some()    { return 6; }
+    if a.matches.is_some()     { return 7; }
+    if a.exists == Some(true)  { return 8; }
+    if a.exists == Some(false) { return 9; }
+    0
+}
+
+fn assertion_pre_value(a: &crate::campaign::Assertion, op: usize) -> String {
+    match op {
+        0 => a.eq.as_ref().map(assert_val_str).unwrap_or_default(),
+        1 => a.ne.as_ref().map(assert_val_str).unwrap_or_default(),
+        2 => a.lt.map(|v| v.to_string()).unwrap_or_default(),
+        3 => a.lte.map(|v| v.to_string()).unwrap_or_default(),
+        4 => a.gt.map(|v| v.to_string()).unwrap_or_default(),
+        5 => a.gte.map(|v| v.to_string()).unwrap_or_default(),
+        6 => a.contains.clone().unwrap_or_default(),
+        7 => a.matches.clone().unwrap_or_default(),
+        _ => String::new(),
+    }
+}
+
+fn assert_val_str(v: &serde_json::Value) -> String {
+    match v {
+        serde_json::Value::String(s) => s.clone(),
+        serde_json::Value::Number(n) => n.to_string(),
+        other => serde_json::to_string(other).unwrap_or_default(),
+    }
 }
 
 fn build_assertion(path: &str, op_idx: usize, value: &str) -> crate::campaign::Assertion {

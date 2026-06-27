@@ -49,6 +49,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `Enter` opens the item **under the cursor** for editing (Headers, GQL Variables, Loop/Poll Headers, Multipart Parts, Transforms)
 - Campaign Builder: **`transform` step supports multiple transforms** — the Transforms section is now a navigable list; `a` adds a new transform, `Enter` edits the selected one (kind ←/→ cycle, then input var, then output var via Tab/Enter flow), `d` deletes at cursor; replaces the old single-transform Kind/Input/Output fields
 - Campaign Builder: `AddPairStage2` hint (value field) now shows `Tab: JSON path picker` when the target is an Extract field
+- Campaign Builder: **Assertions now support `Enter` to edit** — `Enter` on an existing assertion pre-fills path, operator (pre-selected to current op), and value; `Enter` saves by replacing the assertion at that position (not pushing a new one); hints show `(edit mode)` to distinguish from add flow
 
 ---
 

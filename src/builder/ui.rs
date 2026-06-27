@@ -1006,16 +1006,17 @@ fn render_step_editor(
                     let after: String  = buffer.chars().skip(cur).collect();
                     rows.push(sub_row(format!("{} : [ {}▌{}]", key, before, after), Color::Yellow));
                 }
-                StepEditorMode::AddAssertPath { buffer } if *section == StepSection::Assertions => {
-                    rows.push(sub_row(format!("Path : [ {}_]", buffer), Color::Yellow));
+                StepEditorMode::AddAssertPath { buffer, idx } if *section == StepSection::Assertions => {
+                    let label = if idx.is_some() { "Edit path" } else { "Path" };
+                    rows.push(sub_row(format!("{} : [ {}_]", label, buffer), Color::Yellow));
                 }
-                StepEditorMode::AddAssertOp { path, op } if *section == StepSection::Assertions => {
+                StepEditorMode::AddAssertOp { path, op, .. } if *section == StepSection::Assertions => {
                     rows.push(sub_row(format!(
                         "Path: {}  Op: [ {} ▾ ]  ←/→ cycle  Enter: confirm",
                         path, ASSERT_OPS[*op].0
                     ), Color::Yellow));
                 }
-                StepEditorMode::AddAssertValue { path, op, buffer } if *section == StepSection::Assertions => {
+                StepEditorMode::AddAssertValue { path, op, buffer, .. } if *section == StepSection::Assertions => {
                     rows.push(sub_row(format!(
                         "Path: {}  {}  Value: [ {}_]",
                         path, ASSERT_OPS[*op].0, buffer
@@ -1082,12 +1083,15 @@ fn render_step_editor(
             } else {
                 "Value  Enter: add  Esc: cancel"
             },
-        StepEditorMode::AddAssertPath { .. } =>
-            "Path (dot-notation)  Enter: next  Esc: cancel",
-        StepEditorMode::AddAssertOp { .. } =>
-            "←/→: operator  Enter: confirm  Esc: cancel",
-        StepEditorMode::AddAssertValue { .. } =>
-            "Value  Enter: add assertion  Esc: cancel",
+        StepEditorMode::AddAssertPath { idx, .. } =>
+            if idx.is_some() { "Path (dot-notation)  Enter: next  Esc: cancel (edit mode)" }
+            else { "Path (dot-notation)  Enter: next  Esc: cancel" },
+        StepEditorMode::AddAssertOp { idx, .. } =>
+            if idx.is_some() { "←/→: operator  Enter: confirm  Esc: cancel (edit mode)" }
+            else { "←/→: operator  Enter: confirm  Esc: cancel" },
+        StepEditorMode::AddAssertValue { idx, .. } =>
+            if idx.is_some() { "Value  Enter: save assertion  Esc: cancel (edit mode)" }
+            else { "Value  Enter: add assertion  Esc: cancel" },
         StepEditorMode::EditWhenVar { .. } =>
             "Variable name  Enter: next  Esc: cancel",
         StepEditorMode::EditWhenOp { .. } =>

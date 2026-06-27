@@ -116,10 +116,10 @@ pub enum StepEditorMode {
     EditBody,
     AddPairStage1 { target: PairTarget, buffer: String },
     AddPairStage2 { target: PairTarget, key: String, buffer: String, cursor: usize },
-    // Assertion creation flow
-    AddAssertPath { buffer: String },
-    AddAssertOp   { path: String, op: usize },
-    AddAssertValue { path: String, op: usize, buffer: String },
+    // Assertion creation/edit flow (idx = Some(i) when editing existing)
+    AddAssertPath  { buffer: String, idx: Option<usize> },
+    AddAssertOp    { path: String, op: usize, idx: Option<usize> },
+    AddAssertValue { path: String, op: usize, buffer: String, idx: Option<usize> },
     // When-condition edit flow
     EditWhenVar   { buffer: String },
     EditWhenOp    { var: String, op: usize },

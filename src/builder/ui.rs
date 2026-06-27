@@ -339,6 +339,7 @@ fn step_badge(kind: &str) -> (&'static str, Color) {
         "loop"      => ("LOOP", Color::Green),
         "poll"      => ("POLL", Color::Yellow),
         "set"       => ("SET ", Color::Blue),
+        "build"     => ("BILD", Color::Green),
         "jq"        => ("JQ  ", Color::Green),
         "search"    => ("SRCH", Color::Cyan),
         "parallel"  => ("PAR ", Color::Cyan),
@@ -380,6 +381,10 @@ fn step_summary(step: &crate::campaign::Step) -> String {
             } else {
                 "search (unconfigured)".into()
             }
+        }
+        "build" => {
+            let out = step.build_output.as_deref().unwrap_or("BUILD_RESULT");
+            format!("{{{}}} ({} fields)", out, step.fields.len())
         }
         _ => {
             let url = if step.url.len() > 30 { format!("…{}", &step.url[step.url.len().saturating_sub(27)..]) }
@@ -1320,6 +1325,11 @@ fn step_help_text(kind: &str) -> (&'static str, &'static str, &'static str) {
             "message field is sent as the body; Content-Type: application/json injected by default.",
             "Enter: edit URL or message  ·  ←/→: cycle method  ·  a: add header",
         ),
+        "build" => (
+            "Construct a JSON object from key/value pairs and store it in a variable.",
+            "Values are resolved ({{VAR}} substituted) then parsed as JSON if valid, else kept as strings.",
+            "a: add field  ·  d: delete  ·  Enter: edit key or value",
+        ),
         _ => (
             "Send an HTTP request and capture the response body and headers.",
             "Use [extract] to pull JSON values into variables for use in later steps.",
@@ -1571,6 +1581,7 @@ fn list_count(app: &BuilderApp, step_idx: usize, section: &StepSection) -> usize
         StepSection::GraphqlVariables => step.graphql_variables.len(),
         StepSection::SetVars          => step.vars.len(),
         StepSection::JqArgs           => step.jq_args.len(),
+        StepSection::BuildFields      => step.fields.len(),
         StepSection::ParallelSteps    => step.parallel_steps.len(),
         StepSection::Transforms       => step.transforms.len(),
         _ => 0,
@@ -1632,6 +1643,11 @@ fn list_items_for(app: &BuilderApp, step_idx: usize, section: &StepSection) -> V
         StepSection::JqArgs => {
             sorted_keys(&step.jq_args).into_iter()
                 .map(|k| format!("${}  ←  {}", k, step.jq_args.get(&k).cloned().unwrap_or_default()))
+                .collect()
+        }
+        StepSection::BuildFields => {
+            sorted_keys(&step.fields).into_iter()
+                .map(|k| format!("{} = {}", k, step.fields.get(&k).cloned().unwrap_or_default()))
                 .collect()
         }
         StepSection::ParallelSteps => {

@@ -88,6 +88,7 @@ pub enum PairTarget {
     GraphqlVariables,
     Vars,
     JqArgs,
+    BuildFields,
     ParallelSteps,  // single-stage: step name only (no value)
 }
 
@@ -203,6 +204,9 @@ pub enum StepSection {
     NotifyUrl,
     NotifyMethod,
     NotifyMessage,
+    // Build step sections
+    BuildFields,
+    BuildOutput,
 }
 
 impl StepSection {
@@ -261,6 +265,8 @@ impl StepSection {
             StepSection::NotifyUrl     => "Webhook URL",
             StepSection::NotifyMethod  => "Method",
             StepSection::NotifyMessage => "Message (body)",
+            StepSection::BuildFields   => "Fields (key → value)",
+            StepSection::BuildOutput   => "Output var",
         }
     }
 
@@ -270,7 +276,7 @@ impl StepSection {
             StepSection::MultipartParts | StepSection::GraphqlVariables |
             StepSection::LoopExtract | StepSection::LoopHeaders |
             StepSection::PollHeaders | StepSection::PollExtract |
-            StepSection::SetVars | StepSection::JqArgs |
+            StepSection::SetVars | StepSection::JqArgs | StepSection::BuildFields |
             StepSection::ParallelSteps | StepSection::Transforms
         )
     }
@@ -282,12 +288,13 @@ impl StepSection {
 pub enum BrickKind {
     Http,
     GraphQL,
-    Search,
     Loop,
     Poll,
-    Set,
-    Jq,
     Parallel,
+    Search,
+    Set,
+    Build,
+    Jq,
     Notify,
     Transform,
     Pause,
@@ -307,6 +314,7 @@ impl BrickKind {
             BrickKind::Loop       => "Loop (pagination)",
             BrickKind::Poll       => "Poll (wait for condition)",
             BrickKind::Set        => "Set variables",
+            BrickKind::Build      => "Build JSON",
             BrickKind::Jq         => "JQ transform",
             BrickKind::Parallel   => "Parallel",
             BrickKind::Notify     => "Notify (webhook)",
@@ -327,6 +335,7 @@ impl BrickKind {
             BrickKind::Loop       => "repeat HTTP until condition, accumulate results (pagination)",
             BrickKind::Poll       => "poll an endpoint until a condition is true (async job polling)",
             BrickKind::Set        => "assign literal values to variables ({{VAR}} supported in values)",
+            BrickKind::Build      => "construct a JSON object from key/value pairs; values parsed as JSON if valid",
             BrickKind::Jq         => "apply a jq expression to a JSON variable (requires jq installed)",
             BrickKind::Parallel   => "run multiple named steps concurrently, wait for all to complete",
             BrickKind::Notify     => "POST a message to a webhook URL (Slack, Discord, Teams, custom)",
@@ -349,6 +358,7 @@ pub const BRICK_KINDS: &[BrickKind] = &[
     BrickKind::Parallel,
     BrickKind::Search,
     BrickKind::Set,
+    BrickKind::Build,
     BrickKind::Jq,
     BrickKind::Notify,
     BrickKind::Transform,

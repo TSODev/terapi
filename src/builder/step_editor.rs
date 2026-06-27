@@ -77,6 +77,13 @@ pub fn sections_for(kind: &str) -> Vec<StepSection> {
             StepSection::SetVars,
             StepSection::When,
         ],
+        "build" => vec![
+            StepSection::Name,
+            StepSection::Description,
+            StepSection::BuildFields,
+            StepSection::BuildOutput,
+            StepSection::When,
+        ],
         "poll" => vec![
             StepSection::Name,
             StepSection::Description,
@@ -257,6 +264,7 @@ fn section_list_len(step: &crate::campaign::Step, section: &StepSection) -> usiz
         StepSection::ParallelSteps => step.parallel_steps.len(),
         StepSection::SetVars       => step.vars.len(),
         StepSection::JqArgs        => step.jq_args.len(),
+        StepSection::BuildFields   => step.fields.len(),
         StepSection::Transforms    => step.transforms.len(),
         _ => 0,
     }
@@ -855,6 +863,42 @@ fn handle_browse(
             _ => {}
         },
 
+        // ── Build step sections ───────────────────────────────────────────────
+        StepSection::BuildFields => match key.code {
+            KeyCode::Char('a') => {
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::AddPairStage1 { target: PairTarget::BuildFields, buffer: String::new() });
+            }
+            KeyCode::Char('d') => {
+                let keys = sorted_keys(&app.campaign.steps[step_idx].fields);
+                if let Some(k) = keys.get(sub_cursor) {
+                    let k = k.clone();
+                    app.campaign.steps[step_idx].fields.remove(&k);
+                    app.modified = true;
+                }
+            }
+            KeyCode::Enter => {
+                let keys = sorted_keys(&app.campaign.steps[step_idx].fields);
+                if let Some(k) = keys.get(sub_cursor) {
+                    let k = k.clone();
+                    let v = app.campaign.steps[step_idx].fields.get(&k).cloned().unwrap_or_default();
+                    let cursor = v.chars().count();
+                    set_focus(app, step_idx, section_cursor, sub_cursor,
+                        StepEditorMode::AddPairStage2 { target: PairTarget::BuildFields, key: k, buffer: v, cursor });
+                }
+            }
+            _ => {}
+        },
+        StepSection::BuildOutput => {
+            if key.code == KeyCode::Enter {
+                let v = app.campaign.steps[step_idx].build_output
+                    .clone().unwrap_or_else(|| "BUILD_RESULT".into());
+                let cursor = v.chars().count();
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::EditText { cursor, buffer: v });
+            }
+        }
+
         // ── Poll step sections ────────────────────────────────────────────────
         StepSection::PollUrl | StepSection::PollIntervalMs | StepSection::PollTimeoutSecs | StepSection::PollUntilVar => {
             if key.code == KeyCode::Enter {
@@ -1223,6 +1267,8 @@ fn apply_text_edit(app: &mut BuilderApp, step_idx: usize, section: &StepSection,
             // Notify sections
             StepSection::NotifyUrl     => step.url     = value.to_string(),
             StepSection::NotifyMessage => step.message = if value.is_empty() { None } else { Some(value.to_string()) },
+            // Build sections
+            StepSection::BuildOutput => step.build_output = if value.is_empty() { None } else { Some(value.to_string()) },
             // Search sections
             StepSection::SearchInput | StepSection::SearchPath | StepSection::SearchMatch | StepSection::SearchOutput => {
                 let cfg = step.search.get_or_insert(crate::campaign::SearchConfig {
@@ -1318,6 +1364,7 @@ fn handle_add_stage2(
                 PairTarget::GraphqlVariables => { step.graphql_variables.insert(pair_key, buffer.trim().to_string()); }
                 PairTarget::Vars             => { step.vars.insert(pair_key, buffer.trim().to_string()); }
                 PairTarget::JqArgs           => { step.jq_args.insert(pair_key, buffer.trim().to_string()); }
+                PairTarget::BuildFields      => { step.fields.insert(pair_key, buffer.trim().to_string()); }
                 PairTarget::ParallelSteps    => unreachable!("ParallelSteps is single-stage, never reaches stage 2"),
             }
             app.modified = true;
@@ -1800,6 +1847,9 @@ pub fn current_value(app: &BuilderApp, step_idx: usize, section: &StepSection) -
         StepSection::NotifyUrl     => step.url.clone(),
         StepSection::NotifyMethod  => if step.method.is_empty() { "POST".into() } else { step.method.clone() },
         StepSection::NotifyMessage => step.message.clone().unwrap_or_default(),
+        // Build sections
+        StepSection::BuildFields   => format!("({} fields)", step.fields.len()),
+        StepSection::BuildOutput   => step.build_output.clone().unwrap_or_else(|| "BUILD_RESULT".into()),
     }
 }
 

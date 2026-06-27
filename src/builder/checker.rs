@@ -60,6 +60,10 @@ pub fn run(app: &BuilderApp) -> Vec<CheckResult> {
         if step.kind == "file" {
             defined.insert(step.file_output.clone().unwrap_or_else(|| "FILE_DATA".into()));
         }
+        // Build output var
+        if step.kind == "build" {
+            defined.insert(step.build_output.clone().unwrap_or_else(|| "BUILD_RESULT".into()));
+        }
     }
 
     // ── Output `from_step` validation ─────────────────────────────────────────
@@ -151,6 +155,15 @@ fn check_step_fields(idx: usize, step: &Step, results: &mut Vec<CheckResult>) {
                     level: CheckLevel::Warning,
                     step_idx: Some(idx),
                     message: format!("[{}] Set: no variables defined", idx + 1),
+                });
+            }
+        }
+        "build" => {
+            if step.fields.is_empty() {
+                results.push(CheckResult {
+                    level: CheckLevel::Warning,
+                    step_idx: Some(idx),
+                    message: format!("[{}] Build: no fields defined", idx + 1),
                 });
             }
         }
@@ -274,6 +287,8 @@ fn check_step_vars(
     }
     // Notify step vars
     if let Some(msg) = &step.message      { collect_vars(msg, &mut refs); }
+    // Build step vars
+    for v in step.fields.values()         { collect_vars(v, &mut refs); }
 
     for var in refs {
         if !defined.contains(&var) {

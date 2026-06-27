@@ -891,15 +891,15 @@ terapi build my_campaign.toml       # edit an existing file
 
 **What's in the builder:**
 
-- **Numbered pipeline** — steps with badges (`HTTP` `TRSF` `WAIT` `SEED` `FILE` `SRCH` `LOOP` `POLL` `SET` `JQ` `PAR` `NTFY` `#`) and inline hints (`↻` foreach, `⊘` when, `?` assertions); `D` duplicates the selected step, `d` deletes (with confirmation — press `d` again to confirm), `K`/`J` reorder
+- **Numbered pipeline** — steps with badges (`HTTP` `TRSF` `WAIT` `SEED` `FILE` `SRCH` `LOOP` `POLL` `SET` `BILD` `JQ` `PAR` `NTFY` `#`) and inline hints (`↻` foreach, `⊘` when, `?` assertions); `D` duplicates the selected step, `d` deletes (with confirmation — press `d` again to confirm), `K`/`J` reorder
 - **[IN] / [OUT] sections** — navigable connectors above steps and output blocks below
-- **Brick catalog** — HTTP, Transform, Pause, Seed, File Loader, Search / Filter, JQ transform, Loop, Poll, Parallel, Set, Notify, Comment, Connector [IN], Output [OUT]
+- **Brick catalog** — HTTP, Transform, Pause, Seed, File Loader, Search / Filter, Build JSON, JQ transform, Loop, Poll, Parallel, Set, Notify, Comment, Connector [IN], Output [OUT]
 - **Step editor** — all fields for every step type; multi-line body textarea; assertions, when, foreach guided entry
 - **Run step** (`r`) — execute the current step immediately; full right panel shows status, assertions, extracted vars, body; step name and value columns adapt to panel width; `↑/↓` / `PgUp/PgDn` scroll vertically; `←/→` scroll horizontally for long URLs/values; `Esc` returns to editor (result kept in memory for `Tab`→path autocomplete)
 - **JSON path autocomplete** (`Tab` on Extract value) — after running a step, picks dot-paths from the response JSON
 - **Load from collection** (`L`) — browse existing collections and fill method/URL/headers/body in one keystroke
 - **Variables panel** (`v`) — full CRUD on the `[env]` block
-- **Checker** (`c`) — static validation per step kind (URL for http/graphql/loop/poll/notify, jq_input+expression for jq, vars for set, input for search, steps list for parallel, file_path for file); `{{VAR}}` resolution across all fields; vars produced by set/jq/search/file propagated to downstream checks; invalid `from_step` references; duplicate/empty step names
+- **Checker** (`c`) — static validation per step kind (URL for http/graphql/loop/poll/notify, jq_input+expression for jq, vars for set, fields for build, input for search, steps list for parallel, file_path for file); `{{VAR}}` resolution across all fields; vars produced by set/jq/search/file/build propagated to downstream checks; invalid `from_step` references; duplicate/empty step names
 - **TOML preview** (`p`) — syntax-highlighted live preview (`[section]` cyan, `[[array]]` magenta, strings green)
 - **Save** (`w`) — writes to the target file or `<terapi_dir>/campaigns/`
 - **Quit confirmation** — `y / n / Esc` prompt when there are unsaved changes

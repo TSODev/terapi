@@ -2315,6 +2315,53 @@ In the Campaign Builder, add a **Notify (webhook)** brick from the catalog.
 
 ---
 
+### Build JSON step
+
+A `kind = "build"` step constructs a JSON object from a set of key/value pairs and stores the result in a campaign variable. No HTTP request is made.
+
+Each value is resolved (all `{{VAR}}` substituted from the current campaign environment) and then parsed as JSON. If the resolved value is valid JSON (array, object, number, boolean, or null), it is embedded as a native JSON value; otherwise it is kept as a string. This means you can assemble a structured object that mixes raw arrays (e.g. `{{ARR_RESULT}}`) and scalar strings (e.g. `{{GAREID}}`) without any explicit casting.
+
+#### Example
+
+```toml
+[[steps]]
+name = "Build summary"
+kind = "build"
+build_output = "SUMMARY"   # optional, default "BUILD_RESULT"
+
+[steps.fields]
+arrivals   = "{{ARR_RESULT}}"   # JSON array → embedded as array
+departures = "{{DEP_RESULT}}"   # JSON array → embedded as array
+station    = "{{GAREID}}"       # string    → embedded as string
+line       = "{{LIGNENAME}}"    # string    → embedded as string
+```
+
+Produces in `SUMMARY`:
+
+```json
+{
+  "arrivals":   [{"name": "DAPO", "date": "20260627T165300"}, ...],
+  "departures": [{"name": "DAPO", "date": "20260627T165400"}, ...],
+  "station":    "stop_area:SNCF:87393462",
+  "line":       "N"
+}
+```
+
+#### Fields
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `[steps.fields]` | `{}` | Key/value pairs — values support `{{VAR}}`; parsed as JSON if valid |
+| `build_output` | `BUILD_RESULT` | Variable name to store the resulting JSON object |
+| `when` | — | Optional condition — skip the step when condition is false |
+| `continue_on_error` | `false` | Non-blocking failure (always succeeds in practice) |
+
+The `BILD` badge (green) appears in the pipeline idle view and CLI output.
+
+In the Campaign Builder, add a **Build JSON** brick from the catalog.
+
+---
+
 ### Loop steps (pagination)
 
 A `kind = "loop"` step repeats an HTTP request in a loop — resolving `{{VAR}}` from the current env before each request, extracting variables from each response, and stopping when an `until` condition is met. Results from every iteration can be accumulated into a single JSON array.
@@ -3070,6 +3117,7 @@ Press `n` (append) or `i` (insert after cursor) to open the catalog:
 | JQ transform | `JQ  ` | `kind = "jq"` — apply a jq filter to a JSON variable (**requires `jq`**) |
 | Poll | `POLL` | `kind = "poll"` — repeat HTTP until an `until` condition is met (or timeout) |
 | Set | `SET ` | `kind = "set"` — assign literal/template variables without HTTP |
+| Build JSON | `BILD` | `kind = "build"` — construct a JSON object from key/value pairs |
 | Parallel | `PAR ` | `kind = "parallel"` — run multiple named steps concurrently, wait for all |
 | Notify | `NTFY` | `kind = "notify"` — POST a message to a webhook (Slack, Discord, custom) |
 | Comment | `#` | TOML comment line between steps, skipped at runtime |

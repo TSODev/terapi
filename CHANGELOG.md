@@ -56,6 +56,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Campaign Builder: **`D` duplicates the selected step** — inserts a clone immediately below the cursor, appends `" copy"` to the name (successive duplicates: `" copy 2"`, `" copy 3"`), and moves the cursor to the new step; step comment is also duplicated
 - Campaign Builder: **`d` delete now requires confirmation** — first `d` activates a pending-delete state; the status bar turns red and shows `⚠ Delete "<name>" ?  d: confirm  any other key: cancel`; pressing `d` again deletes; any other key cancels silently; prevents accidental loss of steps
+- `kind = "build"` campaign step — construct a JSON object from key/value pairs and store it in a variable
+  - `[steps.fields]` key/value table; all values support `{{VAR}}` interpolation
+  - Values are resolved then parsed as JSON (arrays, objects, numbers, booleans, null) — if not valid JSON the value is kept as a string; no explicit casting needed
+  - `build_output` — variable name to store the result (default `BUILD_RESULT`)
+  - Badge `BILD` (green) in pipeline and CLI output
+  - Full step editor in `terapi build`: Fields list (`a`/`d`/`Enter`) + Output var
 
 ### Fixed
 - Campaign Builder checker (`c`) — all non-HTTP step kinds now get per-kind field validation instead of incorrectly reporting "HTTP step: URL is empty":

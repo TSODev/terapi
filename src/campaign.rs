@@ -167,6 +167,11 @@ pub struct Step {
     // Notify step fields (kind = "notify")
     #[serde(default)]
     pub message: Option<String>,
+    // Build step fields (kind = "build")
+    #[serde(default)]
+    pub fields: HashMap<String, String>,
+    #[serde(default)]
+    pub build_output: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -840,6 +845,40 @@ async fn run_single_step(
             graphql: false,
             request_headers: vec![],
             request_body: None,
+        };
+    }
+
+    if step.kind == "build" {
+        let output_var = step.build_output.as_deref().unwrap_or("BUILD_RESULT").to_string();
+        let mut map = serde_json::Map::new();
+        let mut pairs: Vec<_> = step.fields.iter().collect();
+        pairs.sort_by_key(|(k, _)| k.as_str());
+        for (k, v) in pairs {
+            let resolved = resolve(v, effective);
+            let json_val: serde_json::Value = serde_json::from_str(&resolved)
+                .unwrap_or(serde_json::Value::String(resolved));
+            map.insert(k.clone(), json_val);
+        }
+        let json_str = serde_json::to_string(&serde_json::Value::Object(map))
+            .unwrap_or_else(|_| "{}".into());
+        let mut extracted = HashMap::new();
+        extracted.insert(output_var, json_str);
+        return StepResult {
+            name:              step.name.clone(),
+            method:            "BILD".into(),
+            url:               String::new(),
+            status:            None,
+            duration_ms:       0,
+            success:           true,
+            skipped:           false,
+            non_blocking:      effective_coe,
+            error:             None,
+            extracted,
+            assertion_results: vec![],
+            body_json:         None,
+            graphql:           false,
+            request_headers:   vec![],
+            request_body:      None,
         };
     }
 

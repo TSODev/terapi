@@ -73,6 +73,8 @@ pub struct App {
     // Response
     pub last_request_raw: Option<RawRequest>,
     pub response_body: Option<String>,
+    pub previous_response_body: Option<String>,
+    pub pending_diff_open: bool,
     pub response_status: Option<u16>,
     pub response_elapsed_ms: Option<u64>,
     pub response_headers: Vec<(String, String)>,
@@ -190,6 +192,8 @@ impl App {
             cookie_jar_store: std::sync::Arc::new(reqwest::cookie::Jar::default()),
             last_request_raw: None,
             response_body,
+            previous_response_body: None,
+            pending_diff_open: false,
             response_status: None,
             response_elapsed_ms: None,
             response_headers: Vec::new(),
@@ -871,6 +875,13 @@ impl App {
                 };
                 self.response_cursor = 0;
                 self.response_scroll = 0;
+            }
+            KeyCode::Char('d')
+                if self.active_tab == Tab::Request
+                && matches!(self.response_view, ResponseView::Json | ResponseView::Raw)
+                && self.previous_response_body.is_some()
+                && self.response_body.is_some() => {
+                self.pending_diff_open = true;
             }
             KeyCode::Up if self.active_tab == Tab::Request => {
                 match self.response_view {

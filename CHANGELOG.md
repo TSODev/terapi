@@ -8,6 +8,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Response diff** (`d` in JSON or Raw view) — compares the last two responses using an external diff tool; suspends the TUI, writes both bodies to `/tmp/terapi_prev.json` and `/tmp/terapi_curr.json`, then runs `$TERAPI_DIFF file1 file2` (if set) or `diff -u … | ${PAGER:-less -R}` by default; resumes the TUI on exit. Compatible with `difft`, `delta`, `nvim -d`, `colordiff`, or any tool that takes two file arguments. `d` is only active after two or more requests have been sent; the status bar shows `d: diff` when available.
+- `loop_increment = { var = "OFFSET", by = 50 }` on `kind = "loop"` steps — increments a named variable by a fixed integer delta after each iteration (applied after extraction, so the new value is available on the next request); enables offset-based pagination without a `transform` step; works with both HTTP and GraphQL loops; builder step editor: "Increment — var" and "Increment — by" sections; serialized as an inline TOML table
 - `kind = "build"` campaign step — construct a JSON object from key/value pairs and store it in a variable
   - `[steps.fields]` key/value table; all values support `{{VAR}}` interpolation
   - Values are resolved then parsed as JSON (arrays, objects, numbers, booleans, null) — if not valid JSON the value is kept as a string; no explicit casting needed

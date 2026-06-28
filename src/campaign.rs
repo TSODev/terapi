@@ -140,6 +140,8 @@ pub struct Step {
     pub until: Option<StepCondition>,
     #[serde(default)]
     pub accumulate: Option<AccumulateConfig>,
+    #[serde(default)]
+    pub loop_increment: Option<LoopIncrement>,
     // Poll step fields (kind = "poll")
     #[serde(default = "default_poll_interval")]
     pub interval_ms: u64,
@@ -173,6 +175,12 @@ pub struct Step {
     pub fields: IndexMap<String, String>,
     #[serde(default)]
     pub build_output: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct LoopIncrement {
+    pub var: String,
+    pub by: i64,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -1542,9 +1550,10 @@ async fn run_loop_step(
 
     // Build an HTTP-only step (strip loop-specific fields for execution)
     let mut http_step = step.clone();
-    http_step.kind   = "http".into();
-    http_step.until  = None;
-    http_step.accumulate = None;
+    http_step.kind          = "http".into();
+    http_step.until         = None;
+    http_step.accumulate    = None;
+    http_step.loop_increment = None;
 
     loop {
         if iter_count >= MAX_ITERATIONS {
@@ -1571,6 +1580,15 @@ async fn run_loop_step(
 
         // Propagate extracted vars for next iteration
         iter_env.extend(result.extracted);
+
+        // Apply loop_increment (after extraction so the var can also be extracted and overridden)
+        if let Some(ref inc) = step.loop_increment {
+            let current: i64 = iter_env.get(&inc.var)
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0);
+            iter_env.insert(inc.var.clone(), (current + inc.by).to_string());
+        }
+
         iter_count += 1;
 
         if !result.success {

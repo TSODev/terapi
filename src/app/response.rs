@@ -109,14 +109,17 @@ impl App {
                         })
                         .collect();
                     self.response_headers = http.headers.clone();
+                    self.previous_response_body = self.response_body.take();
                     self.response_body = Some(http.body.clone());
                     self.response_cursor = 0;
                     self.response_scroll = 0;
                     self.response_folds = HashSet::new();
+                    let diff_hint = if self.previous_response_body.is_some() { "  d: diff" } else { "" };
                     self.status_message = format!(
-                        "{}  {}ms  —  Tab: panels  e: edit URL  s: send  m: method  ←/→: section  r: raw  q: quit",
+                        "{}  {}ms  —  Tab: panels  e: edit URL  s: send  m: method  ←/→: section  r: raw{}  q: quit",
                         http_status_label(self.response_status.unwrap_or(0)),
                         self.response_elapsed_ms.unwrap_or(0),
+                        diff_hint,
                     );
                     self.record_history(Some(http.status), Some(http.elapsed_ms), Some(http.body));
                 }

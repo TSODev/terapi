@@ -58,6 +58,8 @@ pub fn sections_for(kind: &str) -> Vec<StepSection> {
             StepSection::LoopUntilCond,
             StepSection::LoopAccumulateVar,
             StepSection::LoopAccumulateFrom,
+            StepSection::LoopIncrementVar,
+            StepSection::LoopIncrementBy,
             StepSection::LoopExtract,
             StepSection::LoopContinueOnError,
         ],
@@ -728,6 +730,22 @@ fn handle_browse(
                     StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
             }
         }
+        StepSection::LoopIncrementVar => {
+            if key.code == KeyCode::Enter {
+                let buf = app.campaign.steps[step_idx].loop_increment.as_ref()
+                    .map(|i| i.var.clone()).unwrap_or_default();
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
+            }
+        }
+        StepSection::LoopIncrementBy => {
+            if key.code == KeyCode::Enter {
+                let buf = app.campaign.steps[step_idx].loop_increment.as_ref()
+                    .map(|i| i.by.to_string()).unwrap_or_else(|| "0".into());
+                set_focus(app, step_idx, section_cursor, sub_cursor,
+                    StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf });
+            }
+        }
         StepSection::LoopExtract => match key.code {
             KeyCode::Char('a') => {
                 set_focus(app, step_idx, section_cursor, sub_cursor,
@@ -1254,6 +1272,18 @@ fn apply_text_edit(app: &mut BuilderApp, step_idx: usize, section: &StepSection,
                     var: String::new(), from: String::new(),
                 });
                 a.from = value.to_string();
+            }
+            StepSection::LoopIncrementVar => {
+                let i = step.loop_increment.get_or_insert(crate::campaign::LoopIncrement {
+                    var: String::new(), by: 0,
+                });
+                i.var = value.to_string();
+            }
+            StepSection::LoopIncrementBy => {
+                let i = step.loop_increment.get_or_insert(crate::campaign::LoopIncrement {
+                    var: String::new(), by: 0,
+                });
+                i.by = value.parse().unwrap_or(0);
             }
             // Condition value fields (type cycling is handled in handle_browse; Enter edits value)
             StepSection::LoopUntilCond => {
@@ -1828,6 +1858,8 @@ pub fn current_value(app: &BuilderApp, step_idx: usize, section: &StepSection) -
         }).unwrap_or_else(|| "not exists".into()),
         StepSection::LoopAccumulateVar  => step.accumulate.as_ref().map(|a| a.var.clone()).unwrap_or_default(),
         StepSection::LoopAccumulateFrom => step.accumulate.as_ref().map(|a| a.from.clone()).unwrap_or_default(),
+        StepSection::LoopIncrementVar   => step.loop_increment.as_ref().map(|i| i.var.clone()).unwrap_or_default(),
+        StepSection::LoopIncrementBy    => step.loop_increment.as_ref().map(|i| i.by.to_string()).unwrap_or_else(|| "0".into()),
         // Search sections
         StepSection::SearchInput    => step.search.as_ref().map(|c| c.input.clone()).unwrap_or_default(),
         StepSection::SearchPath     => step.search.as_ref().map(|c| c.path.clone()).unwrap_or_else(|| String::new()),

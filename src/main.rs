@@ -231,6 +231,29 @@ async fn run_tui(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, json: Op
             Event::Tick => app.tick(),
         }
 
+        if app.pending_diff_open {
+            app.pending_diff_open = false;
+            if let (Some(prev), Some(curr)) = (&app.previous_response_body.clone(), &app.response_body.clone()) {
+                let prev_path = "/tmp/terapi_prev.json";
+                let curr_path = "/tmp/terapi_curr.json";
+                let _ = std::fs::write(prev_path, prev);
+                let _ = std::fs::write(curr_path, curr);
+                let cmd = std::env::var("TERAPI_DIFF")
+                    .map(|d| format!("{} \"{}\" \"{}\"", d, prev_path, curr_path))
+                    .unwrap_or_else(|_| format!(
+                        "diff -u \"{}\" \"{}\" | ${{PAGER:-less -R}}",
+                        prev_path, curr_path
+                    ));
+                disable_raw_mode()?;
+                execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+                let _ = std::process::Command::new("sh").arg("-c").arg(&cmd).status();
+                enable_raw_mode()?;
+                execute!(terminal.backend_mut(), EnterAlternateScreen)?;
+                terminal.clear()?;
+                app.status_message = "r: cycle view  d: diff with previous  /: search".into();
+            }
+        }
+
         if let Some(path) = app.pending_editor_open.take() {
             let editor = std::env::var("EDITOR")
                 .or_else(|_| std::env::var("VISUAL"))

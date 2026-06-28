@@ -130,6 +130,7 @@ After import, a report is printed:
 | `↑` / `↓` | Options sub-tab — navigate between options |
 | `Space` / `Enter` | Options sub-tab — toggle (Skip TLS / Follow redirects / Cookie jar) or cycle timeout |
 | `r` | Cycle response view: JSON → Raw → HTTP (full diagnostics + redirect chain + cookies) |
+| `d` | Diff last two responses using `$TERAPI_DIFF` (or `diff -u \| less`); available after 2nd request |
 | `-` / `=` | Resize Key column |
 | `q` `q` | Quit (press twice to confirm) |
 
@@ -776,7 +777,7 @@ Ready-to-run examples in `examples/campaigns/` — no API key required:
 | `eu_capitals.toml` | **4-step pipeline**: GraphQL seed (53 EU countries) → language transform → geocode capital → live weather (Open-Meteo); paired with `eu_capitals_map.html` |
 | `foreach_demo.toml` | **`foreach`**: fetch user list, extract IDs with `*.id` wildcard, iterate over each user to fetch their todos |
 | `when_demo.toml` | **`when`**: `eq` / `ne` / `exists` operators — admin vs standard user branches with automatic cascade |
-| `loop_pagination_demo.toml` | **`kind = "loop"`**: two patterns — next-URL cursor (Rick & Morty) and last-ID-as-offset (JSONPlaceholder); collects all 100 posts in 4 pages |
+| `loop_pagination_demo.toml` | **`kind = "loop"`**: two patterns — next-URL cursor (Rick & Morty) and last-ID-as-offset (JSONPlaceholder); collects all 100 posts in 4 pages; `loop_increment = { var, by }` for fixed-delta offset pagination without a transform step |
 | `spacex_exploration.toml` | **GraphQL pipeline**: company → fleet → latest launch → all 109 past launches (wildcard `*.id`) → roadster position → booster stats → summary transform |
 | `horaires_sncf_par_gare.toml` | **SNCF API** (`-p GARE="Paris Montparnasse"`): resolve stop_area → fetch departures + arrivals → JQ timestamp formatting (`.[6:8]/.[4:6]/.[0:4]`) → JQ zip (train + time + direction) → Build JSON; requires `SNCF_TOKEN` in a terapi env named `sncf` |
 

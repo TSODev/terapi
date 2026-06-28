@@ -527,6 +527,7 @@ The JSON view displays a 3-column table: **Key / Type / Value**.
 - Objects and arrays show a `▼` / `▶` fold icon — press `Enter` to fold or unfold.
 - Folded nodes display an inline content preview: `{ id: 42, name: "tsodev" … }`.
 - Press `r` to cycle through three views: **JSON** → **Raw** → **HTTP** → JSON.
+- Press `d` (JSON or Raw view) to diff the last two responses in an external tool — see [Response diff](#response-diff) below.
 - Use `-` / `=` to shrink or grow the Key column width.
 - Use `↑` / `↓` to move the cursor row by row (JSON view) or scroll (Raw / HTTP views).
 
@@ -658,6 +659,30 @@ Set-Cookie: session=abc123; Path=/; HttpOnly
 | Yellow | Number |
 | Magenta | Boolean |
 | Dark grey | Null |
+
+#### Response diff
+
+Press `d` in the **JSON** or **Raw** view to compare the last two responses side by side using an external diff tool. The key is only active after at least two requests have been sent (the status bar shows `d: diff` when available).
+
+Terapi suspends the TUI, writes both bodies to `/tmp/terapi_prev.json` and `/tmp/terapi_curr.json`, runs the diff command, then resumes.
+
+**Tool selection** — set `TERAPI_DIFF` in your environment:
+
+| `TERAPI_DIFF` value | Effect |
+|---------------------|--------|
+| *(not set)* | `diff -u … \| ${PAGER:-less -R}` — always available |
+| `difft` | Structural / semantic diff — best for JSON (ignores reformatting) |
+| `delta` | Syntax-highlighted diff pager |
+| `nvim -d` | Neovim side-by-side interactive diff |
+| `colordiff -u` | Coloured unified diff |
+
+```bash
+# Recommended for JSON API responses:
+export TERAPI_DIFF=difft
+
+# Or in your shell profile:
+export TERAPI_DIFF="nvim -d"
+```
 
 ### Collections panel
 
@@ -935,6 +960,7 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `↑` / `↓` | Request panel | Move response cursor (JSON) / scroll (Raw) |
 | `Enter` | Request panel (response mode) | Fold / unfold selected JSON node |
 | `r` | Request panel | Cycle response view: JSON → Raw → HTTP exchange |
+| `d` | Request panel (JSON or Raw view) | Diff last two responses in external tool (`$TERAPI_DIFF`) |
 | `/` | Request panel (JSON view) | Open search bar — filter rows by key or value |
 | `>` | JSON search | Jump to next match |
 | `<` | JSON search | Jump to previous match |
@@ -2482,13 +2508,60 @@ OFFSET     = "next_offset"
 
 After the loop, `accumulate.var` holds a JSON array of all values collected across iterations. It can be used in subsequent steps with `foreach` or `*` extraction.
 
+#### `loop_increment` config
+
+`loop_increment` increments a variable by a fixed integer delta **after each iteration** (applied after extraction, so the incremented value is available on the next request). This replaces a dedicated `transform` step for offset-based pagination.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `var` | string | Variable name to increment (must exist in `[env]` or be initialized to `"0"`) |
+| `by` | integer | Delta to add each iteration (use negative to decrement) |
+
+```toml
+[env]
+OFFSET = "0"
+
+[[steps]]
+name             = "Fetch all pages"
+kind             = "loop"
+method           = "GET"
+url              = "{{BASE_URL}}/items?limit=50&offset={{OFFSET}}"
+until            = { var = "TOTAL", lte = "{{OFFSET}}" }
+accumulate       = { var = "ALL_ITEMS", from = "data.*" }
+loop_increment   = { var = "OFFSET", by = 50 }
+
+[steps.extract]
+TOTAL = "total"   # total item count from first response
+```
+
+Works with GraphQL too — inject `{{OFFSET}}` directly in the query string (safe for numeric values):
+
+```toml
+[env]
+OFFSET = "0"
+
+[[steps]]
+name           = "Fetch launches"
+kind           = "loop"
+url            = "https://spacex-production.up.railway.app/"
+until          = { var = "OFFSET", gte = 109 }
+accumulate     = { var = "ALL_LAUNCHES", from = "data.launchesPastResult.data.*" }
+loop_increment = { var = "OFFSET", by = 50 }
+graphql_query  = """
+{ launchesPastResult(limit: 50, offset: {{OFFSET}}) { data { id mission_name } } }
+"""
+```
+
+> **Note:** `{{VAR}}` in `graphql_query` is injected as a raw string (no JSON quoting). Safe for numeric variables; for string values use `graphql_variables` instead.
+
 #### Pagination patterns
 
 | Pattern | Mechanism | `until` condition |
 |---------|-----------|-------------------|
 | **Cursor / token** | Response contains `next_cursor`, `null` on last page | `{ var = "CURSOR", exists = false }` |
 | **Short page** | No metadata — stop when page has fewer items than limit | `{ var = "PAGE_COUNT", lt = 50 }` |
-| **Offset / total** | First response gives `total`, derive page count | Use `foreach` + transform (known N) |
+| **Offset + increment** | Fixed page size; increment `OFFSET` by `N` each iteration | `loop_increment = { var = "OFFSET", by = N }` + `until` on total |
+| **Offset / total** | First response gives `total`, N pages known | Use `foreach` + transform (known N) |
 | **Link header** | Next URL in `Link: rel="next"` header | Not yet supported |
 
 #### Safety cap
@@ -3227,6 +3300,8 @@ Press `n` (append) or `i` (insert after cursor) to open the catalog:
 | Until — condition | `←/→` cycles type: `not exists → exists → == → != → <`; `Enter` when `==`/`!=`/`<` opens text editor for the comparison value |
 | Accumulate — var | Output variable that receives the accumulated JSON array |
 | Accumulate — from | Dot-path (supports `*`) evaluated on each response body |
+| Increment — var | Variable name to increment after each iteration |
+| Increment — by | Integer delta (positive or negative); `Enter` to edit |
 | Extract (per-iter) | Variables extracted from each response; feed back into URL/headers for the next iteration |
 | Continue on error | Toggle — iteration failures are non-blocking |
 

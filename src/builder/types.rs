@@ -89,6 +89,7 @@ pub enum PairTarget {
     Vars,
     JqArgs,
     BuildFields,
+    #[allow(dead_code)]
     ParallelSteps,  // single-stage: step name only (no value)
 }
 
@@ -382,6 +383,7 @@ pub enum CheckLevel {
 #[derive(Debug, Clone)]
 pub struct CheckResult {
     pub level: CheckLevel,
+    #[allow(dead_code)]
     pub step_idx: Option<usize>,
     pub message: String,
 }

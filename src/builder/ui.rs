@@ -1330,6 +1330,11 @@ fn step_help_text(kind: &str) -> (&'static str, &'static str, &'static str) {
             "Values are resolved ({{VAR}} substituted) then parsed as JSON if valid, else kept as strings.",
             "a: add field  ·  d: delete  ·  Enter: edit  ·  K/J: move field up/down",
         ),
+        "graphql" => (
+            "Send a GraphQL query — body is sent as {\"query\": ..., \"variables\": {...}}.",
+            "Use [extract] with dot-paths on the `data` envelope; variables support {{VAR}} substitution.",
+            "Enter: edit query  ·  a: add GQL variable or header  ·  Tab: autocomplete extract path",
+        ),
         _ => (
             "Send an HTTP request and capture the response body and headers.",
             "Use [extract] to pull JSON values into variables for use in later steps.",
@@ -1432,7 +1437,6 @@ fn render_parallel_step_picker(
     cursor: usize,
     area: Rect,
 ) {
-    use super::types::StepEditorMode;
     let already: std::collections::HashSet<String> = app.campaign.steps[step_idx]
         .parallel_steps.iter().cloned().collect();
     let candidates: Vec<&crate::campaign::Step> = app.campaign.steps.iter().enumerate()

@@ -1436,50 +1436,58 @@ Authorization = "Bearer {{JWT}}"
 A campaign is a directed pipeline. Data flows from left to right — each stage's output feeds the next:
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                       CAMPAIGN PIPELINE                                   │
-│                                                                            │
-│  ┌─────────────────┐                                                       │
-│  │  env_file / [env]│ ──────────────────────────────────────────────────┐ │
-│  └─────────────────┘    base variables (lowest priority)                │ │
-│                                                                          ↓ │
-│  ┌───────────────────────────────────────────────────────────────┐      │ │
-│  │                    [[connectors]]                              │      │ │
-│  │                                                                │      │ │
-│  │  type = "csv"   →  one row per CSV line                       │      │ │
-│  │  type = "json"  →  one row per JSON array element             │  ────┼─┤ │
-│  │    from file                                                   │      │ │
-│  │    from seed step  (kind = "seed" HTTP step, run once first)  │      │ │
-│  │                                                                │      │ │
-│  │  (no connector) →  single run, no row variables               │      │ │
-│  └───────────────────────────────────────────────────────────────┘      │ │
-│                          │  row variables (override env)                 │ │
-│                          ↓                                               │ │
-│  ┌────────────────────────────────────────────────────────────────┐     │ │
-│  │  for each row:   [[steps]]                                      │ ←──┘ │
-│  │                                                                  │      │
-│  │  kind = "http" (default)                                         │      │
-│  │    → resolve {{VAR}}, send request                               │      │
-│  │    → assert response (optional)                                  │      │
-│  │    → [steps.extract]  →  new {{VARS}} for next steps             │      │
-│  │                                                                  │      │
-│  │  kind = "seed"                                                   │      │
-│  │    → run once before iteration, feeds [[connectors]]             │      │
-│  │                                                                  │      │
-│  │  kind = "transform"                                              │      │
-│  │    → reshape/compute variables without HTTP                      │      │
-│  │                                                                  │      │
-│  │  kind = "loop"                                                   │      │
-│  │    → repeat HTTP until condition, accumulate results             │      │
-│  └──────────────────────────────────────────────────────────────┬─┘      │
-│                                                                  │         │
-│                          extracted {{VARS}}                      │         │
-│                          (highest priority)                      ↓         │
-│                                                ┌──────────────────────┐   │
-│                                                │    [[outputs]]       │   │
-│                                                │  write JSON to disk  │   │
-│                                                └──────────────────────┘   │
-└──────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                          CAMPAIGN PIPELINE                                    │
+│                                                                               │
+│  ┌─────────────────┐                                                          │
+│  │  env_file / [env]│ ─────────────────────────────────────────────────────┐ │
+│  └─────────────────┘    base variables (lowest priority)                   │ │
+│                                                                             ↓ │
+│  ┌──────────────────────────────────────────────────────────────────┐      │ │
+│  │                    [[connectors]]                                 │      │ │
+│  │                                                                   │      │ │
+│  │  type = "csv"   →  one row per CSV line                          │      │ │
+│  │  type = "json"  →  one row per JSON array element                │ ─────┘ │
+│  │    from file or from seed step (run once first)                  │   (merge)│
+│  │                                                                   │      ↓ │
+│  │  (no connector) →  single run, no row variables                  │        │
+│  └──────────────────────────────────────────────────────────────────┘        │
+│                          │  row variables (override env)                      │
+│                          ↓                                                    │
+│  ┌──────────────────────────────────────────────────────────────────────┐    │
+│  │  for each row:   [[steps]]                                            │    │
+│  │                                                                        │    │
+│  │  ── Network ─────────────────────────────────────────────────────── │    │
+│  │  kind = "http"      → resolve {{VAR}}, send REST request              │    │
+│  │  kind = "graphql"   → send GraphQL query with variables               │    │
+│  │  kind = "seed"      → run once before iteration, feeds connectors     │    │
+│  │  kind = "loop"      → paginate until condition, accumulate results    │    │
+│  │  kind = "poll"      → repeat until condition + timeout                │    │
+│  │  kind = "notify"    → POST message to webhook (Slack / etc.)          │    │
+│  │                                                                        │    │
+│  │  ── Data ────────────────────────────────────────────────────────── │    │
+│  │  kind = "set"       → assign literal variables (no HTTP)              │    │
+│  │  kind = "transform" → reshape / compute variables                     │    │
+│  │  kind = "jq"        → run jq expression on a JSON variable            │    │
+│  │  kind = "search"    → filter JSON array by regex                      │    │
+│  │  kind = "build"     → construct JSON object from key/value pairs      │    │
+│  │  kind = "file"      → load file from disk (base64 / text / hex)       │    │
+│  │                                                                        │    │
+│  │  ── Flow ────────────────────────────────────────────────────────── │    │
+│  │  kind = "parallel"  → run named steps concurrently                    │    │
+│  │  kind = "pause"     → wait N milliseconds                             │    │
+│  │  kind = "comment"   → no-op step annotation                           │    │
+│  │                                                                        │    │
+│  │  All steps:  assert →  [steps.extract]  →  {{VARS}} for next step    │    │
+│  └────────────────────────────────────────────────────────────────────┬──┘    │
+│                                                                        │       │
+│                          extracted {{VARS}}                            │       │
+│                          (highest priority)                            ↓       │
+│                                                  ┌──────────────────────┐     │
+│                                                  │    [[outputs]]       │     │
+│                                                  │  write JSON to disk  │     │
+│                                                  └──────────────────────┘     │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Variable priority** (lowest → highest, each level overrides the previous):

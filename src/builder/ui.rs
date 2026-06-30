@@ -607,6 +607,7 @@ fn render_campaign_settings(
         ("Continue on error", 2),
         ("Env",               3),
         ("Params",            4),
+        ("Rate limit (req/s)", 5),
     ];
 
     let mut rows: Vec<ListItem> = Vec::new();
@@ -679,6 +680,15 @@ fn settings_value_span(app: &BuilderApp, field_idx: usize, is_cursor: bool) -> S
             let n = app.campaign.params.len();
             if n == 0 { Span::styled("(none)  Enter: manage", Style::default().fg(Color::Indexed(246))) }
             else       { Span::styled(format!("({})  Enter: manage", n), Style::default().fg(Color::Cyan)) }
+        }
+        5 => {
+            match app.campaign.rate_limit_rps {
+                None => Span::styled("— (no limit)", Style::default().fg(Color::Indexed(246))),
+                Some(rps) => {
+                    let ms = (1000.0 / rps).ceil() as u64;
+                    Span::styled(format!("{} req/s  (≥{}ms)", rps, ms), Style::default().fg(Color::Yellow))
+                }
+            }
         }
         _ => Span::raw(""),
     }

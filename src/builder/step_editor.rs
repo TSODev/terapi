@@ -686,7 +686,7 @@ fn handle_browse(
                     1 => until.exists = Some(true),
                     2 => until.eq     = Some(String::new()),
                     3 => until.ne     = Some(String::new()),
-                    _ => until.lt     = Some(0.0),
+                    _ => until.lt     = Some(String::new()),
                 }
                 app.modified = true;
             } else if key.code == KeyCode::Enter {
@@ -702,13 +702,13 @@ fn handle_browse(
                         return Ok(set_focus(app, step_idx, section_cursor, sub_cursor,
                             StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf }));
                     }
-                    if let Some(&lt) = until.lt.as_ref() {
-                        let buf = if lt == 0.0 { String::new() } else { lt.to_string() };
+                    if let Some(lt) = &until.lt {
+                        let buf = lt.clone();
                         return Ok(set_focus(app, step_idx, section_cursor, sub_cursor,
                             StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf }));
                     }
-                    if let Some(&lte) = until.lte.as_ref() {
-                        let buf = if lte == 0.0 { String::new() } else { lte.to_string() };
+                    if let Some(lte) = &until.lte {
+                        let buf = lte.clone();
                         return Ok(set_focus(app, step_idx, section_cursor, sub_cursor,
                             StepEditorMode::EditText { cursor: buf.chars().count(), buffer: buf }));
                     }
@@ -1292,8 +1292,8 @@ fn apply_text_edit(app: &mut BuilderApp, step_idx: usize, section: &StepSection,
                 if let Some(u) = step.until.as_mut() {
                     if u.eq.is_some()  { u.eq  = Some(value.to_string()); }
                     else if u.ne.is_some()  { u.ne  = Some(value.to_string()); }
-                    else if u.lt.is_some()  { u.lt  = value.parse().ok().or(Some(0.0)); }
-                    else if u.lte.is_some() { u.lte = value.parse().ok().or(Some(0.0)); }
+                    else if u.lt.is_some()  { u.lt  = Some(value.to_string()); }
+                    else if u.lte.is_some() { u.lte = Some(value.to_string()); }
                 }
             }
             StepSection::PollUntilCond => {

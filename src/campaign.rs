@@ -2,13 +2,41 @@ use anyhow::{bail, Context, Result};
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use regex::Regex;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Instant;
 use tokio::sync::mpsc;
+
+// Deserializer that accepts both TOML numbers and strings for lt/lte fields.
+// `lt = 100` and `lt = "{{DATETIME-1h}}"` both deserialize to Option<String>.
+fn de_str_or_num<'de, D: Deserializer<'de>>(de: D) -> Result<Option<String>, D::Error> {
+    use serde::de::{self, Visitor, Unexpected};
+    struct V;
+    impl<'de> Visitor<'de> for V {
+        type Value = Option<String>;
+        fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(f, "a number or string")
+        }
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> { Ok(Some(v.to_string())) }
+        fn visit_string<E: de::Error>(self, v: String) -> Result<Self::Value, E> { Ok(Some(v)) }
+        fn visit_i64<E: de::Error>(self, v: i64) -> Result<Self::Value, E> { Ok(Some(v.to_string())) }
+        fn visit_u64<E: de::Error>(self, v: u64) -> Result<Self::Value, E> { Ok(Some(v.to_string())) }
+        fn visit_f64<E: de::Error>(self, v: f64) -> Result<Self::Value, E> {
+            // Preserve integer appearance when possible (42.0 → "42", 1.5 → "1.5")
+            if v.fract() == 0.0 && v.abs() < 1e15 { Ok(Some(format!("{}", v as i64))) }
+            else { Ok(Some(v.to_string())) }
+        }
+        fn visit_none<E: de::Error>(self) -> Result<Self::Value, E> { Ok(None) }
+        fn visit_unit<E: de::Error>(self) -> Result<Self::Value, E> { Ok(None) }
+        fn visit_bool<E: de::Error>(self, v: bool) -> Result<Self::Value, E> {
+            Err(de::Error::invalid_type(Unexpected::Bool(v), &self))
+        }
+    }
+    de.deserialize_any(V)
+}
 
 // ── CLI output format ─────────────────────────────────────────────────────────
 
@@ -40,6 +68,8 @@ pub struct Campaign {
     pub outputs: Vec<OutputConfig>,
     #[serde(default)]
     pub continue_on_error: bool,
+    #[serde(default)]
+    pub rate_limit_rps: Option<f64>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -77,10 +107,10 @@ pub struct StepCondition {
     pub ne: Option<String>,
     #[serde(default)]
     pub exists: Option<bool>,
-    #[serde(default)]
-    pub lt: Option<f64>,
-    #[serde(default)]
-    pub lte: Option<f64>,
+    #[serde(default, deserialize_with = "de_str_or_num")]
+    pub lt: Option<String>,
+    #[serde(default, deserialize_with = "de_str_or_num")]
+    pub lte: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -356,7 +386,7 @@ pub async fn run_step_preview_with_context(
     let mut env = base_env;
     for step in steps.iter().take(target_idx) {
         if step.kind == "loop" {
-            let (result, new_vars) = run_loop_step(&client, step, &env, true, &tx).await;
+            let (result, new_vars) = run_loop_step(&client, step, &env, true, &tx, 0).await;
             env.extend(new_vars);
             let _ = result;
         } else {
@@ -366,7 +396,7 @@ pub async fn run_step_preview_with_context(
     }
     if let Some(step) = steps.get(target_idx) {
         if step.kind == "loop" {
-            let (result, _) = run_loop_step(&client, step, &env, false, &tx).await;
+            let (result, _) = run_loop_step(&client, step, &env, false, &tx, 0).await;
             result
         } else {
             run_single_step(&client, step, &env, false).await
@@ -505,7 +535,11 @@ pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<Campaig
             let _ = tx.send(CampaignEvent::IterationStarted { idx, total, row_summary });
         }
 
-        let step_results = run_steps_streaming(&client, &iteration_steps, campaign.continue_on_error, &env, &tx, &only, retry).await;
+        let rate_limit_ms = campaign.rate_limit_rps
+            .filter(|&rps| rps > 0.0)
+            .map(|rps| (1000.0 / rps).ceil() as u64)
+            .unwrap_or(0);
+        let step_results = run_steps_streaming(&client, &iteration_steps, campaign.continue_on_error, &env, &tx, &only, retry, rate_limit_ms).await;
 
         all.push(IterationResult {
             row_index: if multi { Some(idx) } else { None },
@@ -1324,9 +1358,12 @@ async fn run_steps_streaming(
     tx: &mpsc::UnboundedSender<CampaignEvent>,
     only: &[String],
     retry: u32,
+    rate_limit_ms: u64,
 ) -> Vec<StepResult> {
     let mut extracted: HashMap<String, String> = HashMap::new();
     let mut results = Vec::new();
+    let mut last_http_at: Option<std::time::Instant> = None;
+    const HTTP_KINDS: &[&str] = &["http", "graphql", "seed", "notify", "loop", "poll"];
 
     // Pre-scan: collect step names referenced by any parallel step so they can be skipped
     // in the main loop (they will be launched concurrently by their parent parallel step).
@@ -1407,6 +1444,19 @@ async fn run_steps_streaming(
             }
         }
 
+        // ── campaign-level rate limit (between HTTP-kind steps) ──────────────
+        if rate_limit_ms > 0 && HTTP_KINDS.contains(&step.kind.as_str()) {
+            if let Some(last) = last_http_at {
+                let elapsed = last.elapsed().as_millis() as u64;
+                if elapsed < rate_limit_ms {
+                    tokio::time::sleep(
+                        std::time::Duration::from_millis(rate_limit_ms - elapsed)
+                    ).await;
+                }
+            }
+            last_http_at = Some(std::time::Instant::now());
+        }
+
         // ── foreach ──────────────────────────────────────────────────────────
         if let Some(ref foreach_expr) = step.foreach {
             let array_str = resolve(foreach_expr, &effective);
@@ -1483,7 +1533,7 @@ async fn run_steps_streaming(
         if step.kind == "poll" {
             let _ = tx.send(CampaignEvent::StepStarted { name: step.name.clone() });
             let (poll_result, poll_extracted) =
-                run_poll_step(client, step, &effective, effective_coe, tx).await;
+                run_poll_step(client, step, &effective, effective_coe, tx, rate_limit_ms).await;
             if poll_result.success {
                 extracted.extend(poll_extracted);
             }
@@ -1498,7 +1548,7 @@ async fn run_steps_streaming(
         if step.kind == "loop" {
             let _ = tx.send(CampaignEvent::StepStarted { name: step.name.clone() });
             let (loop_result, loop_extracted) =
-                run_loop_step(client, step, &effective, effective_coe, tx).await;
+                run_loop_step(client, step, &effective, effective_coe, tx, rate_limit_ms).await;
             if loop_result.success {
                 extracted.extend(loop_extracted);
             }
@@ -1565,8 +1615,11 @@ async fn run_loop_step(
     base_env: &HashMap<String, String>,
     effective_coe: bool,
     tx: &mpsc::UnboundedSender<CampaignEvent>,
+    rate_limit_ms: u64,
 ) -> (StepResult, HashMap<String, String>) {
     const MAX_ITERATIONS: usize = 1000;
+    let interval_ms = if step.interval_ms > 0 { step.interval_ms } else { rate_limit_ms };
+    let interval_ms = interval_ms.max(rate_limit_ms);
     let mut iter_env = base_env.clone();
     let mut accumulated: Vec<Value> = Vec::new();
     let mut iter_count = 0usize;
@@ -1651,6 +1704,11 @@ async fn run_loop_step(
             // No until condition — run exactly once (safety)
             break;
         }
+
+        // Rate-limit / inter-iteration delay
+        if interval_ms > 0 {
+            tokio::time::sleep(std::time::Duration::from_millis(interval_ms)).await;
+        }
     }
 
     let duration_ms = t0.elapsed().as_millis() as u64;
@@ -1695,9 +1753,10 @@ async fn run_poll_step(
     base_env: &HashMap<String, String>,
     effective_coe: bool,
     tx: &mpsc::UnboundedSender<CampaignEvent>,
+    rate_limit_ms: u64,
 ) -> (StepResult, HashMap<String, String>) {
     const MAX_POLLS: usize = 500;
-    let interval_ms = step.interval_ms.max(100);
+    let interval_ms = step.interval_ms.max(100).max(rate_limit_ms);
     let timeout = std::time::Duration::from_secs(step.timeout_secs.max(1));
     let t0 = std::time::Instant::now();
 
@@ -2225,8 +2284,16 @@ fn evaluate_when_condition(cond: &StepCondition, env: &HashMap<String, String>) 
     if let Some(ref eq) = cond.eq  { return value == resolve(eq, env).as_str(); }
     if let Some(ref ne) = cond.ne  { return value != resolve(ne, env).as_str(); }
     if let Some(exists) = cond.exists { return env.contains_key(&cond.var) == exists; }
-    if let Some(lt)  = cond.lt  { return value.parse::<f64>().map_or(false, |n| n < lt);  }
-    if let Some(lte) = cond.lte { return value.parse::<f64>().map_or(false, |n| n <= lte); }
+    if let Some(ref lt) = cond.lt {
+        let resolved = resolve(lt, env);
+        if let (Ok(a), Ok(b)) = (value.parse::<f64>(), resolved.parse::<f64>()) { return a < b; }
+        return value < resolved.as_str();
+    }
+    if let Some(ref lte) = cond.lte {
+        let resolved = resolve(lte, env);
+        if let (Ok(a), Ok(b)) = (value.parse::<f64>(), resolved.parse::<f64>()) { return a <= b; }
+        return value <= resolved.as_str();
+    }
     !value.is_empty()
 }
 

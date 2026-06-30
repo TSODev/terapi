@@ -428,7 +428,7 @@ impl BuilderApp {
         mode: CampaignSettingsMode,
     ) -> Result<()> {
         use crossterm::event::KeyCode;
-        const FIELDS: usize = 5; // Name, Description, Continue on error, Env, Params
+        const FIELDS: usize = 6; // Name, Description, Continue on error, Env, Params, Rate limit
 
         match mode {
             CampaignSettingsMode::Browse => match key.code {
@@ -464,6 +464,12 @@ impl BuilderApp {
                     4 => {
                         self.focus = BuilderFocus::ParamsEditor { cursor: 0, mode: ParamEditorMode::Browse };
                     }
+                    5 => {
+                        let buf = self.campaign.rate_limit_rps
+                            .map(|r| r.to_string())
+                            .unwrap_or_default();
+                        self.focus = BuilderFocus::CampaignSettings { cursor, mode: CampaignSettingsMode::EditText { buffer: buf } };
+                    }
                     _ => {}
                 },
                 KeyCode::Char(' ') if cursor == 2 => {
@@ -489,6 +495,9 @@ impl BuilderApp {
                     match cursor {
                         0 => { self.campaign.campaign.name = buffer.trim().to_string(); }
                         1 => { self.campaign.campaign.description = buffer.trim().to_string(); }
+                        5 => {
+                            self.campaign.rate_limit_rps = buffer.trim().parse::<f64>().ok().filter(|&r| r > 0.0);
+                        }
                         _ => {}
                     }
                     self.modified = true;
@@ -1394,6 +1403,7 @@ fn empty_campaign(name: &str) -> Campaign {
         steps: vec![],
         outputs: vec![],
         continue_on_error: false,
+        rate_limit_rps: None,
     }
 }
 
@@ -1733,6 +1743,9 @@ pub(super) fn generate_toml(campaign: &Campaign, step_comments: &[String], heade
     if let Some(ref env) = campaign.env_file {
         out.push_str(&format!("env_file = \"{}\"\n", env));
     }
+    if let Some(rps) = campaign.rate_limit_rps {
+        out.push_str(&format!("rate_limit_rps = {}\n", rps));
+    }
 
     for c in &campaign.connectors {
         out.push_str("\n[[connectors]]\n");
@@ -1884,8 +1897,14 @@ pub(super) fn generate_toml(campaign: &Campaign, step_comments: &[String], heade
             if let Some(eq)  = &until.eq    { u.push_str(&format!(", eq = \"{}\"", eq)); }
             if let Some(ne)  = &until.ne    { u.push_str(&format!(", ne = \"{}\"", ne)); }
             if let Some(b)   = until.exists { u.push_str(&format!(", exists = {}", b)); }
-            if let Some(lt)  = until.lt     { u.push_str(&format!(", lt = {}", lt)); }
-            if let Some(lte) = until.lte    { u.push_str(&format!(", lte = {}", lte)); }
+            if let Some(ref lt)  = until.lt  {
+                if lt.parse::<f64>().is_ok() { u.push_str(&format!(", lt = {}", lt)); }
+                else { u.push_str(&format!(", lt = \"{}\"", lt)); }
+            }
+            if let Some(ref lte) = until.lte {
+                if lte.parse::<f64>().is_ok() { u.push_str(&format!(", lte = {}", lte)); }
+                else { u.push_str(&format!(", lte = \"{}\"", lte)); }
+            }
             u.push_str("}\n");
             out.push_str(&u);
         }

@@ -21,6 +21,7 @@
 **terapi** aims to be all of the above in one tool:
 
 > **Full documentation** → [USAGE.md](https://github.com/TSODev/terapi/blob/main/USAGE.md)
+> **What's New** → [CHANGELOG.md](https://github.com/TSODev/terapi/blob/main/CHANGELOG.md)
 
 - **GraphQL native** — schema introspection, variable editing, collections save/load
 - **Pipeline automation** — chain requests, extract variables, run campaigns headlessly

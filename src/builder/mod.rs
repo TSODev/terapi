@@ -1303,7 +1303,7 @@ fn run_builder(
 
         if let Some(step_idx) = app.pending_json_editor_body.take() {
             if let Some(step) = app.campaign.steps.get(step_idx) {
-                let body = step.body.clone().unwrap_or_default();
+                let body = step.body.clone().unwrap_or_else(|| "{}".to_string());
                 let tmp = "/tmp/terapi_body.json";
                 let _ = std::fs::write(tmp, &body);
                 let editor = std::env::var("TERAPI_JSON_EDITOR")

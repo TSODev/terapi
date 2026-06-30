@@ -256,7 +256,7 @@ async fn run_tui(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, json: Op
 
         if app.pending_json_editor_open {
             app.pending_json_editor_open = false;
-            let body = app.body_string().unwrap_or_default();
+            let body = app.body_string().unwrap_or_else(|| "{}".to_string());
             let tmp = "/tmp/terapi_body.json";
             let _ = std::fs::write(tmp, &body);
             let editor = std::env::var("TERAPI_JSON_EDITOR")

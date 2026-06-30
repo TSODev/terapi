@@ -360,6 +360,16 @@ impl App {
         self.status_message = "New request — e: edit URL  ←/→: section  s: send  S: save  q: quit".into();
     }
 
+    pub fn set_body_text(&mut self, text: String) {
+        let lines: Vec<String> = text.lines().map(String::from).collect();
+        self.body_textarea = if lines.is_empty() {
+            tui_textarea::TextArea::default()
+        } else {
+            tui_textarea::TextArea::from(lines)
+        };
+        self.body_mode = BodyMode::Text;
+    }
+
     pub(super) fn body_string(&self) -> Option<String> {
         match self.body_mode {
             BodyMode::Text => {
@@ -551,7 +561,7 @@ impl App {
             RequestTab::Headers     => "e: edit URL  m: method  a: add header  d: delete  ↑/↓: nav  ←/→: section  s: send  S: save  q: quit".into(),
             RequestTab::UrlParams   => "e: edit URL  m: method  a: add  d: delete  Enter: edit  ↑/↓: nav  ←/→: section  s: send  S: save  q: quit".into(),
             RequestTab::Body => match self.body_mode {
-                BodyMode::Text => "e: edit URL  m: method  i: edit body  t: JSON mode  ←/→: section  s: send  S: save  q: quit".into(),
+                BodyMode::Text => "e: edit URL  m: method  i: edit body  E: json editor  t: JSON mode  ←/→: section  s: send  S: save  q: quit".into(),
                 BodyMode::Json => "e: edit URL  m: method  i: edit fields  t: text mode  ←/→: section  s: send  S: save  q: quit".into(),
             },
             RequestTab::Auth        => "e: edit URL  ↑/↓: field  Space/Enter: type or edit  ←/→: section  s: send  S: save  q: quit".into(),

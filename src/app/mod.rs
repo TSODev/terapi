@@ -75,6 +75,7 @@ pub struct App {
     pub response_body: Option<String>,
     pub previous_response_body: Option<String>,
     pub pending_diff_open: bool,
+    pub pending_json_editor_open: bool,
     pub response_status: Option<u16>,
     pub response_elapsed_ms: Option<u64>,
     pub response_headers: Vec<(String, String)>,
@@ -194,6 +195,7 @@ impl App {
             response_body,
             previous_response_body: None,
             pending_diff_open: false,
+            pending_json_editor_open: false,
             response_status: None,
             response_elapsed_ms: None,
             response_headers: Vec::new(),
@@ -496,6 +498,15 @@ impl App {
                     && self.request_focus != RequestFocus::Body =>
             {
                 self.toggle_body_mode();
+            }
+            KeyCode::Char('E')
+                if self.active_tab == Tab::Request
+                    && !self.graphql_mode
+                    && self.active_request_tab == RequestTab::Body
+                    && self.body_mode == BodyMode::Text
+                    && self.request_focus != RequestFocus::Body =>
+            {
+                self.pending_json_editor_open = true;
             }
             KeyCode::Char('m')
                 if self.active_tab == Tab::Request && !self.graphql_mode =>

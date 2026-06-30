@@ -53,6 +53,8 @@ pub struct BuilderApp {
     /// Whether the preview panel is currently shown (result is kept in memory even when hidden
     /// so that Tab → ExtractPicker can still use the JSON body)
     pub step_preview_visible: bool,
+    /// Set to Some(step_idx) to open that step's body in the external JSON editor.
+    pub pending_json_editor_body: Option<usize>,
 }
 
 impl BuilderApp {
@@ -99,6 +101,7 @@ impl BuilderApp {
             step_preview_rx: None,
             step_preview_scroll: 0,
             step_preview_visible: false,
+            pending_json_editor_body: None,
         }
     }
 
@@ -1287,6 +1290,29 @@ fn run_builder(
         match events.next()? {
             Event::Key(key) => app.handle_key(key)?,
             Event::Tick => app.handle_tick(),
+        }
+
+        if let Some(step_idx) = app.pending_json_editor_body.take() {
+            if let Some(step) = app.campaign.steps.get(step_idx) {
+                let body = step.body.clone().unwrap_or_default();
+                let tmp = "/tmp/terapi_body.json";
+                let _ = std::fs::write(tmp, &body);
+                let editor = std::env::var("TERAPI_JSON_EDITOR")
+                    .unwrap_or_else(|_| "jsoned".to_string());
+                let cmd = format!("{} \"{}\"", editor, tmp);
+                disable_raw_mode()?;
+                execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+                let _ = std::process::Command::new("sh").arg("-c").arg(&cmd).status();
+                enable_raw_mode()?;
+                execute!(terminal.backend_mut(), EnterAlternateScreen)?;
+                terminal.clear()?;
+                if let Ok(new_body) = std::fs::read_to_string(tmp) {
+                    if let Some(step) = app.campaign.steps.get_mut(step_idx) {
+                        step.body = if new_body.trim().is_empty() { None } else { Some(new_body) };
+                        app.modified = true;
+                    }
+                }
+            }
         }
     }
 

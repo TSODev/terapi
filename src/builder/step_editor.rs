@@ -374,6 +374,8 @@ fn handle_browse(
                     tui_textarea::TextArea::from(lines)
                 };
                 set_focus(app, step_idx, section_cursor, sub_cursor, StepEditorMode::EditBody);
+            } else if key.code == KeyCode::Char('E') {
+                app.pending_json_editor_body = Some(step_idx);
             }
         }
         StepSection::Foreach => {

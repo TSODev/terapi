@@ -254,6 +254,26 @@ async fn run_tui(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, json: Op
             }
         }
 
+        if app.pending_json_editor_open {
+            app.pending_json_editor_open = false;
+            let body = app.body_string().unwrap_or_default();
+            let tmp = "/tmp/terapi_body.json";
+            let _ = std::fs::write(tmp, &body);
+            let editor = std::env::var("TERAPI_JSON_EDITOR")
+                .unwrap_or_else(|_| "jsoned".to_string());
+            let cmd = format!("{} \"{}\"", editor, tmp);
+            disable_raw_mode()?;
+            execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+            let _ = std::process::Command::new("sh").arg("-c").arg(&cmd).status();
+            enable_raw_mode()?;
+            execute!(terminal.backend_mut(), EnterAlternateScreen)?;
+            terminal.clear()?;
+            if let Ok(new_body) = std::fs::read_to_string(tmp) {
+                app.set_body_text(new_body);
+            }
+            app.update_request_status_hint();
+        }
+
         if let Some(path) = app.pending_editor_open.take() {
             let editor = std::env::var("EDITOR")
                 .or_else(|_| std::env::var("VISUAL"))

@@ -272,6 +272,7 @@ pub struct StepResult {
     /// Raw JSON body — used by output connectors; None for transform/seed steps.
     pub body_json: Option<Value>,
     pub graphql: bool,
+    pub graphql_query: Option<String>,
     /// Resolved request snapshot for TUI "Load in Request tab" feature.
     pub request_headers: Vec<(String, String)>,
     pub request_body: Option<String>,
@@ -385,6 +386,7 @@ pub async fn run_step_preview_with_context(
             assertion_results: vec![],
             body_json: None,
             graphql: false,
+            graphql_query: None,
             request_headers: vec![],
             request_body: None,
         }
@@ -734,6 +736,9 @@ fn build_json_report(campaign: &Campaign, results: &[IterationResult], duration_
             }).collect()
         ));
         obj.insert("error".into(), s.error.as_ref().map(|e| Value::String(e.clone())).unwrap_or(Value::Null));
+        if let Some(ref q) = s.graphql_query {
+            obj.insert("graphql_query".into(), Value::String(q.clone()));
+        }
         Value::Object(obj)
     };
 
@@ -830,6 +835,7 @@ async fn run_single_step(
             assertion_results: vec![],
             body_json: None,
             graphql: false,
+            graphql_query: None,
             request_headers: vec![],
             request_body: None,
         };
@@ -852,6 +858,7 @@ async fn run_single_step(
             assertion_results: vec![],
             body_json: None,
             graphql: false,
+            graphql_query: None,
             request_headers: vec![],
             request_body: None,
         };
@@ -884,6 +891,7 @@ async fn run_single_step(
             assertion_results: vec![],
             body_json:         Some(body_val),
             graphql:           false,
+            graphql_query: None,
             request_headers:   vec![],
             request_body:      None,
         };
@@ -907,6 +915,7 @@ async fn run_single_step(
             assertion_results: vec![],
             body_json:         None,
             graphql:           false,
+            graphql_query: None,
             request_headers:   vec![],
             request_body:      None,
         };
@@ -929,6 +938,7 @@ async fn run_single_step(
                 assertion_results: vec![],
                 body_json:         None,
                 graphql:           false,
+                graphql_query: None,
                 request_headers:   vec![],
                 request_body:      None,
             },
@@ -946,6 +956,7 @@ async fn run_single_step(
                 assertion_results: vec![],
                 body_json:         None,
                 graphql:           false,
+                graphql_query: None,
                 request_headers:   vec![],
                 request_body:      None,
             },
@@ -969,6 +980,7 @@ async fn run_single_step(
                 assertion_results: vec![],
                 body_json: None,
                 graphql: false,
+                graphql_query: None,
                 request_headers: vec![],
                 request_body: None,
             },
@@ -986,6 +998,7 @@ async fn run_single_step(
                 assertion_results: vec![],
                 body_json: None,
                 graphql: false,
+                graphql_query: None,
                 request_headers: vec![],
                 request_body: None,
             },
@@ -1009,6 +1022,7 @@ async fn run_single_step(
                 assertion_results: vec![],
                 body_json: None,
                 graphql: false,
+                graphql_query: None,
                 request_headers: vec![],
                 request_body: None,
             },
@@ -1026,6 +1040,7 @@ async fn run_single_step(
                 assertion_results: vec![],
                 body_json: None,
                 graphql: false,
+                graphql_query: None,
                 request_headers: vec![],
                 request_body: None,
             },
@@ -1055,6 +1070,7 @@ async fn run_single_step(
                     assertion_results: vec![],
                     body_json: None,
                     graphql: false,
+                    graphql_query: None,
                     request_headers: vec![],
                     request_body: None,
                 }
@@ -1073,6 +1089,7 @@ async fn run_single_step(
                 assertion_results: vec![],
                 body_json: None,
                 graphql: false,
+                graphql_query: None,
                 request_headers: vec![],
                 request_body: None,
             },
@@ -1136,6 +1153,7 @@ async fn run_single_step(
                     assertion_results,
                     body_json: http.body_value,
                     graphql: true,
+                    graphql_query: Some(query.clone()),
                     request_headers,
                     request_body: Some(body_str),
                 };
@@ -1155,6 +1173,7 @@ async fn run_single_step(
                     assertion_results: vec![],
                     body_json: None,
                     graphql: true,
+                    graphql_query: Some(query.clone()),
                     request_headers,
                     request_body: Some(body_str),
                 };
@@ -1196,6 +1215,7 @@ async fn run_single_step(
                     assertion_results: vec![],
                     body_json:       None,
                     graphql:         false,
+                    graphql_query: None,
                     request_headers,
                     request_body,
                 }
@@ -1214,6 +1234,7 @@ async fn run_single_step(
                 assertion_results: vec![],
                 body_json:       None,
                 graphql:         false,
+                graphql_query: None,
                 request_headers,
                 request_body,
             },
@@ -1267,6 +1288,7 @@ async fn run_single_step(
                 assertion_results,
                 body_json: http.body_value,
                 graphql,
+                graphql_query: None,
                 request_headers,
                 request_body,
             }
@@ -1285,6 +1307,7 @@ async fn run_single_step(
             assertion_results: vec![],
             body_json: None,
             graphql,
+            graphql_query: None,
             request_headers,
             request_body,
         },
@@ -1343,6 +1366,7 @@ async fn run_steps_streaming(
                 assertion_results: vec![],
                 body_json: None,
                 graphql: false,
+                graphql_query: None,
                 request_headers: vec![],
                 request_body: None,
             };
@@ -1373,6 +1397,7 @@ async fn run_steps_streaming(
                     assertion_results: vec![],
                     body_json: None,
                     graphql: false,
+                    graphql_query: None,
                     request_headers: vec![],
                     request_body: None,
                 };
@@ -1611,6 +1636,7 @@ async fn run_loop_step(
                 assertion_results: vec![],
                 body_json: None,
                 graphql: false,
+                graphql_query: None,
                 request_headers: vec![],
                 request_body: None,
             }, outer_extracted);
@@ -1655,6 +1681,7 @@ async fn run_loop_step(
         assertion_results: vec![],
         body_json,
         graphql: false,
+        graphql_query: None,
         request_headers: vec![],
         request_body: None,
     }, outer_extracted)
@@ -1702,6 +1729,7 @@ async fn run_poll_step(
                 assertion_results: vec![],
                 body_json:         None,
                 graphql:           false,
+                graphql_query: None,
                 request_headers:   vec![],
                 request_body:      None,
             }, HashMap::new());
@@ -1724,6 +1752,7 @@ async fn run_poll_step(
                 assertion_results: vec![],
                 body_json:         None,
                 graphql:           false,
+                graphql_query: None,
                 request_headers:   vec![],
                 request_body:      None,
             }, HashMap::new());
@@ -1762,6 +1791,7 @@ async fn run_poll_step(
                     assertion_results: result.assertion_results,
                     body_json:         result.body_json,
                     graphql:           false,
+                    graphql_query: None,
                     request_headers:   result.request_headers,
                     request_body:      result.request_body,
                 }, outer_extracted);
@@ -1793,6 +1823,7 @@ async fn run_poll_step(
         assertion_results: vec![],
         body_json:         None,
         graphql:           false,
+        graphql_query: None,
         request_headers:   vec![],
         request_body:      None,
     }, outer_extracted)
@@ -1928,6 +1959,7 @@ async fn run_parallel_step(
         assertion_results: vec![],
         body_json:       None,
         graphql:         false,
+        graphql_query: None,
         request_headers: vec![],
         request_body:    None,
     };

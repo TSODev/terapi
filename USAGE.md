@@ -2967,6 +2967,7 @@ Ready-to-run campaigns in `examples/campaigns/` — no API key required:
 | `search_demo.toml` | JSONPlaceholder | **`kind = "search"`**: GET /users → filtre les utilisateurs par domaine email (regex) → `foreach` sur les matchs → GET leurs todos ; illustre `first_only` et recherche sur tableau de strings |
 | `horaires_sncf_par_gare.toml` | API SNCF (auth) | **`jq` + `build` + `[[outputs]]`**: résolution gare par nom (`-p GARE="Paris Montparnasse"`) → départs + arrivées → reformatage timestamps via string slicing jq → zip jq (train/heure/direction via `--argjson`) → `kind = "build"` → JSON de synthèse ; requiert `SNCF_TOKEN` dans un env terapi nommé `sncf` |
 | `crates-io-updates-last-hour.toml` | crates.io (public) | **`loop` + `accumulate` + `rate_limit_rps` + `jq` + `build` + `[[outputs]]`** : pagine l'API crates.io (1 req/s) ; calcule le seuil UTC via `jq now` ; filtre et compte les ~300–500 nouveautés/heure ; formate `updated_at` en `"YYYY-MM-DD HH:MM UTC"` ; construit une enveloppe `{generated_at, count, crates: [{name, version, description, updated_at}, ...]}` via `kind = "build"` ; écrit dans `/tmp/crates-updates-last-hour.json` |
+| `nasa-neo-perf.toml` | NASA Open APIs | **Performance test**: pagine l'endpoint `/neo/rest/v1/neo/browse` (61 912 astéroïdes sur 3 096 pages) ; accumule les `near_earth_objects` ; calcule elapsed, avg ms/page, NEOs/sec via `jq_args` (timestamps passés en `--argjson`) ; compte les astéroïdes potentiellement dangereux ; construit un rapport JSON `{rate_limit_rps, pages_fetched, performance, hazardous_fetched, sample}` ; écrit dans `/tmp/nasa-neo-perf.json`. Paramètres : `MAX_PAGES` (défaut 10) et `API_KEY` (défaut `DEMO_KEY` — limité à 30 req/h). |
 
 ```bash
 terapi run examples/campaigns/crud_demo.toml
@@ -2979,6 +2980,14 @@ terapi run examples/campaigns/upload_demo.toml
 terapi run examples/campaigns/loop_pagination_demo.toml
 terapi run examples/campaigns/spacex_exploration.toml
 terapi run examples/campaigns/crates-io-updates-last-hour.toml
+
+# nasa-neo-perf: requires a free NASA API key (https://api.nasa.gov/)
+# DEMO_KEY is limited to 30 req/hour — keep MAX_PAGES ≤ 10
+terapi run examples/campaigns/nasa-neo-perf.toml --param MAX_PAGES=10 --param API_KEY=DEMO_KEY
+# With a registered key (1 000 req/hour, 0.5 req/s):
+terapi run examples/campaigns/nasa-neo-perf.toml --param MAX_PAGES=100 --param API_KEY=your_key
+# Pipe the JSON report directly to fx:
+terapi run examples/campaigns/nasa-neo-perf.toml --format json | fx
 
 # itineraire_demo uses [[params]] — run with defaults or override:
 terapi run examples/campaigns/itineraire_demo.toml

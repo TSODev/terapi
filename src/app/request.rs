@@ -74,6 +74,51 @@ impl App {
         }
     }
 
+    /// Build the auth header(s) from the current auth config, resolving {{VAR}} from the active env.
+    /// Used by schema introspection so it shares the same credentials as regular requests.
+    pub(super) fn auth_headers(&self) -> Vec<(String, String)> {
+        let env_vars = self.active_env_idx
+            .and_then(|i| self.environments.get(i))
+            .map(|e| e.vars.clone())
+            .unwrap_or_default();
+
+        let mut headers = Vec::new();
+        match &self.auth_config.auth_type {
+            AuthType::None => {}
+            AuthType::Bearer => {
+                let token = crate::storage::resolve_vars(&self.auth_config.bearer_token, &env_vars);
+                if !token.is_empty() {
+                    headers.push(("Authorization".to_string(), format!("Bearer {}", token)));
+                }
+            }
+            AuthType::Basic => {
+                let user = crate::storage::resolve_vars(&self.auth_config.basic_username, &env_vars);
+                let pass = crate::storage::resolve_vars(&self.auth_config.basic_password, &env_vars);
+                if !user.is_empty() {
+                    let encoded = base64_encode(&format!("{}:{}", user, pass));
+                    headers.push(("Authorization".to_string(), format!("Basic {}", encoded)));
+                }
+            }
+            AuthType::ApiKey => {
+                if self.auth_config.api_key_location == ApiKeyLocation::Header {
+                    let name = crate::storage::resolve_vars(&self.auth_config.api_key_name, &env_vars);
+                    let val  = crate::storage::resolve_vars(&self.auth_config.api_key_value, &env_vars);
+                    if !name.is_empty() {
+                        headers.push((name, val));
+                    }
+                }
+            }
+            AuthType::OAuth2ClientCredentials | AuthType::OAuth2AuthorizationCode => {
+                if let Some(token) = self.oauth2_token_cache.get(&self.auth_config.oauth2_cache_key()) {
+                    if token.is_valid() {
+                        headers.push(("Authorization".to_string(), format!("Bearer {}", token.access_token)));
+                    }
+                }
+            }
+        }
+        headers
+    }
+
     /// Replace textarea content with the given URL and move cursor to end of line.
     pub fn set_url(&mut self, url: &str) {
         self.url_textarea = TextArea::from(vec![url.to_string()]);

@@ -9,6 +9,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.10.7] — 2026-06-30
+
+### Fixed
+- **Schema introspection ignoring auth config** — `fetch_schema()` (phase 1) and `fetch_type_detail()` (phase 2) were only sending manual request headers, silently ignoring the Auth tab config. APIs requiring authentication (e.g. GitHub GraphQL returning HTTP 403) now receive the correct credentials. A new `auth_headers()` helper on `App` builds the auth header(s) from `auth_config` with `{{VAR}}` resolution from the active environment; it covers Bearer, Basic, API Key (header location), and OAuth2 (cached token). Schema calls merge these headers with `request_headers` before the introspection POST.
+
+---
+
 ## [0.10.6] — 2026-06-30
 
 ### Added

@@ -16,7 +16,9 @@ impl App {
         self.schema_state = SchemaState::LoadingList;
 
         let client = self.http_client.clone();
-        let headers = headers_with_ct(&self.request_headers);
+        let mut combined = self.request_headers.clone();
+        combined.extend(self.auth_headers());
+        let headers = headers_with_ct(&combined);
         let tx = self.schema_tx.clone();
 
         tokio::spawn(async move {
@@ -44,7 +46,9 @@ impl App {
         }
 
         let client = self.http_client.clone();
-        let headers = headers_with_ct(&self.request_headers);
+        let mut combined = self.request_headers.clone();
+        combined.extend(self.auth_headers());
+        let headers = headers_with_ct(&combined);
         let tx = self.schema_tx.clone();
 
         tokio::spawn(async move {

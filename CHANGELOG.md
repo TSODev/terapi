@@ -7,10 +7,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **`E` on Response panel — open response in external viewer (read-only)** — pressing `E` when a response is visible writes it to `/tmp/terapi_response.json` and opens `$TERAPI_JSON_EDITOR` (default: `jsoned`). The file is never read back — the response displayed in terapi is unchanged. Status hint shows `E: open (read-only)`.
+
+### Fixed
+- **`TERAPI_JSON_EDITOR` TTY fix** — the editor is now launched directly via `Command::new(&editor).arg(file)` instead of `sh -c "editor file"`, which was breaking TTY inheritance for TUI tools like `jsoned`. Falls back to `sh -c` only when the editor string contains shell metacharacters (space, pipe, redirect…), preserving support for complex pipelines.
+- **Empty body defaults to `{}`** — when the request body is empty and `E` is pressed, the temp file now contains `{}` instead of an empty string. Previously, JSON editors that require valid JSON (like `jsoned`) would exit immediately on an empty file.
+
 ### Changed
 - **`kind = "jq"` now populates `body_json`** — a successful jq step sets `body_json` from its output variable (parsed as JSON), making it a valid `from_step` source for `[[outputs]]` connectors. Use `jq` → `[[outputs]]` to write filtered/transformed JSON arrays to disk without an intermediate HTTP step.
 - **`[[outputs]]` step picker (builder)** now lists `jq` and `build` steps in addition to HTTP/GraphQL/seed/loop/poll — updated to a whitelist (`http | graphql | seed | poll | loop | build | jq`) so future JSON-producing step kinds are not silently excluded.
 - **Checker warning** — `terapi build` checker (`c`) now emits a warning when an output's `from_step` references a step kind that does not produce JSON output (e.g. `set`, `transform`, `pause`, `file`, `search`, `comment`).
+- **`terapi run` — progress on stderr, data on stdout** — all progress output (step results, campaign report, warnings, retry/poll ticks) now goes to `stderr` via `eprintln!`; only JSON and CSV data payloads go to `stdout`. Text mode leaves `stdout` empty. This enables `terapi run --format json | fx` to show progress in the terminal while piping clean JSON.
 - **`crates-io-updates-last-hour.toml` example** — summary now includes crate `description` field; `updated_at` is formatted as `"YYYY-MM-DD HH:MM UTC"` via `fromdateiso8601 | strftime`; a `kind = "build"` step wraps the result in `{generated_at, count, crates: [...]}` and writes it to `/tmp/crates-updates-last-hour.json` via `[[outputs]]`.
 
 ---

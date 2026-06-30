@@ -103,7 +103,7 @@ terapi run campaign.toml --format json
 | Variable | Default (auto-detected) | Purpose |
 |----------|------------------------|---------|
 | `TERAPI_DIR` | `~/.config/terapi/` | Data directory (collections, envs, campaigns) |
-| `TERAPI_JSON_EDITOR` | `jsoned` (if in PATH) | External editor for body JSON (`E` key) |
+| `TERAPI_JSON_EDITOR` | `jsoned` (if in PATH) | External editor/viewer for body JSON and response (`E` key) |
 | `TERAPI_DIFF` | `difft` or `delta` (if in PATH) | External diff tool for response comparison (`d` key) |
 | `EDITOR` / `VISUAL` | `vi` | Fallback text editor for TOML files (`E` key in Collections/Campaigns) |
 
@@ -738,25 +738,30 @@ export TERAPI_DIFF=difft
 export TERAPI_DIFF="nvim -d"
 ```
 
-#### External JSON editor
+#### External JSON editor / viewer
 
-Press `E` on the **Body sub-tab** (Text mode, outside edit mode) to open the request body in an external JSON editor. Terapi suspends the TUI, writes the body to `/tmp/terapi_body.json`, launches the editor, and reloads the file on exit.
+`E` opens the current JSON content in an external tool configured via `$TERAPI_JSON_EDITOR` (default: `jsoned`). Two contexts:
 
-The same shortcut works in **`terapi build`**: press `E` while the cursor is on the Body section of a step in Browse mode.
+| Where | Content | Temp file | Behaviour |
+|-------|---------|-----------|-----------|
+| **Body sub-tab** (Text mode, outside editor) | Request body | `/tmp/terapi_body.json` | Read/write — file is reloaded on exit; empty body starts as `{}` |
+| **Response panel** (after a send) | Response body | `/tmp/terapi_response.json` | **Read-only** — file is never read back, response in terapi is unchanged |
+
+The same body shortcut works in **`terapi build`**: press `E` while the cursor is on the Body section of a step in Browse mode.
 
 **Tool selection** — set `TERAPI_JSON_EDITOR` in your environment:
 
 | `TERAPI_JSON_EDITOR` value | Effect |
 |----------------------------|--------|
 | *(not set)* | `jsoned` — interactive TUI JSON editor |
-| any editor command | launched with the temp file path as argument |
+| simple command (no spaces) | launched directly — TTY is preserved correctly for TUI tools |
+| command with spaces / pipes | launched via `sh -c` — allows complex pipelines like `"jq . \| vim -"` |
 
 ```bash
-export TERAPI_JSON_EDITOR=jsoned
-
-# Or use any editor:
+export TERAPI_JSON_EDITOR=jsoned   # default
 export TERAPI_JSON_EDITOR="nvim"
 export TERAPI_JSON_EDITOR="hx"
+export TERAPI_JSON_EDITOR="fx"     # read-only viewer — great for response browsing
 ```
 
 > `terapi-env.sh` (included in the repo) auto-detects `jsoned` and sets the variable automatically. See [Environment setup](#environment-setup).
@@ -1024,7 +1029,8 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `Esc` | Request panel (Auth sub-tab, OAuth2 waiting) | Cancel browser wait or clear OAuth2 error |
 | `i` | Request panel (Body sub-tab) | Enter body editor mode |
 | `t` | Request panel (Body sub-tab, outside editor) | Toggle body mode: Text ↔ JSON |
-| `E` | Request panel (Body sub-tab, Text mode, outside editor) | Open body in external JSON editor (`$TERAPI_JSON_EDITOR`) |
+| `E` | Request panel (Body sub-tab, Text mode, outside editor) | Open body in external JSON editor (`$TERAPI_JSON_EDITOR`) — read/write |
+| `E` | Request panel (response visible) | Open response in external viewer (`$TERAPI_JSON_EDITOR`) — read-only |
 | `a` | Body editor (JSON mode) | Add field |
 | `d` | Body editor (JSON mode) | Delete selected field |
 | `Enter` / `e` | Body editor (JSON mode) | Edit selected field |
@@ -3049,7 +3055,12 @@ Control how the campaign result is presented. Default is `text` (existing behavi
 
 #### `--format json`
 
-Emits a single JSON object to stdout when the campaign finishes. Intermediate step output is suppressed — stdout stays clean for piping or redirection.
+Emits a single JSON object to stdout when the campaign finishes. Progress (step results, report) goes to **stderr** — stdout stays clean for piping or redirection. This means progress is visible in the terminal even when piping:
+
+```bash
+terapi run campaign.toml --format json | fx   # progress on screen, JSON into fx
+terapi run campaign.toml --format json > results.json  # progress on screen, data saved
+```
 
 ```bash
 terapi run campaign.toml --format json

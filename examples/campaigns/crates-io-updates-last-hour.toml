@@ -85,7 +85,7 @@ jq_raw        = true
 kind          = "jq"
 name          = "Summary list"
 jq_input      = "{{RECENT_CRATES}}"
-jq_expression = '[.[] | {name, version: .max_version, updated_at}] | sort_by(.updated_at) | reverse'
+jq_expression = '[.[] | {name, version: .max_version, description, updated_at: (.updated_at[0:19] + "Z" | fromdateiso8601 | strftime("%Y-%m-%d %H:%M UTC"))}] | sort_by(.updated_at) | reverse'
 jq_output     = "SUMMARY"
 
 # ── Étape 7 : enveloppe finale avec métadonnées ───────────────────────────────

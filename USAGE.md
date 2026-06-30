@@ -513,7 +513,8 @@ Press `g` on the Request tab to switch to **GraphQL mode**. The URL bar shows a 
 |---------|---------|
 | Query | Multi-line editor — `i` to edit, `Esc` to exit; `{{VAR}}` picker; `Ctrl+Space` autocompletion |
 | Variables | Key/value pairs serialised as the `variables` JSON object |
-| Headers | Same header picker as REST mode (`a` add, `d` delete) |
+| Headers | Same header picker as REST mode (`a` add, `d` delete, `↑`/`↓` navigate) |
+| Auth | Same auth panel as REST mode — No Auth / Bearer / Basic / API Key / OAuth2 CC / OAuth2 AC |
 | Schema | Schema browser — `f` fetch types, `↑/↓` navigate, `Enter` load fields |
 | Options | Same options as REST mode (TLS, redirects, timeout, cookies) |
 

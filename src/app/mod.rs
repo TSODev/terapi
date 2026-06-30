@@ -678,19 +678,19 @@ impl App {
             }
             KeyCode::Up
                 if self.active_tab == Tab::Request
-                    && self.active_request_tab == RequestTab::Options =>
+                    && self.is_on_options_tab() =>
             {
                 if self.options_cursor > 0 { self.options_cursor -= 1; }
             }
             KeyCode::Down
                 if self.active_tab == Tab::Request
-                    && self.active_request_tab == RequestTab::Options =>
+                    && self.is_on_options_tab() =>
             {
                 if self.options_cursor < 3 { self.options_cursor += 1; }
             }
             KeyCode::Char(' ') | KeyCode::Enter
                 if self.active_tab == Tab::Request
-                    && self.active_request_tab == RequestTab::Options =>
+                    && self.is_on_options_tab() =>
             {
                 const TIMEOUT_STEPS: &[u64] = &[5, 10, 15, 20, 30, 45, 60, 90, 120, 300];
                 match self.options_cursor {
@@ -716,7 +716,7 @@ impl App {
             }
             KeyCode::Up
                 if self.active_tab == Tab::Request
-                    && self.active_request_tab == RequestTab::Auth =>
+                    && self.is_on_auth_tab() =>
             {
                 if self.auth_field_cursor > 0 {
                     self.auth_field_cursor -= 1;
@@ -724,7 +724,7 @@ impl App {
             }
             KeyCode::Down
                 if self.active_tab == Tab::Request
-                    && self.active_request_tab == RequestTab::Auth =>
+                    && self.is_on_auth_tab() =>
             {
                 if self.auth_field_cursor + 1 < self.auth_config.field_count() {
                     self.auth_field_cursor += 1;
@@ -732,7 +732,7 @@ impl App {
             }
             KeyCode::Char(' ') | KeyCode::Enter
                 if self.active_tab == Tab::Request
-                    && self.active_request_tab == RequestTab::Auth =>
+                    && self.is_on_auth_tab() =>
             {
                 if self.auth_field_cursor == 0 {
                     self.auth_config.auth_type = self.auth_config.auth_type.next();
@@ -814,14 +814,14 @@ impl App {
             }
             KeyCode::Char('f')
                 if self.active_tab == Tab::Request
-                    && self.active_request_tab == RequestTab::Auth
+                    && self.is_on_auth_tab()
                     && self.modal.is_none() =>
             {
                 self.trigger_oauth2_fetch();
             }
             KeyCode::Esc
                 if self.active_tab == Tab::Request
-                    && self.active_request_tab == RequestTab::Auth
+                    && self.is_on_auth_tab()
                     && matches!(self.oauth2_wait_state, OAuth2WaitState::WaitingForBrowser { .. }
                         | OAuth2WaitState::FetchingToken
                         | OAuth2WaitState::Error(_)) =>
@@ -832,13 +832,13 @@ impl App {
             }
             KeyCode::Char('a')
                 if self.active_tab == Tab::Request
-                    && self.active_request_tab == RequestTab::Headers =>
+                    && self.is_on_headers_tab() =>
             {
                 self.modal = Some(ModalState::HeaderPicker { cursor: 0 });
             }
             KeyCode::Char('d')
                 if self.active_tab == Tab::Request
-                    && self.active_request_tab == RequestTab::Headers
+                    && self.is_on_headers_tab()
                     && !self.request_headers.is_empty() =>
             {
                 self.request_headers.remove(self.header_cursor);
@@ -848,7 +848,7 @@ impl App {
             }
             KeyCode::Up
                 if self.active_tab == Tab::Request
-                    && self.active_request_tab == RequestTab::Headers =>
+                    && self.is_on_headers_tab() =>
             {
                 if self.header_cursor > 0 {
                     self.header_cursor -= 1;
@@ -856,7 +856,7 @@ impl App {
             }
             KeyCode::Down
                 if self.active_tab == Tab::Request
-                    && self.active_request_tab == RequestTab::Headers =>
+                    && self.is_on_headers_tab() =>
             {
                 if self.header_cursor + 1 < self.request_headers.len() {
                     self.header_cursor += 1;

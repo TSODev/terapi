@@ -9,6 +9,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.10.6] — 2026-06-30
+
+### Added
+- **Auth tab in GraphQL mode** — a new `Auth` sub-tab is now available in GraphQL mode (between `Headers` and `Schema`), giving access to the same authentication panel as REST mode: No Auth, Bearer, Basic, API Key, OAuth2 Client Credentials, and OAuth2 Authorization Code. All keys work identically (`↑`/`↓` to navigate, `Space`/`Enter` to edit fields, `f` to fetch an OAuth2 token, `Esc` to cancel a pending OAuth2 flow). Auth config is saved and restored with GraphQL requests in collections.
+
+### Fixed
+- **GraphQL mode — Headers tab keys not working** — `a` (add header), `d` (delete), `↑`/`↓` (navigate) had no effect when on the `Headers` sub-tab in GraphQL mode. The key guards were checking `active_request_tab == RequestTab::Headers` (REST only) and never matched `active_graphql_tab == GraphqlTab::Headers`.
+- **GraphQL mode — Options tab keys not working** — same root cause: `↑`/`↓` and `Space`/`Enter` for the Options sub-tab (TLS, redirects, timeout, cookie jar) did not respond in GraphQL mode.
+
+---
+
 ## [0.10.5] — 2026-06-30
 
 ### Added

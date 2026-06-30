@@ -159,6 +159,7 @@ pub enum GraphqlTab {
     Query,
     Variables,
     Headers,
+    Auth,
     Schema,
     Options,
 }
@@ -169,6 +170,7 @@ impl GraphqlTab {
             GraphqlTab::Query     => "Query",
             GraphqlTab::Variables => "Variables",
             GraphqlTab::Headers   => "Headers",
+            GraphqlTab::Auth      => "Auth",
             GraphqlTab::Schema    => "Schema",
             GraphqlTab::Options   => "Options",
         }
@@ -179,6 +181,7 @@ impl GraphqlTab {
             GraphqlTab::Query,
             GraphqlTab::Variables,
             GraphqlTab::Headers,
+            GraphqlTab::Auth,
             GraphqlTab::Schema,
             GraphqlTab::Options,
         ]
@@ -187,13 +190,13 @@ impl GraphqlTab {
     pub fn next(&self) -> GraphqlTab {
         let all = GraphqlTab::all();
         let pos = all.iter().position(|t| t == self).unwrap_or(0);
-        all.into_iter().nth((pos + 1) % 5).unwrap_or(GraphqlTab::Query)
+        all.into_iter().nth((pos + 1) % 6).unwrap_or(GraphqlTab::Query)
     }
 
     pub fn prev(&self) -> GraphqlTab {
         let all = GraphqlTab::all();
         let pos = all.iter().position(|t| t == self).unwrap_or(0);
-        all.into_iter().nth(if pos == 0 { 4 } else { pos - 1 }).unwrap_or(GraphqlTab::Options)
+        all.into_iter().nth(if pos == 0 { 5 } else { pos - 1 }).unwrap_or(GraphqlTab::Options)
     }
 }
 

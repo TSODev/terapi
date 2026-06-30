@@ -188,6 +188,7 @@ fn render_request_content(frame: &mut Frame, app: &App, area: Rect) {
             GraphqlTab::Query     => render_graphql_query_editor(frame, app, area),
             GraphqlTab::Variables => render_graphql_vars_editor(frame, app, area),
             GraphqlTab::Headers   => render_headers_editor(frame, app, area),
+            GraphqlTab::Auth      => render_auth_editor(frame, app, area),
             GraphqlTab::Schema    => render_graphql_schema(frame, app, area),
             GraphqlTab::Options   => render_options_editor(frame, app, area),
         }

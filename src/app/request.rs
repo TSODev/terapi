@@ -50,6 +50,30 @@ impl App {
         self.url_textarea.lines().first().cloned().unwrap_or_default()
     }
 
+    pub fn is_on_headers_tab(&self) -> bool {
+        if self.graphql_mode {
+            self.active_graphql_tab == crate::app::types::GraphqlTab::Headers
+        } else {
+            self.active_request_tab == crate::app::types::RequestTab::Headers
+        }
+    }
+
+    pub fn is_on_options_tab(&self) -> bool {
+        if self.graphql_mode {
+            self.active_graphql_tab == crate::app::types::GraphqlTab::Options
+        } else {
+            self.active_request_tab == crate::app::types::RequestTab::Options
+        }
+    }
+
+    pub fn is_on_auth_tab(&self) -> bool {
+        if self.graphql_mode {
+            self.active_graphql_tab == crate::app::types::GraphqlTab::Auth
+        } else {
+            self.active_request_tab == crate::app::types::RequestTab::Auth
+        }
+    }
+
     /// Replace textarea content with the given URL and move cursor to end of line.
     pub fn set_url(&mut self, url: &str) {
         self.url_textarea = TextArea::from(vec![url.to_string()]);

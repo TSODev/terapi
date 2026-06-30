@@ -7,6 +7,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **`graphql_query` in `--format json` output** — when running `terapi run --format json`, steps with `kind = "graphql"` now include a `graphql_query` field containing the resolved query string (after `{{VAR}}` substitution). REST and other step kinds are unaffected (no field added). `StepResult` gains `graphql_query: Option<String>` used by both the CLI JSON reporter and the campaign streaming infrastructure.
+
 ---
 
 ## [0.10.0] — 2026-06-28

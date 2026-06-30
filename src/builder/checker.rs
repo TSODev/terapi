@@ -83,6 +83,21 @@ pub fn run(app: &BuilderApp) -> Vec<CheckResult> {
                     i + 1, output.from_step
                 ),
             });
+        } else {
+            // Warn if the referenced step does not produce body_json
+            let json_producers = ["http", "graphql", "seed", "poll", "loop", "build", "jq"];
+            if let Some(s) = app.campaign.steps.iter().find(|s| s.name == output.from_step) {
+                if !json_producers.contains(&s.kind.as_str()) {
+                    results.push(CheckResult {
+                        level: CheckLevel::Warning,
+                        step_idx: None,
+                        message: format!(
+                            "Output [{}]: step \"{}\" (kind = \"{}\") does not produce JSON output",
+                            i + 1, output.from_step, s.kind
+                        ),
+                    });
+                }
+            }
         }
         if output.path.is_empty() {
             results.push(CheckResult {

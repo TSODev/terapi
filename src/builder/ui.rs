@@ -1926,9 +1926,8 @@ fn render_output_step_picker(frame: &mut Frame, app: &BuilderApp, step_cursor: u
     rows.push(ListItem::new(Line::from("")));
 
     let steps: Vec<&crate::campaign::Step> = app.campaign.steps.iter()
-        .filter(|s| s.kind != "comment" && s.kind != "transform" && s.kind != "pause"
-                 && s.kind != "file" && s.kind != "parallel" && s.kind != "notify"
-                 && s.kind != "set" && s.kind != "jq" && s.kind != "search")
+        .filter(|s| matches!(s.kind.as_str(),
+            "http" | "graphql" | "seed" | "poll" | "loop" | "build" | "jq"))
         .collect();
 
     if steps.is_empty() {

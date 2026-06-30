@@ -958,7 +958,11 @@ async fn run_single_step(
     if step.kind == "jq" {
         let t0 = Instant::now();
         return match run_jq_step(step, effective).await {
-            Ok(extracted) => StepResult {
+            Ok(extracted) => {
+                let output_var = step.jq_output.as_deref().unwrap_or("JQ_RESULT");
+                let body_json = extracted.get(output_var)
+                    .and_then(|s| serde_json::from_str(s).ok());
+                StepResult {
                 name:              step.name.clone(),
                 method:            "JQ  ".into(),
                 url:               String::new(),
@@ -970,12 +974,12 @@ async fn run_single_step(
                 error:             None,
                 extracted,
                 assertion_results: vec![],
-                body_json:         None,
+                body_json,
                 graphql:           false,
                 graphql_query: None,
                 request_headers:   vec![],
                 request_body:      None,
-            },
+            }},
             Err(e) => StepResult {
                 name:              step.name.clone(),
                 method:            "JQ  ".into(),

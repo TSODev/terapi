@@ -1104,7 +1104,7 @@ async fn run_single_step(
             .map(|(k, v)| (k.clone(), serde_json::Value::String(resolve(v, effective))))
             .collect();
         let mut body_map = serde_json::Map::new();
-        body_map.insert("query".into(), serde_json::Value::String(query));
+        body_map.insert("query".into(), serde_json::Value::String(query.clone()));
         if !vars_obj.is_empty() {
             body_map.insert("variables".into(), serde_json::Value::Object(vars_obj));
         }
@@ -1910,6 +1910,7 @@ async fn run_parallel_step(
             status: None, duration_ms: 0, success: true, skipped: false,
             non_blocking: effective_coe, error: None, extracted: HashMap::new(),
             assertion_results: vec![], body_json: None, graphql: false,
+            graphql_query: None,
             request_headers: vec![], request_body: None,
         };
         return (result, HashMap::new());

@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+### Changed
+- **`kind = "jq"` now populates `body_json`** — a successful jq step sets `body_json` from its output variable (parsed as JSON), making it a valid `from_step` source for `[[outputs]]` connectors. Use `jq` → `[[outputs]]` to write filtered/transformed JSON arrays to disk without an intermediate HTTP step.
+- **`[[outputs]]` step picker (builder)** now lists `jq` and `build` steps in addition to HTTP/GraphQL/seed/loop/poll — updated to a whitelist (`http | graphql | seed | poll | loop | build | jq`) so future JSON-producing step kinds are not silently excluded.
+- **Checker warning** — `terapi build` checker (`c`) now emits a warning when an output's `from_step` references a step kind that does not produce JSON output (e.g. `set`, `transform`, `pause`, `file`, `search`, `comment`).
+- **`crates-io-updates-last-hour.toml` example** — summary now includes crate `description` field; `updated_at` is formatted as `"YYYY-MM-DD HH:MM UTC"` via `fromdateiso8601 | strftime`; a `kind = "build"` step wraps the result in `{generated_at, count, crates: [...]}` and writes it to `/tmp/crates-updates-last-hour.json` via `[[outputs]]`.
+
+---
+
 ## [0.10.4] — 2026-06-30
 
 ### Fixed

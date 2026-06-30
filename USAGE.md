@@ -2839,6 +2839,8 @@ See `examples/campaigns/seed_step_demo.toml` for a complete working example.
 
 After all iterations complete, `[[outputs]]` blocks write step results to disk as JSON files. Use this to archive responses, pass data between campaigns, or build lightweight ETL pipelines.
 
+**Supported source step kinds:** `http`, `graphql`, `seed`, `loop` (with `accumulate`), `poll`, `build`, `jq`. Steps that do not produce JSON output (`set`, `transform`, `pause`, `file`, `search`, `comment`) cannot be used as `from_step`.
+
 ```toml
 [[outputs]]
 from_step = "City detail"        # name of the step whose body to collect
@@ -2956,7 +2958,7 @@ Ready-to-run campaigns in `examples/campaigns/` — no API key required:
 | `spacex_exploration.toml` | SpaceX GraphQL | **Pipeline GraphQL 7 steps** : company → fleet snapshot → latest launch → all 109 past launches avec wildcard `*.id` → roadster orbital position → booster reuse stats → summary transform ; écrit `/tmp/spacex_all_launches.json` |
 | `search_demo.toml` | JSONPlaceholder | **`kind = "search"`**: GET /users → filtre les utilisateurs par domaine email (regex) → `foreach` sur les matchs → GET leurs todos ; illustre `first_only` et recherche sur tableau de strings |
 | `horaires_sncf_par_gare.toml` | API SNCF (auth) | **`jq` + `build` + `[[outputs]]`**: résolution gare par nom (`-p GARE="Paris Montparnasse"`) → départs + arrivées → reformatage timestamps via string slicing jq → zip jq (train/heure/direction via `--argjson`) → `kind = "build"` → JSON de synthèse ; requiert `SNCF_TOKEN` dans un env terapi nommé `sncf` |
-| `crates-io-updates-last-hour.toml` | crates.io (public) | **`loop` + `accumulate` + `rate_limit_rps` + `jq` UTC** : pagine l'API crates.io en respectant son rate limit d'1 req/s ; calcule le seuil UTC via `jq now` (pas de décalage fuseau) ; s'arrête dès que la page ne contient plus de crates récents (`until.lt` sur timestamp ISO) ; filtre et compte les ~300 nouveautés/heure |
+| `crates-io-updates-last-hour.toml` | crates.io (public) | **`loop` + `accumulate` + `rate_limit_rps` + `jq` + `build` + `[[outputs]]`** : pagine l'API crates.io (1 req/s) ; calcule le seuil UTC via `jq now` ; filtre et compte les ~300–500 nouveautés/heure ; formate `updated_at` en `"YYYY-MM-DD HH:MM UTC"` ; construit une enveloppe `{generated_at, count, crates: [{name, version, description, updated_at}, ...]}` via `kind = "build"` ; écrit dans `/tmp/crates-updates-last-hour.json` |
 
 ```bash
 terapi run examples/campaigns/crud_demo.toml
@@ -3447,7 +3449,7 @@ Navigate to the [IN] section with `↑` from step 0. `Enter` edits, `d` deletes,
 
 Add from Catalog (`Output [OUT]`). Creates an `[[outputs]]` TOML block that writes step responses to a JSON file.
 
-Fields per output: `from_step` (selected via picker — only HTTP/Seed steps are listed), `path` (output file), `select` (dot-path into response body), `include_vars` (campaign variables to embed alongside the response).
+Fields per output: `from_step` (selected via picker — lists HTTP, GraphQL, seed, loop, poll, build, and jq steps), `path` (output file), `select` (dot-path into response body), `include_vars` (campaign variables to embed alongside the response).
 
 Navigate to the [OUT] section with `↓` from the last step. `Enter` reopens the picker, `d` deletes, `Esc` returns to Pipeline.
 

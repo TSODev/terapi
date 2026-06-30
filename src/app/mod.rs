@@ -909,6 +909,8 @@ impl App {
                 if let Some(url) = self.current_response_url() {
                     self.set_url(&url.clone());
                     self.request_method_idx = 0; // GET
+                    self.request_url_params.clear();
+                    self.url_params_cursor = 0;
                     self.update_response_status_hint();
                 }
             }

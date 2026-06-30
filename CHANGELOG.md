@@ -12,6 +12,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **`f`: follow URL** — in the JSON response view, pressing `f` when the cursor sits on a value that starts with `http://` or `https://` loads that URL into the request bar and forces the method to GET, without entering URL edit mode. The focus stays on the response panel so you can inspect or adjust headers, body, and params before pressing `s` to send (or `e` to edit the URL). The status hint `f: follow URL` appears dynamically (updated on `↑`/`↓`) only when the current row holds a URL value.
 
 ### Fixed
+- **`f` follow URL — URL params cleared** — following a URL from the JSON response view now resets the URL Params tab, preventing the previous request's params from being appended to the followed URL (which already carries its own query string).
 - **`TERAPI_JSON_EDITOR` TTY fix** — the editor is now launched directly via `Command::new(&editor).arg(file)` instead of `sh -c "editor file"`, which was breaking TTY inheritance for TUI tools like `jsoned`. Falls back to `sh -c` only when the editor string contains shell metacharacters (space, pipe, redirect…), preserving support for complex pipelines.
 - **Empty body defaults to `{}`** — when the request body is empty and `E` is pressed, the temp file now contains `{}` instead of an empty string. Previously, JSON editors that require valid JSON (like `jsoned`) would exit immediately on an empty file.
 

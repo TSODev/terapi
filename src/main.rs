@@ -261,10 +261,16 @@ async fn run_tui(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, json: Op
             let _ = std::fs::write(tmp, &body);
             let editor = std::env::var("TERAPI_JSON_EDITOR")
                 .unwrap_or_else(|_| "jsoned".to_string());
-            let cmd = format!("{} \"{}\"", editor, tmp);
             disable_raw_mode()?;
             execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-            let _ = std::process::Command::new("sh").arg("-c").arg(&cmd).status();
+            // Launch directly (not via sh -c) to preserve TTY inheritance for TUI editors.
+            // Fall back to sh -c only if the editor string contains shell metacharacters.
+            if editor.contains(|c: char| matches!(c, ' ' | '|' | '>' | '<' | '&' | ';')) {
+                let cmd = format!("{} \"{}\"", editor, tmp);
+                let _ = std::process::Command::new("sh").arg("-c").arg(&cmd).status();
+            } else {
+                let _ = std::process::Command::new(&editor).arg(tmp).status();
+            }
             enable_raw_mode()?;
             execute!(terminal.backend_mut(), EnterAlternateScreen)?;
             terminal.clear()?;

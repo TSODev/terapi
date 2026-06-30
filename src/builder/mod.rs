@@ -1308,10 +1308,14 @@ fn run_builder(
                 let _ = std::fs::write(tmp, &body);
                 let editor = std::env::var("TERAPI_JSON_EDITOR")
                     .unwrap_or_else(|_| "jsoned".to_string());
-                let cmd = format!("{} \"{}\"", editor, tmp);
                 disable_raw_mode()?;
                 execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-                let _ = std::process::Command::new("sh").arg("-c").arg(&cmd).status();
+                if editor.contains(|c: char| matches!(c, ' ' | '|' | '>' | '<' | '&' | ';')) {
+                    let cmd = format!("{} \"{}\"", editor, tmp);
+                    let _ = std::process::Command::new("sh").arg("-c").arg(&cmd).status();
+                } else {
+                    let _ = std::process::Command::new(&editor).arg(tmp).status();
+                }
                 enable_raw_mode()?;
                 execute!(terminal.backend_mut(), EnterAlternateScreen)?;
                 terminal.clear()?;

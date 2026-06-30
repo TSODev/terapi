@@ -582,6 +582,7 @@ The JSON view displays a 3-column table: **Key / Type / Value**.
 - Folded nodes display an inline content preview: `{ id: 42, name: "tsodev" … }`.
 - Press `r` to cycle through three views: **JSON** → **Raw** → **HTTP** → JSON.
 - Press `d` (JSON or Raw view) to diff the last two responses in an external tool — see [Response diff](#response-diff) below.
+- Press `f` (JSON view) when the cursor is on a URL value to **follow the URL** — it is instantly loaded into the request bar with method set to GET and the URL field focused.
 - Use `-` / `=` to shrink or grow the Key column width.
 - Use `↑` / `↓` to move the cursor row by row (JSON view) or scroll (Raw / HTTP views).
 
@@ -1031,6 +1032,7 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `t` | Request panel (Body sub-tab, outside editor) | Toggle body mode: Text ↔ JSON |
 | `E` | Request panel (Body sub-tab, Text mode, outside editor) | Open body in external JSON editor (`$TERAPI_JSON_EDITOR`) — read/write |
 | `E` | Request panel (response visible) | Open response in external viewer (`$TERAPI_JSON_EDITOR`) — read-only |
+| `f` | Request panel (JSON response view, cursor on URL value) | Follow URL — load into request bar as GET and focus URL field |
 | `a` | Body editor (JSON mode) | Add field |
 | `d` | Body editor (JSON mode) | Delete selected field |
 | `Enter` / `e` | Body editor (JSON mode) | Edit selected field |

@@ -902,11 +902,24 @@ impl App {
                 && self.request_focus == RequestFocus::Response => {
                 self.pending_response_viewer_open = true;
             }
+            KeyCode::Char('f')
+                if self.active_tab == Tab::Request
+                && self.response_view == ResponseView::Json
+                && self.response_body.is_some() => {
+                if let Some(url) = self.current_response_url() {
+                    self.set_url(&url.clone());
+                    self.request_method_idx = 0; // GET
+                    self.active_tab = Tab::Request;
+                    self.request_focus = RequestFocus::Url;
+                    self.update_request_status_hint();
+                }
+            }
             KeyCode::Up if self.active_tab == Tab::Request => {
                 match self.response_view {
                     ResponseView::Json => {
                         self.response_cursor = self.response_cursor.saturating_sub(1);
                         self.sync_scroll();
+                        self.update_response_status_hint();
                     }
                     ResponseView::Raw | ResponseView::Http => {
                         self.response_scroll = self.response_scroll.saturating_sub(1);
@@ -921,6 +934,7 @@ impl App {
                             self.response_cursor += 1;
                         }
                         self.sync_scroll();
+                        self.update_response_status_hint();
                     }
                     ResponseView::Raw | ResponseView::Http => {
                         self.response_scroll = self.response_scroll.saturating_add(1);

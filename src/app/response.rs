@@ -114,13 +114,7 @@ impl App {
                     self.response_cursor = 0;
                     self.response_scroll = 0;
                     self.response_folds = HashSet::new();
-                    let diff_hint = if self.previous_response_body.is_some() { "  d: diff" } else { "" };
-                    self.status_message = format!(
-                        "{}  {}ms  —  Tab: panels  e: edit URL  s: send  m: method  ←/→: section  r: raw  E: open (read-only){}  q: quit",
-                        http_status_label(self.response_status.unwrap_or(0)),
-                        self.response_elapsed_ms.unwrap_or(0),
-                        diff_hint,
-                    );
+                    self.update_response_status_hint();
                     self.record_history(Some(http.status), Some(http.elapsed_ms), Some(http.body));
                 }
                 Err(msg) => {
@@ -297,6 +291,37 @@ impl App {
             self.response_cursor = idx;
             self.sync_scroll();
         }
+    }
+
+    /// Returns the URL string under the JSON cursor, if any (starts with http:// or https://).
+    pub(super) fn current_response_url(&self) -> Option<String> {
+        let json = self.response_body.as_deref()?;
+        let rows = crate::json_highlight::rows(json, &self.response_folds);
+        let row = rows.get(self.response_cursor)?;
+        let v = row.value_preview.trim_matches('"');
+        if v.starts_with("http://") || v.starts_with("https://") {
+            Some(v.to_string())
+        } else {
+            None
+        }
+    }
+
+    pub(super) fn update_response_status_hint(&mut self) {
+        let diff_hint = if self.previous_response_body.is_some() { "  d: diff" } else { "" };
+        let follow_hint = if self.response_view == ResponseView::Json
+            && self.current_response_url().is_some()
+        {
+            "  f: follow URL"
+        } else {
+            ""
+        };
+        self.status_message = format!(
+            "{}  {}ms  —  Tab: panels  e: edit URL  s: send  m: method  ←/→: section  r: raw  E: open (read-only){}{}  q: quit",
+            http_status_label(self.response_status.unwrap_or(0)),
+            self.response_elapsed_ms.unwrap_or(0),
+            diff_hint,
+            follow_hint,
+        );
     }
 
     pub(super) fn toggle_response_fold(&mut self) {

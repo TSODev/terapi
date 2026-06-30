@@ -1,0 +1,89 @@
+# Campagne exemple : crates.io — paquets mis à jour dans la dernière heure
+#
+# Fonctionnement :
+#   1. Calcule le seuil UTC (now - 3600 s) via jq pour éviter tout décalage de fuseau
+#   2. Pagine l'API crates.io (100 par page, triés par updated_at desc)
+#      jusqu'à ce que le dernier élément de la page soit plus ancien que le seuil
+#   3. Filtre les résultats accumulés pour ne garder que ceux >= seuil
+#   4. Produit la liste { name, max_version, updated_at } + comptage
+#
+# Prérequis : jq installé (brew install jq / apt install jq)
+# Rate limit : 1 req/s enforced par rate_limit_rps (politique crates.io)
+# User-Agent obligatoire — terapi/VERSION (email) injecté automatiquement
+
+rate_limit_rps = 1.0
+
+[campaign]
+name        = "Crates.io — Updates Last Hour"
+description = "Fetch all crates updated in the last 60 minutes, paginated"
+
+# ── Étape 1 : initialiser le curseur de page ──────────────────────────────────
+
+[[steps]]
+kind = "set"
+name = "Init"
+[steps.vars]
+PAGE = "1"
+
+# ── Étape 2 : calculer le seuil UTC via jq ───────────────────────────────────
+# jq `now` = secondes UTC epoch ; `todate` → "YYYY-MM-DDTHH:MM:SSZ"
+# On travaille en UTC pour être cohérent avec les timestamps crates.io
+
+[[steps]]
+kind          = "jq"
+name          = "Compute cutoff (UTC -1h)"
+jq_input      = "null"
+jq_expression = "now - 3600 | todate"
+jq_output     = "CUTOFF"
+jq_raw        = true
+
+# ── Étape 3 : pagination en boucle ───────────────────────────────────────────
+# Conditions d'arrêt :
+#   a) LAST_UPDATED < CUTOFF   → le dernier crate de la page est trop ancien
+#   b) LAST_UPDATED est vide   → page incomplète (dernière page atteinte)
+# accumulate collecte tous les tableaux "crates" dans ALL_CRATES
+
+[[steps]]
+kind     = "loop"
+name     = "Fetch pages"
+method   = "GET"
+url      = "https://crates.io/api/v1/crates?page={{PAGE}}&per_page=100&sort=updated_at"
+loop_increment = {var = "PAGE", by = 1}
+until      = {var = "LAST_UPDATED", lt = "{{CUTOFF}}"}
+accumulate = {var = "ALL_CRATES", from = "crates"}
+[steps.headers]
+User-Agent = "terapi/{{VERSION}} (thierry.soulie@tsodev.fr)"
+[steps.extract]
+# dernier élément de la page (index 99 sur 100 items, 0-indexé)
+# si page incomplète → LAST_UPDATED = "" → "" < "2026-..." → arrêt immédiat (correct)
+LAST_UPDATED = "crates.99.updated_at"
+
+# ── Étape 4 : filtrage précis avec fromdateiso8601 ───────────────────────────
+# On utilise la comparaison numérique epoch pour gérer les formats
+# légèrement différents (crates.io : "+00:00" ; CUTOFF : "Z")
+
+[[steps]]
+kind          = "jq"
+name          = "Filter — last hour only"
+jq_input      = "{{ALL_CRATES}}"
+jq_expression = '[.[] | select((.updated_at[0:19] + "Z" | fromdateiso8601) >= (now - 3600))]'
+jq_output     = "RECENT_CRATES"
+
+# ── Étape 5 : comptage ───────────────────────────────────────────────────────
+
+[[steps]]
+kind          = "jq"
+name          = "Count"
+jq_input      = "{{RECENT_CRATES}}"
+jq_expression = "length"
+jq_output     = "COUNT"
+jq_raw        = true
+
+# ── Étape 6 : résumé — nom / version / date de mise à jour ──────────────────
+
+[[steps]]
+kind          = "jq"
+name          = "Summary list"
+jq_input      = "{{RECENT_CRATES}}"
+jq_expression = '[.[] | {name, version: .max_version, updated_at}] | sort_by(.updated_at) | reverse'
+jq_output     = "SUMMARY"

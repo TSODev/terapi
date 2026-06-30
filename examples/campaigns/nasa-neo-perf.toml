@@ -1,0 +1,142 @@
+# NASA NEO Browse — Performance Test
+#
+# Pagines the NASA Near Earth Objects browse API and measures throughput.
+# Metrics: pages fetched, NEOs collected, elapsed time, avg ms/page, NEOs/sec.
+#
+# Setup:
+#   1. Get a free API key at https://api.nasa.gov/
+#      (DEMO_KEY is limited to 30 req/hour — use MAX_PAGES ≤ 10 with DEMO_KEY)
+#   2. Export your key: export API_KEY=your_key  (or use a terapi env)
+#   3. Run:  terapi run nasa-neo-perf.toml --param MAX_PAGES=50
+#   4. Output: /tmp/nasa-neo-perf.json
+#
+# Full dataset: 3096 pages × 20 NEOs = ~61 912 objects
+# Requires: jq (brew install jq / apt install jq)
+
+rate_limit_rps = 0.5   # 1 req / 2s — safe with a registered API key
+                        # Use 0.008 (1 req / 2min) for DEMO_KEY
+
+[campaign]
+name        = "NASA NEO Browse — Performance Test"
+description = "Paginates the near_earth_objects API and measures throughput"
+
+[[campaign.params]]
+name        = "MAX_PAGES"
+description = "Number of pages to fetch (3096 total, 20 NEOs each)"
+default     = "10"
+
+[[campaign.params]]
+name        = "API_KEY"
+description = "NASA API key — https://api.nasa.gov/ (DEMO_KEY for quick test)"
+default     = "DEMO_KEY"
+
+# ── 1. Init — page cursor + start timestamp ───────────────────────────────────
+
+[[steps]]
+kind = "set"
+name = "Init"
+[steps.vars]
+PAGE     = "0"
+START_MS = "{{TIMESTAMP_MS}}"
+
+# ── 2. Loop — paginate the browse endpoint ────────────────────────────────────
+# Stops when PAGE reaches MAX_PAGES (string equality after numeric increment).
+# Accumulates near_earth_objects arrays across all iterations.
+# Extracts page metadata from each response (overwritten each iteration — last wins).
+
+[[steps]]
+kind           = "loop"
+name           = "Fetch NEO pages"
+method         = "GET"
+url            = "https://api.nasa.gov/neo/rest/v1/neo/browse?page={{PAGE}}&size=20&api_key={{API_KEY}}"
+loop_increment = {var = "PAGE", by = 1}
+until          = {var = "PAGE", eq = "{{MAX_PAGES}}"}
+accumulate     = {var = "ALL_NEOS", from = "near_earth_objects"}
+[steps.extract]
+TOTAL_PAGES    = "page.total_pages"
+TOTAL_ELEMENTS = "page.total_elements"
+
+# ── 3. End timestamp ──────────────────────────────────────────────────────────
+
+[[steps]]
+kind = "set"
+name = "End time"
+[steps.vars]
+END_MS = "{{TIMESTAMP_MS}}"
+
+# ── 4. Count fetched NEOs ─────────────────────────────────────────────────────
+
+[[steps]]
+kind          = "jq"
+name          = "Count NEOs"
+jq_input      = "{{ALL_NEOS}}"
+jq_expression = "length"
+jq_output     = "NEO_COUNT"
+jq_raw        = true
+
+# ── 5. Compute timing metrics ─────────────────────────────────────────────────
+# jq_args passes numeric vars as --argjson (so $start/$end/$pages/$neos are numbers).
+# neos_per_sec rounded to 2 decimal places.
+
+[[steps]]
+kind          = "jq"
+name          = "Compute metrics"
+jq_input      = "null"
+jq_expression = '''($end - $start) as $elapsed_ms |
+  ($elapsed_ms / 1000) as $elapsed_s |
+  ($elapsed_ms / $pages) as $avg_ms_per_page |
+  ($neos / $elapsed_s * 100 | round / 100) as $neos_per_sec |
+  {
+    elapsed_ms:      ($elapsed_ms | round),
+    elapsed_s:       ($elapsed_s | round),
+    avg_ms_per_page: ($avg_ms_per_page | round),
+    neos_per_sec:    $neos_per_sec
+  }'''
+jq_output     = "METRICS"
+[steps.jq_args]
+start = "{{START_MS}}"
+end   = "{{END_MS}}"
+pages = "{{MAX_PAGES}}"
+neos  = "{{NEO_COUNT}}"
+
+# ── 6. Sample — first 5 NEOs (lightweight data quality check) ─────────────────
+
+[[steps]]
+kind          = "jq"
+name          = "Sample (first 5 NEOs)"
+jq_input      = "{{ALL_NEOS}}"
+jq_expression = "[.[:5][] | {id, name, absolute_magnitude_h, is_potentially_hazardous_asteroid}]"
+jq_output     = "SAMPLE"
+
+# ── 7. Hazardous count ────────────────────────────────────────────────────────
+
+[[steps]]
+kind          = "jq"
+name          = "Hazardous count"
+jq_input      = "{{ALL_NEOS}}"
+jq_expression = "[.[] | select(.is_potentially_hazardous_asteroid == true)] | length"
+jq_output     = "HAZARDOUS_COUNT"
+jq_raw        = true
+
+# ── 8. Build final report ─────────────────────────────────────────────────────
+
+[[steps]]
+kind         = "build"
+name         = "Report"
+build_output = "REPORT"
+[steps.fields]
+generated_at       = "{{DATETIME}}"
+api_key_used       = "{{API_KEY}}"
+pages_fetched      = "{{MAX_PAGES}}"
+total_pages        = "{{TOTAL_PAGES}}"
+total_neos_in_api  = "{{TOTAL_ELEMENTS}}"
+neos_fetched       = "{{NEO_COUNT}}"
+hazardous_fetched  = "{{HAZARDOUS_COUNT}}"
+performance        = "{{METRICS}}"
+sample             = "{{SAMPLE}}"
+
+# ── Output JSON ───────────────────────────────────────────────────────────────
+
+[[outputs]]
+from_step = "Report"
+path      = "/tmp/nasa-neo-perf.json"

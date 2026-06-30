@@ -7,6 +7,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [0.10.5] — 2026-06-30
+
 ### Added
 - **`E` on Response panel — open response in external viewer (read-only)** — pressing `E` when a response is visible writes it to `/tmp/terapi_response.json` and opens `$TERAPI_JSON_EDITOR` (default: `jsoned`). The file is never read back — the response displayed in terapi is unchanged. Status hint shows `E: open (read-only)`.
 - **`f`: follow URL** — in the JSON response view, pressing `f` when the cursor sits on a value that starts with `http://` or `https://` loads that URL into the request bar and forces the method to GET, without entering URL edit mode. The focus stays on the response panel so you can inspect or adjust headers, body, and params before pressing `s` to send (or `e` to edit the URL). The status hint `f: follow URL` appears dynamically (updated on `↑`/`↓`) only when the current row holds a URL value.

@@ -1032,7 +1032,7 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `t` | Request panel (Body sub-tab, outside editor) | Toggle body mode: Text ↔ JSON |
 | `E` | Request panel (Body sub-tab, Text mode, outside editor) | Open body in external JSON editor (`$TERAPI_JSON_EDITOR`) — read/write |
 | `E` | Request panel (response visible) | Open response in external viewer (`$TERAPI_JSON_EDITOR`) — read-only |
-| `f` | Request panel (JSON response view, cursor on URL value) | Follow URL — load into request bar as GET and focus URL field |
+| `f` | Request panel (JSON response view, cursor on URL value) | Follow URL — load into request bar as GET; stays in response view so you can adjust headers/body before sending |
 | `a` | Body editor (JSON mode) | Add field |
 | `d` | Body editor (JSON mode) | Delete selected field |
 | `Enter` / `e` | Body editor (JSON mode) | Edit selected field |

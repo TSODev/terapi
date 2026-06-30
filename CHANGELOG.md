@@ -9,7 +9,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - **`E` on Response panel — open response in external viewer (read-only)** — pressing `E` when a response is visible writes it to `/tmp/terapi_response.json` and opens `$TERAPI_JSON_EDITOR` (default: `jsoned`). The file is never read back — the response displayed in terapi is unchanged. Status hint shows `E: open (read-only)`.
-- **`f`: follow URL** — in the JSON response view, pressing `f` when the cursor sits on a value that starts with `http://` or `https://` immediately loads that URL into the request bar, forces the method to GET, and focuses the URL field ready to edit or send. The status hint `f: follow URL` appears dynamically (updated on `↑`/`↓`) only when the current row holds a URL value — the key does nothing on non-URL rows.
+- **`f`: follow URL** — in the JSON response view, pressing `f` when the cursor sits on a value that starts with `http://` or `https://` loads that URL into the request bar and forces the method to GET, without entering URL edit mode. The focus stays on the response panel so you can inspect or adjust headers, body, and params before pressing `s` to send (or `e` to edit the URL). The status hint `f: follow URL` appears dynamically (updated on `↑`/`↓`) only when the current row holds a URL value.
 
 ### Fixed
 - **`TERAPI_JSON_EDITOR` TTY fix** — the editor is now launched directly via `Command::new(&editor).arg(file)` instead of `sh -c "editor file"`, which was breaking TTY inheritance for TUI tools like `jsoned`. Falls back to `sh -c` only when the editor string contains shell metacharacters (space, pipe, redirect…), preserving support for complex pipelines.

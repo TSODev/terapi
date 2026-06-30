@@ -2933,6 +2933,7 @@ Ready-to-run campaigns in `examples/campaigns/` — no API key required:
 | `spacex_exploration.toml` | SpaceX GraphQL | **Pipeline GraphQL 7 steps** : company → fleet snapshot → latest launch → all 109 past launches avec wildcard `*.id` → roadster orbital position → booster reuse stats → summary transform ; écrit `/tmp/spacex_all_launches.json` |
 | `search_demo.toml` | JSONPlaceholder | **`kind = "search"`**: GET /users → filtre les utilisateurs par domaine email (regex) → `foreach` sur les matchs → GET leurs todos ; illustre `first_only` et recherche sur tableau de strings |
 | `horaires_sncf_par_gare.toml` | API SNCF (auth) | **`jq` + `build` + `[[outputs]]`**: résolution gare par nom (`-p GARE="Paris Montparnasse"`) → départs + arrivées → reformatage timestamps via string slicing jq → zip jq (train/heure/direction via `--argjson`) → `kind = "build"` → JSON de synthèse ; requiert `SNCF_TOKEN` dans un env terapi nommé `sncf` |
+| `crates-io-updates-last-hour.toml` | crates.io (public) | **`loop` + `accumulate` + `rate_limit_rps` + `jq` UTC** : pagine l'API crates.io en respectant son rate limit d'1 req/s ; calcule le seuil UTC via `jq now` (pas de décalage fuseau) ; s'arrête dès que la page ne contient plus de crates récents (`until.lt` sur timestamp ISO) ; filtre et compte les ~300 nouveautés/heure |
 
 ```bash
 terapi run examples/campaigns/crud_demo.toml
@@ -2944,6 +2945,7 @@ terapi run examples/campaigns/eu_capitals.toml
 terapi run examples/campaigns/upload_demo.toml
 terapi run examples/campaigns/loop_pagination_demo.toml
 terapi run examples/campaigns/spacex_exploration.toml
+terapi run examples/campaigns/crates-io-updates-last-hour.toml
 
 # itineraire_demo uses [[params]] — run with defaults or override:
 terapi run examples/campaigns/itineraire_demo.toml

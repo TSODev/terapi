@@ -8,6 +8,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Built-in variables** — a set of predefined `{{VAR}}` placeholders resolved at send time in the TUI, campaigns, and the builder, with no environment required:
+
+  | Variable | Example value | Notes |
+  |---|---|---|
+  | `{{DATE}}` | `2026-06-30` | Current date (YYYY-MM-DD) |
+  | `{{DATE+N}}` / `{{DATE-N}}` | `2026-07-01` | ±N days; `d` unit optional |
+  | `{{DATE+Nd}}` | `2026-07-07` | Explicit day unit |
+  | `{{TIME}}` | `14:32:05` | Current time (HH:MM:SS) |
+  | `{{TIME+N}}` / `{{TIME-N}}` | `15:32:05` | ±N hours by default |
+  | `{{TIME+Nm}}` | `15:02:05` | Minutes unit |
+  | `{{DATETIME}}` | `2026-06-30T14:32:05` | Date + time; arithmetic in days |
+  | `{{TIMESTAMP}}` | `1751291525` | Unix timestamp (seconds) |
+  | `{{TIMESTAMP_MS}}` | `1751291525000` | Unix timestamp (milliseconds) |
+  | `{{UUID}}` | `550e8400-e29b-41d4-…` | UUID v4, new value per send |
+  | `{{RANDOM_INT}}` | `42317` | Random integer 0–99 999 |
+  | `{{RANDOM_STRING}}` | `k3mw9xzp` | 8-char alphanumeric string |
+  | `{{APPNAME}}` | `terapi` | Application name |
+  | `{{VERSION}}` | `0.10.1` | Current terapi version |
+
+  Built-in vars are resolved after env vars, so they can be overridden by a user-defined variable with the same name. The variable picker (`{{`) now shows built-ins in yellow with a live preview; the picker opens even when no environment is active.
+
 - **`graphql_query` in `--format json` output** — when running `terapi run --format json`, steps with `kind = "graphql"` now include a `graphql_query` field containing the resolved query string (after `{{VAR}}` substitution). REST and other step kinds are unaffected (no field added). `StepResult` gains `graphql_query: Option<String>` used by both the CLI JSON reporter and the campaign streaming infrastructure.
 - **External JSON editor (`E` key)** — press `E` on the Body tab (Request panel, Text mode, outside edit mode) or on the Body section of a campaign builder step to open the body in an external JSON editor. Terapi suspends the TUI, writes the body to `/tmp/terapi_body.json`, runs `$TERAPI_JSON_EDITOR` (defaults to `jsoned`), then reads the file back and updates the body on exit. Works in both the main TUI and `terapi build`.
 - **`terapi-env.sh`** — shell script that sets terapi environment variables with sensible defaults (`TERAPI_JSON_EDITOR` auto-detects `jsoned`, `TERAPI_DIFF` auto-detects `difft`/`delta`, `EDITOR`/`VISUAL` fall back to `vi`) then execs `terapi "$@"`. Can also be sourced (`source terapi-env.sh`) to export variables into the current shell without launching terapi.

@@ -2343,7 +2343,7 @@ fn print_report(campaign: &Campaign, results: &[IterationResult]) {
 fn resolve(s: &str, env: &HashMap<String, String>) -> String {
     let mut out = s.to_string();
     for (k, v) in env { out = out.replace(&format!("{{{{{}}}}}", k), v); }
-    out
+    crate::storage::resolve_builtin_vars(&out)
 }
 
 fn resolve_value(v: &Value, env: &HashMap<String, String>) -> Value {

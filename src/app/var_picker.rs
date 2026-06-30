@@ -14,22 +14,21 @@ impl App {
     }
 
     pub fn filtered_var_names(&self, prefix: &str) -> Vec<String> {
-        self.active_env_vars()
+        let lower = prefix.to_lowercase();
+        let mut names: Vec<String> = self.active_env_vars()
             .into_iter()
-            .filter(|(k, _)| k.to_lowercase().starts_with(&prefix.to_lowercase()))
+            .filter(|(k, _)| k.to_lowercase().starts_with(&lower))
             .map(|(k, _)| k)
-            .collect()
+            .collect();
+        for &name in crate::storage::BUILTIN_VAR_NAMES {
+            if name.to_lowercase().starts_with(&lower) {
+                names.push(name.to_string());
+            }
+        }
+        names
     }
 
     pub(super) fn open_var_picker(&mut self, target: VarPickerTarget) {
-        if self.active_env_idx.is_none() {
-            self.status_message = "No active environment — activate one in the Env tab first".into();
-            return;
-        }
-        if self.active_env_vars().is_empty() {
-            self.status_message = "Active environment has no variables".into();
-            return;
-        }
         self.var_picker = Some(VarPickerState { target, prefix: String::new(), cursor: 0 });
     }
 

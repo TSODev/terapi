@@ -173,12 +173,13 @@ In URL edit mode (`e`), the bar highlights and shows a cursor:
 
 #### Variable auto-completion (`{{`)
 
-Typing `{{` in any editable field opens a picker overlay showing the variables available in the active environment:
+Typing `{{` in any editable field opens a picker overlay showing environment variables (white) and **built-in variables** (yellow) with a live preview:
 
 ```
 ┌─ Insert variable · filter: TO   ──────────┐
 │  {{TOKEN}}  = eyJhbGciOiJIUzI...          │
 │▶ {{TOKEN_EXP}}  = 3600                    │
+│  {{TIMESTAMP}}  = 1751291525              │
 │                                           │
 │  ↑/↓: navigate  Enter: insert  Esc: cancel │
 └──────────────────────────────────────────┘
@@ -189,7 +190,30 @@ Typing `{{` in any editable field opens a picker overlay showing the variables a
 - `Enter` inserts the selected variable as `{{VAR_NAME}}`
 - `Esc` closes the picker and leaves `{{` as typed
 - `Backspace` with an empty filter removes one `{` and closes the picker
-- If no environment is active, a message in the status bar reminds you to activate one in the Env tab
+- Built-in variables are always available, even without an active environment
+
+#### Built-in variables
+
+A set of predefined variables resolved at send time — no environment needed:
+
+| Variable | Example | Description |
+|---|---|---|
+| `{{DATE}}` | `2026-06-30` | Today's date |
+| `{{DATE+1}}` / `{{DATE-1}}` | `2026-07-01` | ±N days (`d` unit optional: `{{DATE+7d}}`) |
+| `{{TIME}}` | `14:32:05` | Current time |
+| `{{TIME+1}}` / `{{TIME-1}}` | `15:32:05` | ±N hours; use `m` for minutes: `{{TIME+30m}}` |
+| `{{DATETIME}}` | `2026-06-30T14:32:05` | Date + time (arithmetic in days) |
+| `{{TIMESTAMP}}` | `1751291525` | Unix timestamp (seconds) |
+| `{{TIMESTAMP_MS}}` | `1751291525000` | Unix timestamp (milliseconds) |
+| `{{UUID}}` | `550e8400-e29b-…` | UUID v4 — new value on every send |
+| `{{RANDOM_INT}}` | `42317` | Random integer 0–99 999 |
+| `{{RANDOM_STRING}}` | `k3mw9xzp` | 8-char random alphanumeric string |
+| `{{APPNAME}}` | `terapi` | Application name |
+| `{{VERSION}}` | `0.10.1` | Current terapi version |
+
+Built-in variables are resolved after environment variables, so a user-defined `{{DATE}}` in the active env overrides the built-in.
+
+All built-in variables work in campaigns too — in URLs, headers, body, `[env]` values, and `when`/`assert` values.
 
 The response block title shows the **status code** (color-coded green/yellow/red) and **elapsed time** while the request is in flight, a `⟳ sending…` indicator is shown.
 
@@ -1564,11 +1588,12 @@ Params   :
 
 `{{VAR}}` placeholders are replaced in `url`, `headers`, and `body` using values from (lowest to highest priority):
 
-1. `env_file` — named terapi environment loaded from disk (campaign-level base)
-2. `[env]` block — inline vars at campaign level, override `env_file`
-3. Connector row variables — CSV columns, override campaign env
-4. Step `env` — named terapi environment for that step only, overrides campaign base
-5. `[steps.extract]` — values extracted from previous step responses (always highest priority)
+1. **Built-in variables** — `{{DATE}}`, `{{TIME}}`, `{{UUID}}`, etc. — resolved automatically, no declaration needed (see [Built-in variables](#built-in-variables))
+2. `env_file` — named terapi environment loaded from disk (campaign-level base)
+3. `[env]` block — inline vars at campaign level, override `env_file`
+4. Connector row variables — CSV columns, override campaign env
+5. Step `env` — named terapi environment for that step only, overrides campaign base
+6. `[steps.extract]` — values extracted from previous step responses (always highest priority)
 
 **Per-step environment** — each step can declare `env = "name"` to use a specific terapi environment for that step. The step env overrides campaign-level vars, but extracted vars from previous steps always take precedence:
 

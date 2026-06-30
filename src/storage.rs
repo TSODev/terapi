@@ -1,7 +1,11 @@
 use anyhow::{Context, Result};
+use chrono::{Duration, Local};
+use rand::Rng;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StoredCollection {
@@ -247,12 +251,97 @@ pub fn load_env_by_name(name: &str) -> Result<StoredEnv> {
 }
 
 /// Replace `{{VAR}}` placeholders in `text` using the given variable map.
+pub const BUILTIN_VAR_NAMES: &[&str] = &[
+    "DATE", "DATE+1", "DATE-1",
+    "TIME", "TIME+1", "TIME-1",
+    "DATETIME", "DATETIME+1", "DATETIME-1",
+    "TIMESTAMP", "TIMESTAMP_MS",
+    "UUID",
+    "RANDOM_INT", "RANDOM_STRING",
+    "APPNAME", "VERSION",
+];
+
+static BUILTIN_RE: OnceLock<Regex> = OnceLock::new();
+
+fn builtin_re() -> &'static Regex {
+    BUILTIN_RE.get_or_init(|| {
+        Regex::new(
+            r"\{\{(DATETIME|DATE|TIME|TIMESTAMP_MS|TIMESTAMP|UUID|RANDOM_INT|RANDOM_STRING|APPNAME|VERSION)([+-]\d+[dhm]?)?\}\}"
+        ).unwrap()
+    })
+}
+
+pub fn resolve_builtin_vars(text: &str) -> String {
+    builtin_re()
+        .replace_all(text, |caps: &regex::Captures| {
+            builtin_value(&caps[1], caps.get(2).map_or("", |m| m.as_str()))
+        })
+        .to_string()
+}
+
+fn parse_offset(s: &str, default_unit: char) -> Duration {
+    if s.is_empty() { return Duration::zero(); }
+    let negative = s.starts_with('-');
+    let digits = s.trim_start_matches(|c| c == '+' || c == '-');
+    let (n, unit) = if digits.ends_with('d') {
+        (digits[..digits.len() - 1].parse::<i64>().unwrap_or(0), 'd')
+    } else if digits.ends_with('h') {
+        (digits[..digits.len() - 1].parse::<i64>().unwrap_or(0), 'h')
+    } else if digits.ends_with('m') {
+        (digits[..digits.len() - 1].parse::<i64>().unwrap_or(0), 'm')
+    } else {
+        (digits.parse::<i64>().unwrap_or(0), default_unit)
+    };
+    let n = if negative { -n } else { n };
+    match unit {
+        'd' => Duration::days(n),
+        'h' => Duration::hours(n),
+        'm' => Duration::minutes(n),
+        _ => Duration::zero(),
+    }
+}
+
+fn builtin_value(name: &str, offset: &str) -> String {
+    match name {
+        "DATE" => (Local::now() + parse_offset(offset, 'd')).format("%Y-%m-%d").to_string(),
+        "TIME" => (Local::now() + parse_offset(offset, 'h')).format("%H:%M:%S").to_string(),
+        "DATETIME" => (Local::now() + parse_offset(offset, 'd')).format("%Y-%m-%dT%H:%M:%S").to_string(),
+        "TIMESTAMP" => (Local::now() + parse_offset(offset, 's')).timestamp().to_string(),
+        "TIMESTAMP_MS" => (Local::now() + parse_offset(offset, 's')).timestamp_millis().to_string(),
+        "UUID" => {
+            let mut rng = rand::thread_rng();
+            let b: [u8; 16] = rng.gen();
+            let b = [
+                b[0], b[1], b[2], b[3], b[4], b[5],
+                (b[6] & 0x0f) | 0x40, b[7],
+                (b[8] & 0x3f) | 0x80, b[9],
+                b[10], b[11], b[12], b[13], b[14], b[15],
+            ];
+            format!(
+                "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+                b[0],b[1],b[2],b[3],b[4],b[5],b[6],b[7],b[8],b[9],b[10],b[11],b[12],b[13],b[14],b[15]
+            )
+        }
+        "RANDOM_INT" => rand::thread_rng().gen_range(0u32..100_000).to_string(),
+        "RANDOM_STRING" => {
+            let mut rng = rand::thread_rng();
+            (0..8).map(|_| {
+                let n = rng.gen_range(0u8..36);
+                if n < 10 { (b'0' + n) as char } else { (b'a' + n - 10) as char }
+            }).collect()
+        }
+        "APPNAME" => "terapi".to_string(),
+        "VERSION" => env!("CARGO_PKG_VERSION").to_string(),
+        _ => format!("{{{{{}}}}}", name),
+    }
+}
+
 pub fn resolve_vars(text: &str, vars: &std::collections::HashMap<String, String>) -> String {
     let mut out = text.to_string();
     for (k, v) in vars {
         out = out.replace(&format!("{{{{{}}}}}", k), v);
     }
-    out
+    resolve_builtin_vars(&out)
 }
 
 // ── Session state ────────────────────────────────────────────────────────────

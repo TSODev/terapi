@@ -370,7 +370,7 @@ impl App {
         self.body_mode = BodyMode::Text;
     }
 
-    pub(super) fn body_string(&self) -> Option<String> {
+    pub fn body_string(&self) -> Option<String> {
         match self.body_mode {
             BodyMode::Text => {
                 let text = self.body_textarea.lines().join("\n");

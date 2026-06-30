@@ -131,7 +131,7 @@ After import, a report is printed:
 | `←` / `→` | Navigate sub-tabs (also exits URL mode) |
 | `Enter` | Send request (URL mode) / fold-unfold JSON node / edit body field (JSON mode) |
 | `Esc` | Finish URL edit / exit body editor |
-| `{{` | Open variable picker (any editable field) — insert `{{VAR}}` from active env |
+| `{{` | Open variable picker (any editable field) — insert `{{VAR}}` from active env or built-in variables (yellow, always available) |
 | `↑` / `↓` | Auth sub-tab — navigate fields |
 | `Space` / `Enter` | Auth sub-tab (Type row) — cycle auth type (No Auth → Bearer → Basic → API Key → OAuth2 CC → OAuth2 AC) |
 | `Enter` | Auth sub-tab (field row) — open edit modal for token / username / password / key / OAuth2 fields |
@@ -393,7 +393,22 @@ method = "GET"
 url    = "{{BASE_URL}}/health"
 ```
 
-Variable priority (lowest → highest): `env_file` → `[env]` → `[[params]]` defaults → connector row → step `env` → extracted vars → runtime overrides.
+Variable priority (lowest → highest): built-ins → `env_file` → `[env]` → `[[params]]` defaults → connector row → step `env` → extracted vars → runtime overrides.
+
+**Built-in variables** are available everywhere without any environment — in the TUI, campaigns, and the builder:
+
+| Variable | Example | Notes |
+|---|---|---|
+| `{{DATE}}` | `2026-06-30` | Today; `{{DATE+1}}` / `{{DATE-7d}}` for offsets |
+| `{{TIME}}` | `14:32:05` | Now; `{{TIME+1}}` (+1 h), `{{TIME-30m}}` (-30 min) |
+| `{{DATETIME}}` | `2026-06-30T14:32:05` | Date+time; arithmetic in days |
+| `{{TIMESTAMP}}` | `1751291525` | Unix seconds |
+| `{{TIMESTAMP_MS}}` | `1751291525000` | Unix milliseconds |
+| `{{UUID}}` | `550e8400-…` | UUID v4, new value on every send |
+| `{{RANDOM_INT}}` | `42317` | 0–99 999 |
+| `{{RANDOM_STRING}}` | `k3mw9xzp` | 8-char alphanumeric |
+| `{{APPNAME}}` | `terapi` | |
+| `{{VERSION}}` | `0.10.1` | |
 
 ### Campaign parameters
 

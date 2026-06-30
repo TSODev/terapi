@@ -2674,18 +2674,25 @@ fn render_var_picker(frame: &mut Frame, app: &App) {
     }
 
     let items: Vec<ListItem> = vars.iter().enumerate().map(|(i, name)| {
+        let is_builtin = crate::storage::BUILTIN_VAR_NAMES.contains(&name.as_str());
         let style = if i == picker.cursor {
             Style::default().fg(Color::Black).bg(Color::Cyan)
+        } else if is_builtin {
+            Style::default().fg(Color::Yellow)
         } else {
             Style::default().fg(Color::White)
         };
-        let env_val = app.active_env_vars()
-            .into_iter()
-            .find(|(k, _)| k == name)
-            .map(|(_, v)| v)
-            .unwrap_or_default();
-        let preview: String = env_val.chars().take(16).collect();
-        let label = if env_val.is_empty() {
+        let preview: String = if is_builtin {
+            let raw = crate::storage::resolve_builtin_vars(&format!("{{{{{}}}}}", name));
+            raw.chars().take(20).collect()
+        } else {
+            app.active_env_vars()
+                .into_iter()
+                .find(|(k, _)| k == name)
+                .map(|(_, v)| v.chars().take(16).collect())
+                .unwrap_or_default()
+        };
+        let label = if preview.is_empty() {
             format!("{{{{{}}}}}  ", name)
         } else {
             format!("{{{{{}}}}}  = {}", name, preview)

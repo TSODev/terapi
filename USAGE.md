@@ -1231,34 +1231,34 @@ graphql_variables = {code = "FR"}
 
 At send time terapi builds `{"query": "...", "variables": {"code": "FR"}}` and injects `Content-Type: application/json`. `{{VAR}}` placeholders in the query and variable values are resolved from the active environment.
 
-### Collections d'exemple
+### Example collections
 
-Des collections prêtes à l'emploi sont disponibles dans `examples/collections/` :
+Ready-to-use collections are available in `examples/collections/`:
 
-| Fichier | Contenu | Dossiers | Requêtes | Auth |
-|---------|---------|----------|----------|------|
-| `public-rest.toml` | JSONPlaceholder, ReqRes, httpbin, PokeAPI, CoinGecko | 5 | ~30 | Aucune |
-| `graphql.toml` | Countries API, Rick & Morty (POST GraphQL) | 2 | ~10 | Aucune |
-| `rick-morty-graphql.toml` | Rick & Morty API — personnages, épisodes, lieux, filtres, pagination, introspection | 6 | 17 | Aucune |
-| `countries-graphql.toml` | Countries API — pays, continents, langues, filtres, introspection | 5 | 19 | Aucune |
-| `spacex-graphql.toml` | SpaceX — company, rockets, dragons, ships, launches, roadster, cores, capsules, missions | 8 | ~20 | Aucune |
-| `sncf.toml` | SNCF — gares, horaires, itinéraires, perturbations | 6 | 20 | Basic `{{SNCF_TOKEN}}` |
-| `france-geo.toml` | API Géo + IGN — communes, départements, régions, géocodage | 4 | 19 | Aucune |
-| `france-eau.toml` | Hub'Eau — hydrométrie, qualité rivières et nappes | 3 | 19 | Aucune |
-| `france-meteo.toml` | Météo-France — prévisions, observations, vigilance | 4 | 17 | Bearer `{{METEO_TOKEN}}` |
+| File | Content | Folders | Requests | Auth |
+|------|---------|---------|----------|------|
+| `public-rest.toml` | JSONPlaceholder, ReqRes, httpbin, PokeAPI, CoinGecko | 5 | ~30 | None |
+| `graphql.toml` | Countries API, Rick & Morty (POST GraphQL) | 2 | ~10 | None |
+| `rick-morty-graphql.toml` | Rick & Morty API — characters, episodes, locations, filters, pagination, introspection | 6 | 17 | None |
+| `countries-graphql.toml` | Countries API — countries, continents, languages, filters, introspection | 5 | 19 | None |
+| `spacex-graphql.toml` | SpaceX — company, rockets, dragons, ships, launches, roadster, cores, capsules, missions | 8 | ~20 | None |
+| `sncf.toml` | SNCF — stations, timetables, itineraries, disruptions | 6 | 20 | Basic `{{SNCF_TOKEN}}` |
+| `france-geo.toml` | API Géo + IGN — municipalities, departments, regions, geocoding | 4 | 19 | None |
+| `france-eau.toml` | Hub'Eau — hydrometry, river and groundwater quality | 3 | 19 | None |
+| `france-meteo.toml` | Météo-France — forecasts, observations, weather alerts | 4 | 17 | Bearer `{{METEO_TOKEN}}` |
 
-**Installation rapide :**
+**Quick install:**
 
 ```bash
 # Global (~/.config/terapi/collections/)
 cp examples/collections/france-geo.toml ~/.config/terapi/collections/
 
-# Projet local (.terapi/collections/)
+# Local project (.terapi/collections/)
 mkdir -p .terapi/collections
 cp examples/collections/sncf.toml .terapi/collections/
 ```
 
-Pour les collections avec authentification, créez un environnement dans l'onglet **Env** et ajoutez la variable correspondante (`SNCF_TOKEN` ou `METEO_TOKEN`), puis activez-le avec `Enter`.
+For collections that require authentication, create an environment in the **Env** tab, add the relevant variable (`SNCF_TOKEN` or `METEO_TOKEN`), then activate it with `Enter`.
 
 ---
 
@@ -2960,14 +2960,14 @@ Ready-to-run campaigns in `examples/campaigns/` — no API key required:
 | `itineraire_demo.toml` | IGN Géoplateforme | **`[[params]]` + full pipeline**: geocode two cities, compute road itinerary, reverse-geocode each route waypoint via `{{item_0}}/{{item_1}}`, output `itineraire_etapes.json` with labelled steps — no API key required |
 | `eu_capitals.toml` | Countries GraphQL + Open-Meteo | **4-step pipeline**: GraphQL seed (53 EU countries) → language transform → geocode capital → live weather; writes `examples/campaigns/eu_capitals_weather.json` |
 | `foreach_demo.toml` | JSONPlaceholder | **`foreach`**: GET /users → extract IDs with `*.id` wildcard → iterate over each user to fetch their todos |
-| `when_demo.toml` | JSONPlaceholder | **`when`**: `eq` / `ne` / `exists` — branches admin vs standard user; cascade automatique (step skippé → var non extraite → step suivant skippé) |
+| `when_demo.toml` | JSONPlaceholder | **`when`**: `eq` / `ne` / `exists` — branches admin vs standard user; natural cascade (skipped step → var not extracted → next step skipped) |
 | `upload_demo.toml` | postman-echo.com | **File Loader + multipart**: read a local file as base64/text → send in a JSON body; multipart text parts with `{{VAR}}`; multipart binary `@file` part with explicit MIME type |
-| `loop_pagination_demo.toml` | JSONPlaceholder | **`kind = "loop"`**: deux patterns — next-URL cursor (Rick & Morty, commenté) et last-ID-as-offset ; collecte les 100 posts en 4 pages de 25, écrit dans `/tmp/loop_all_posts.json` |
-| `spacex_exploration.toml` | SpaceX GraphQL | **Pipeline GraphQL 7 steps** : company → fleet snapshot → latest launch → all 109 past launches avec wildcard `*.id` → roadster orbital position → booster reuse stats → summary transform ; écrit `/tmp/spacex_all_launches.json` |
-| `search_demo.toml` | JSONPlaceholder | **`kind = "search"`**: GET /users → filtre les utilisateurs par domaine email (regex) → `foreach` sur les matchs → GET leurs todos ; illustre `first_only` et recherche sur tableau de strings |
-| `horaires_sncf_par_gare.toml` | API SNCF (auth) | **`jq` + `build` + `[[outputs]]`**: résolution gare par nom (`-p GARE="Paris Montparnasse"`) → départs + arrivées → reformatage timestamps via string slicing jq → zip jq (train/heure/direction via `--argjson`) → `kind = "build"` → JSON de synthèse ; requiert `SNCF_TOKEN` dans un env terapi nommé `sncf` |
-| `crates-io-updates-last-hour.toml` | crates.io (public) | **`loop` + `accumulate` + `rate_limit_rps` + `jq` + `build` + `[[outputs]]`** : pagine l'API crates.io (1 req/s) ; calcule le seuil UTC via `jq now` ; filtre et compte les ~300–500 nouveautés/heure ; formate `updated_at` en `"YYYY-MM-DD HH:MM UTC"` ; construit une enveloppe `{generated_at, count, crates: [{name, version, description, updated_at}, ...]}` via `kind = "build"` ; écrit dans `/tmp/crates-updates-last-hour.json` |
-| `nasa-neo-perf.toml` | NASA Open APIs | **Performance test**: pagine l'endpoint `/neo/rest/v1/neo/browse` (61 912 astéroïdes sur 3 096 pages) ; accumule les `near_earth_objects` ; calcule elapsed, avg ms/page, NEOs/sec via `jq_args` (timestamps passés en `--argjson`) ; compte les astéroïdes potentiellement dangereux ; construit un rapport JSON `{rate_limit_rps, pages_fetched, performance, hazardous_fetched, sample}` ; écrit dans `/tmp/nasa-neo-perf.json`. Paramètres : `MAX_PAGES` (défaut 10) et `API_KEY` (défaut `DEMO_KEY` — limité à 30 req/h). |
+| `loop_pagination_demo.toml` | JSONPlaceholder | **`kind = "loop"`**: two patterns — next-URL cursor (Rick & Morty, commented out) and last-ID-as-offset; collects all 100 posts in 4 pages of 25, writes to `/tmp/loop_all_posts.json` |
+| `spacex_exploration.toml` | SpaceX GraphQL | **7-step GraphQL pipeline**: company → fleet snapshot → latest launch → all 109 past launches with `*.id` wildcard → roadster orbital position → booster reuse stats → summary transform; writes `/tmp/spacex_all_launches.json` |
+| `search_demo.toml` | JSONPlaceholder | **`kind = "search"`**: GET /users → filters users by email domain (regex) → `foreach` over matches → GET their todos; illustrates `first_only` and searching over a string array |
+| `horaires_sncf_par_gare.toml` | API SNCF (auth) | **`jq` + `build` + `[[outputs]]`**: resolve station by name (`-p GARE="Paris Montparnasse"`) → departures + arrivals → reformat timestamps via jq string slicing → zip jq (train/time/direction via `--argjson`) → `kind = "build"` → summary JSON; requires `SNCF_TOKEN` in a terapi env named `sncf` |
+| `crates-io-updates-last-hour.toml` | crates.io (public) | **`loop` + `accumulate` + `rate_limit_rps` + `jq` + `build` + `[[outputs]]`**: paginates the crates.io API (1 req/s); computes the UTC threshold via `jq now`; filters and counts ~300–500 new crates/hour; formats `updated_at` as `"YYYY-MM-DD HH:MM UTC"`; builds an envelope `{generated_at, count, crates: [{name, version, description, updated_at}, ...]}` via `kind = "build"`; writes to `/tmp/crates-updates-last-hour.json` |
+| `nasa-neo-perf.toml` | NASA Open APIs | **Performance test**: paginates `/neo/rest/v1/neo/browse` (61,912 asteroids across 3,096 pages); accumulates `near_earth_objects`; computes elapsed, avg ms/page, NEOs/sec via `jq_args` (timestamps passed as `--argjson`); counts potentially hazardous asteroids; builds a JSON report `{rate_limit_rps, pages_fetched, performance, hazardous_fetched, sample}`; writes to `/tmp/nasa-neo-perf.json`. Parameters: `MAX_PAGES` (default 10) and `API_KEY` (default `DEMO_KEY` — limited to 30 req/h). |
 
 ```bash
 terapi run examples/campaigns/crud_demo.toml

@@ -416,7 +416,7 @@ Applied globally across all HTTP/GraphQL/seed/loop/poll steps. For `kind = "loop
 | `{{RANDOM_INT}}` | `42317` | 0–99 999 |
 | `{{RANDOM_STRING}}` | `k3mw9xzp` | 8-char alphanumeric |
 | `{{APPNAME}}` | `terapi` | |
-| `{{VERSION}}` | `0.10.1` | |
+| `{{VERSION}}` | `0.10.3` | |
 
 ### Campaign parameters
 

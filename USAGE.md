@@ -209,7 +209,7 @@ A set of predefined variables resolved at send time — no environment needed:
 | `{{RANDOM_INT}}` | `42317` | Random integer 0–99 999 |
 | `{{RANDOM_STRING}}` | `k3mw9xzp` | 8-char random alphanumeric string |
 | `{{APPNAME}}` | `terapi` | Application name |
-| `{{VERSION}}` | `0.10.1` | Current terapi version |
+| `{{VERSION}}` | `0.10.3` | Current terapi version |
 
 Built-in variables are resolved after environment variables, so a user-defined `{{DATE}}` in the active env overrides the built-in.
 

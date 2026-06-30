@@ -5,7 +5,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Unreleased]
+## [0.10.3] — 2026-06-30
 
 ### Added
 - **`rate_limit_rps`** — campaign root setting that enforces a minimum delay between sequential HTTP requests:
@@ -43,7 +43,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   | `{{RANDOM_INT}}` | `42317` | Random integer 0–99 999 |
   | `{{RANDOM_STRING}}` | `k3mw9xzp` | 8-char alphanumeric string |
   | `{{APPNAME}}` | `terapi` | Application name |
-  | `{{VERSION}}` | `0.10.1` | Current terapi version |
+  | `{{VERSION}}` | `0.10.3` | Current terapi version |
 
   Built-in vars are resolved after env vars, so they can be overridden by a user-defined variable with the same name. The variable picker (`{{`) now shows built-ins in yellow with a live preview; the picker opens even when no environment is active.
 

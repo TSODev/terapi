@@ -2,7 +2,7 @@
 #
 # Fonctionnement :
 #   1. Calcule le seuil UTC (now - 3600 s) via jq pour éviter tout décalage de fuseau
-#   2. Pagine l'API crates.io (100 par page, triés par updated_at desc)
+#   2. Pagine l'API crates.io (100 par page, triés par recent-updates desc)
 #      jusqu'à ce que le dernier élément de la page soit plus ancien que le seuil
 #   3. Filtre les résultats accumulés pour ne garder que ceux >= seuil
 #   4. Produit la liste { name, max_version, updated_at } + comptage
@@ -47,7 +47,7 @@ jq_raw        = true
 kind     = "loop"
 name     = "Fetch pages"
 method   = "GET"
-url      = "https://crates.io/api/v1/crates?page={{PAGE}}&per_page=100&sort=updated_at"
+url      = "https://crates.io/api/v1/crates?page={{PAGE}}&per_page=100&sort=recent-updates"
 loop_increment = {var = "PAGE", by = 1}
 until      = {var = "LAST_UPDATED", lt = "{{CUTOFF}}"}
 accumulate = {var = "ALL_CRATES", from = "crates"}

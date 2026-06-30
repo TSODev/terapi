@@ -17,6 +17,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 - **GraphQL mode — Headers tab keys not working** — `a` (add header), `d` (delete), `↑`/`↓` (navigate) had no effect when on the `Headers` sub-tab in GraphQL mode. The key guards were checking `active_request_tab == RequestTab::Headers` (REST only) and never matched `active_graphql_tab == GraphqlTab::Headers`.
 - **GraphQL mode — Options tab keys not working** — same root cause: `↑`/`↓` and `Space`/`Enter` for the Options sub-tab (TLS, redirects, timeout, cookie jar) did not respond in GraphQL mode.
+- **Non-exhaustive match on `GraphqlTab` in status hint** — `update_graphql_status_hint()` was missing the `Auth` arm after the variant was added, causing a compile error.
 
 ---
 

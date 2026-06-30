@@ -52,7 +52,7 @@ loop_increment = {var = "PAGE", by = 1}
 until      = {var = "LAST_UPDATED", lt = "{{CUTOFF}}"}
 accumulate = {var = "ALL_CRATES", from = "crates"}
 [steps.headers]
-User-Agent = "terapi/{{VERSION}} (thierry.soulie@tsodev.fr)"
+User-Agent = "terapi/{{VERSION}} (your-email@example.com)"
 [steps.extract]
 # dernier élément de la page (index 99 sur 100 items, 0-indexé)
 # si page incomplète → LAST_UPDATED = "" → "" < "2026-..." → arrêt immédiat (correct)

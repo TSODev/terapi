@@ -1876,9 +1876,31 @@ Authorization = "Bearer {{JWT}}"
 
 The boxed report still lists all failures — `continue_on_error` only controls flow, not visibility.
 
+### Campaign-level rate limiting
+
+`rate_limit_rps` at the TOML root enforces a global minimum delay between HTTP requests — without adding pause steps manually:
+
+```toml
+rate_limit_rps = 1.0   # at most 1 HTTP request per second
+
+[campaign]
+name = "Crates.io crawler"
+```
+
+| Behaviour | Detail |
+|-----------|--------|
+| Between HTTP steps | Terapi sleeps `ceil(1000 / rps)` ms before each HTTP/GraphQL/seed step if the previous one finished sooner |
+| Loop steps | Sets a minimum `interval_ms` between iterations (loop steps have no built-in sleep by default) |
+| Poll steps | Sets a floor on `interval_ms` |
+| Step-level `wait_ms` | Pause steps are unaffected — use them for explicit fixed waits |
+
+Use `rate_limit_rps` when all (or most) steps in a campaign target the same rate-limited API. For fine-grained control — e.g. only a single loop step needs throttling — set `interval_ms` on that step directly.
+
+---
+
 ### Pause steps
 
-A `kind = "pause"` step waits for a fixed duration without making any HTTP request. Use it between steps to respect API rate limits.
+A `kind = "pause"` step waits for a fixed duration without making any HTTP request. Use it between steps to respect API rate limits on individual steps.
 
 ```toml
 [[steps]]
@@ -2530,8 +2552,8 @@ OFFSET     = "next_offset"
 | `exists = true` | bool | Stop when var is present and non-null |
 | `eq = "value"` | string | Stop when var equals value |
 | `ne = "value"` | string | Stop when var does not equal value |
-| `lt = N` | float | Stop when var (parsed as float) is less than N |
-| `lte = N` | float | Stop when var (parsed as float) is ≤ N |
+| `lt = N` | number or string | Stop when var is less than N — numeric comparison when both sides are valid floats, lexicographic otherwise (e.g. ISO date strings) |
+| `lte = N` | number or string | Same, ≤ |
 
 #### `accumulate` config
 
@@ -2595,6 +2617,7 @@ graphql_query  = """
 | **Cursor / token** | Response contains `next_cursor`, `null` on last page | `{ var = "CURSOR", exists = false }` |
 | **Short page** | No metadata — stop when page has fewer items than limit | `{ var = "PAGE_COUNT", lt = 50 }` |
 | **Offset + increment** | Fixed page size; increment `OFFSET` by `N` each iteration | `loop_increment = { var = "OFFSET", by = N }` + `until` on total |
+| **Date cutoff** | Stop when the last record on the page is older than a threshold | `{ var = "LAST_UPDATED", lt = "{{DATETIME-1h}}" }` |
 | **Offset / total** | First response gives `total`, N pages known | Use `foreach` + transform (known N) |
 | **Link header** | Next URL in `Link: rel="next"` header | Not yet supported |
 

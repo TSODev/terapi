@@ -395,6 +395,14 @@ url    = "{{BASE_URL}}/health"
 
 Variable priority (lowest → highest): built-ins → `env_file` → `[env]` → `[[params]]` defaults → connector row → step `env` → extracted vars → runtime overrides.
 
+**Rate limiting** — add `rate_limit_rps` at the root of the campaign TOML to enforce a minimum delay between HTTP requests (useful for APIs like crates.io that impose 1 req/s):
+
+```toml
+rate_limit_rps = 1.0   # at most 1 HTTP request per second
+```
+
+Applied globally across all HTTP/GraphQL/seed/loop/poll steps. For `kind = "loop"`, also sets the minimum `interval_ms` between iterations.
+
 **Built-in variables** are available everywhere without any environment — in the TUI, campaigns, and the builder:
 
 | Variable | Example | Notes |
@@ -614,8 +622,8 @@ timeout_secs = 60     # give up after 60 s (default: 60)
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `until` | — | Condition to stop polling: `{ var, eq?, ne?, exists? }` (same operators as `when`) |
-| `interval_ms` | `1000` | Delay between polls (min 100 ms) |
+| `until` | — | Condition to stop polling: `{ var, eq?, ne?, lt?, lte?, exists? }` — `lt`/`lte` accept numbers or strings (ISO dates) |
+| `interval_ms` | `1000` | Delay between polls (min 100 ms; floored by `rate_limit_rps` if set) |
 | `timeout_secs` | `60` | Maximum wait time before failing (max 500 iterations) |
 
 `extract` variables are re-evaluated after each poll and used to test the `until` condition. While polling, the TUI status bar shows `⟳ poll #N — step name — Ns`. The `POLL` badge (yellow) appears in the pipeline.
@@ -805,6 +813,7 @@ Ready-to-run examples in `examples/campaigns/` — no API key required:
 | `loop_pagination_demo.toml` | **`kind = "loop"`**: two patterns — next-URL cursor (Rick & Morty) and last-ID-as-offset (JSONPlaceholder); collects all 100 posts in 4 pages; `loop_increment = { var, by }` for fixed-delta offset pagination without a transform step |
 | `spacex_exploration.toml` | **GraphQL pipeline**: company → fleet → latest launch → all 109 past launches (wildcard `*.id`) → roadster position → booster stats → summary transform |
 | `horaires_sncf_par_gare.toml` | **SNCF API** (`-p GARE="Paris Montparnasse"`): resolve stop_area → fetch departures + arrivals → JQ timestamp formatting (`.[6:8]/.[4:6]/.[0:4]`) → JQ zip (train + time + direction) → Build JSON; requires `SNCF_TOKEN` in a terapi env named `sncf` |
+| `crates-io-updates-last-hour.toml` | **`rate_limit_rps` + `until.lt` date + `accumulate`**: paginate crates.io (1 req/s) until the last item on the page is older than 1 hour (`until.lt` on ISO timestamp); JQ UTC cutoff via `now - 3600 \| todate`; filters ~300 recent crates/hour |
 
 ```bash
 terapi run examples/campaigns/crud_demo.toml
@@ -813,6 +822,7 @@ terapi run examples/campaigns/eu_capitals.toml
 terapi run examples/campaigns/itineraire_demo.toml -p DEPART=Bordeaux -p ARRIVEE=Nantes
 terapi run examples/campaigns/loop_pagination_demo.toml
 terapi run examples/campaigns/spacex_exploration.toml
+terapi run examples/campaigns/crates-io-updates-last-hour.toml   # requires jq
 
 # Requires a terapi env named "sncf" with SNCF_TOKEN set
 # (Env tab → n → "sncf" → a → SNCF_TOKEN = <your-token>)

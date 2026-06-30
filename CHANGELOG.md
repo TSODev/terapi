@@ -8,6 +8,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **`rate_limit_rps`** — campaign root setting that enforces a minimum delay between sequential HTTP requests:
+  ```toml
+  rate_limit_rps = 1.0   # max 1 request per second across all HTTP steps
+  ```
+  - Applied as a floor on the inter-step delay before every HTTP/GraphQL/seed/loop/poll step
+  - For `kind = "loop"`: enforced as a minimum `interval_ms` between iterations (loop steps previously had no inter-iteration sleep — now fixed)
+  - For `kind = "poll"`: enforced as a floor on `interval_ms`
+  - Builder: new "Rate limit (req/s)" field in Campaign Settings (cursor 5); displayed as `N req/s (≥Nms)`; saved into the generated TOML
+
+- **String comparison in `until` / `when` conditions** — `lt` and `lte` operators now accept strings in addition to numbers:
+  ```toml
+  # numeric (unchanged behaviour)
+  until = { var = "PAGE_COUNT", lt = 50 }
+  # string — ISO date comparison, lexicographic fallback
+  until = { var = "LAST_UPDATED", lt = "{{DATETIME-1h}}" }
+  ```
+  Evaluation: numeric comparison when both sides parse as floats; lexicographic string comparison otherwise. Enables date-based loop termination with built-in `{{DATETIME±N}}` variables (e.g. stop paginating when the last record on the page is older than 1 hour).
+
 - **Built-in variables** — a set of predefined `{{VAR}}` placeholders resolved at send time in the TUI, campaigns, and the builder, with no environment required:
 
   | Variable | Example value | Notes |

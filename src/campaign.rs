@@ -642,8 +642,7 @@ pub async fn run(
     format: OutputFormat,
     retry: u32,
 ) -> Result<()> {
-    let text = format == OutputFormat::Text;
-    macro_rules! out { ($($arg:tt)*) => { if !silent && text { println!($($arg)*); } } }
+    macro_rules! out { ($($arg:tt)*) => { if !silent { eprintln!($($arg)*); } } }
 
     if !only.is_empty() {
         out!("Filter   : {}", only.join(", "));
@@ -695,20 +694,20 @@ pub async fn run(
             }
             CampaignEvent::StepStarted { .. } => {}
             CampaignEvent::StepRetry { name, attempt, max, delay_secs } => {
-                if !silent && text {
+                if !silent {
                     eprintln!("  ⟳ retry {}/{} — {} — waiting {}s...", attempt, max, name, delay_secs);
                 }
             }
             CampaignEvent::StepPoll { name, attempt, elapsed_secs } => {
-                if !silent && text {
+                if !silent {
                     eprintln!("  ⟳ poll #{} — {} — {}s elapsed", attempt, name, elapsed_secs);
                 }
             }
             CampaignEvent::Warning(msg) => {
-                if !silent && text { eprintln!("  Warning: {}", msg); }
+                if !silent { eprintln!("  Warning: {}", msg); }
             }
             CampaignEvent::StepDone(sr) => {
-                if !silent && text { print_step_result(&sr); }
+                if !silent { print_step_result(&sr); }
             }
             CampaignEvent::Finished(results) => {
                 let duration_ms = t0.elapsed().as_millis() as u64;
@@ -717,11 +716,12 @@ pub async fn run(
                         if !silent {
                             print_report(campaign, &results);
                             for o in &campaign.outputs {
-                                println!("  → output written: {}", o.path);
+                                eprintln!("  → output written: {}", o.path);
                             }
                         }
                     }
                     OutputFormat::Json => {
+                        if !silent { print_report(campaign, &results); }
                         let json = build_json_report(campaign, &results, duration_ms);
                         println!("{}", serde_json::to_string_pretty(&json).unwrap_or_default());
                     }
@@ -734,12 +734,7 @@ pub async fn run(
                 break;
             }
             CampaignEvent::Error(e) => {
-                if format == OutputFormat::Json {
-                    let err = serde_json::json!({"error": e});
-                    eprintln!("{}", serde_json::to_string_pretty(&err).unwrap_or_default());
-                } else if !silent {
-                    eprintln!("Campaign error: {}", e);
-                }
+                eprintln!("Campaign error: {}", e);
                 std::process::exit(1);
             }
         }
@@ -2334,7 +2329,7 @@ pub fn assertion_label(a: &Assertion) -> String {
 
 fn print_step_result(sr: &StepResult) {
     if sr.skipped {
-        println!("  ⊘ {:<22} (skipped)", sr.name);
+        eprintln!("  ⊘ {:<22} (skipped)", sr.name);
         return;
     }
     let status_str = sr.status
@@ -2342,15 +2337,15 @@ fn print_step_result(sr: &StepResult) {
         .unwrap_or_else(|| if sr.error.is_some() { "ERR".into() } else { "-".into() });
     let mark = if sr.success { "✓" } else { "✗" };
     let suffix = if !sr.success && sr.non_blocking { "  [continu]" } else { "" };
-    println!("  {} {:<22} {:<7} {}  {:>6} ms  {}{}",
+    eprintln!("  {} {:<22} {:<7} {}  {:>6} ms  {}{}",
         mark, sr.name, sr.method, status_str, sr.duration_ms,
         sr.error.as_deref().unwrap_or(""), suffix);
     for (var, val) in &sr.extracted {
-        println!("      ↳ {} = {}", var, truncate(val, 60));
+        eprintln!("      ↳ {} = {}", var, truncate(val, 60));
     }
     for (desc, ok) in &sr.assertion_results {
         if !ok {
-            println!("      ✗ assert: {}", desc);
+            eprintln!("      ✗ assert: {}", desc);
         }
     }
 }
@@ -2366,47 +2361,47 @@ fn print_report(campaign: &Campaign, results: &[IterationResult]) {
 
     let width = 64usize;
     let bar   = "═".repeat(width);
-    println!("\n╔{}╗", bar);
-    println!("║  Campaign Report — {:<width$}║", campaign.campaign.name, width = width - 19);
-    println!("╠{}╣", bar);
+    eprintln!("\n╔{}╗", bar);
+    eprintln!("║  Campaign Report — {:<width$}║", campaign.campaign.name, width = width - 19);
+    eprintln!("╠{}╣", bar);
     if multi {
-        println!("║  {:<width$}║",
+        eprintln!("║  {:<width$}║",
             format!("Iterations : {} ok  /  {} failed", iters_ok, iters_fail), width = width - 2);
     }
-    println!("║  {:<width$}║",
+    eprintln!("║  {:<width$}║",
         format!("Steps      : {} ok  /  {} failed  ({} total)", total_ok, total_fail, total_steps),
         width = width - 2);
-    println!("║  {:<width$}║", format!("Duration   : {} ms", total_ms), width = width - 2);
+    eprintln!("║  {:<width$}║", format!("Duration   : {} ms", total_ms), width = width - 2);
 
     if total_fail > 0 {
-        println!("╠{}╣", bar);
-        println!("║  Failures:{:<width$}║", "", width = width - 10);
+        eprintln!("╠{}╣", bar);
+        eprintln!("║  Failures:{:<width$}║", "", width = width - 10);
         for iter in results.iter().filter(|r| !r.success()) {
             if let Some(idx) = iter.row_index {
                 let row_label = iter.row_vars.iter()
                     .map(|(k, v)| format!("{}={}", k, truncate(v, 20)))
                     .collect::<Vec<_>>().join(" ");
-                println!("║  Row {} — {:<width$}║", idx + 1, row_label,
+                eprintln!("║  Row {} — {:<width$}║", idx + 1, row_label,
                     width = width - 10 - format!("Row {} — ", idx + 1).len());
             }
             for step in iter.steps.iter().filter(|s| !s.success) {
                 let msg = step.error.as_deref().unwrap_or("unknown error");
-                println!("║    ✗ {} {} — {:<width$}║",
+                eprintln!("║    ✗ {} {} — {:<width$}║",
                     step.method, truncate(&step.url, 30), msg,
                     width = width.saturating_sub(10 + step.method.len() + 30.min(step.url.len())));
                 for (desc, ok) in &step.assertion_results {
                     if !ok {
                         let line = format!("      · {}", desc);
-                        println!("║  {:<width$}║", truncate(&line, width - 2), width = width - 2);
+                        eprintln!("║  {:<width$}║", truncate(&line, width - 2), width = width - 2);
                     }
                 }
             }
         }
     }
-    println!("╠{}╣", bar);
+    eprintln!("╠{}╣", bar);
     let verdict = if total_fail == 0 { "✓  ALL PASSED" } else { "✗  SOME STEPS FAILED" };
-    println!("║  {:<width$}║", verdict, width = width - 2);
-    println!("╚{}╝", bar);
+    eprintln!("║  {:<width$}║", verdict, width = width - 2);
+    eprintln!("╚{}╝", bar);
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────

@@ -7,32 +7,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
----
-
-## [0.10.8] — 2026-06-30
-
-### Added
-- **GraphQL Schema — type filter** — press `/` on the Schema tab to open a search bar at the bottom of the type list. Typing filters types by name (case-insensitive substring match); the matching portion is underlined in yellow. A `(N matches)` counter updates in real time. `Backspace` removes the last character; `Esc` clears the filter and resets the cursor.
-- **GraphQL Schema — field detail scroll** — after pressing `Enter` to load a type's fields, focus switches automatically to the right panel (magenta border) and `↑`/`↓` scroll through the field list. `Tab` toggles focus between the type list (left) and the field detail (right). `Esc` returns to the type list.
-
----
-
-## [0.10.7] — 2026-06-30
-
-### Fixed
-- **Schema introspection ignoring auth config** — `fetch_schema()` (phase 1) and `fetch_type_detail()` (phase 2) were only sending manual request headers, silently ignoring the Auth tab config. APIs requiring authentication (e.g. GitHub GraphQL returning HTTP 403) now receive the correct credentials. A new `auth_headers()` helper on `App` builds the auth header(s) from `auth_config` with `{{VAR}}` resolution from the active environment; it covers Bearer, Basic, API Key (header location), and OAuth2 (cached token). Schema calls merge these headers with `request_headers` before the introspection POST.
-
----
-
-## [0.10.6] — 2026-06-30
-
 ### Added
 - **Auth tab in GraphQL mode** — a new `Auth` sub-tab is now available in GraphQL mode (between `Headers` and `Schema`), giving access to the same authentication panel as REST mode: No Auth, Bearer, Basic, API Key, OAuth2 Client Credentials, and OAuth2 Authorization Code. All keys work identically (`↑`/`↓` to navigate, `Space`/`Enter` to edit fields, `f` to fetch an OAuth2 token, `Esc` to cancel a pending OAuth2 flow). Auth config is saved and restored with GraphQL requests in collections.
+- **GraphQL Schema — type filter** — press `/` on the Schema tab to open a search bar at the bottom of the type list. Typing filters types by name (case-insensitive substring match); the matching portion is underlined in yellow. A `(N matches)` counter updates in real time. `Backspace` removes the last character; `Esc` clears the filter and resets the cursor.
+- **GraphQL Schema — field detail scroll** — after pressing `Enter` to load a type's fields, focus switches automatically to the right panel (magenta border) and `↑`/`↓` scroll through the field list. `Tab` toggles focus between the type list (left) and the field detail (right). `Esc` returns to the type list.
 
 ### Fixed
 - **GraphQL mode — Headers tab keys not working** — `a` (add header), `d` (delete), `↑`/`↓` (navigate) had no effect when on the `Headers` sub-tab in GraphQL mode. The key guards were checking `active_request_tab == RequestTab::Headers` (REST only) and never matched `active_graphql_tab == GraphqlTab::Headers`.
 - **GraphQL mode — Options tab keys not working** — same root cause: `↑`/`↓` and `Space`/`Enter` for the Options sub-tab (TLS, redirects, timeout, cookie jar) did not respond in GraphQL mode.
 - **Non-exhaustive match on `GraphqlTab` in status hint** — `update_graphql_status_hint()` was missing the `Auth` arm after the variant was added, causing a compile error.
+- **Schema introspection ignoring auth config** — `fetch_schema()` (phase 1) and `fetch_type_detail()` (phase 2) were only sending manual request headers, silently ignoring the Auth tab config. APIs requiring authentication (e.g. GitHub GraphQL returning HTTP 403) now receive the correct credentials. A new `auth_headers()` helper on `App` builds the auth header(s) from `auth_config` with `{{VAR}}` resolution from the active environment; it covers Bearer, Basic, API Key (header location), and OAuth2 (cached token). Schema calls merge these headers with `request_headers` before the introspection POST.
 
 ---
 

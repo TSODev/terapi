@@ -515,7 +515,7 @@ Press `g` on the Request tab to switch to **GraphQL mode**. The URL bar shows a 
 | Variables | Key/value pairs serialised as the `variables` JSON object |
 | Headers | Same header picker as REST mode (`a` add, `d` delete, `↑`/`↓` navigate) |
 | Auth | Same auth panel as REST mode — No Auth / Bearer / Basic / API Key / OAuth2 CC / OAuth2 AC |
-| Schema | Schema browser — `f` fetch types, `↑/↓` navigate, `Enter` load fields |
+| Schema | Schema browser — `f` fetch types, `/` filter, `↑/↓` navigate, `Enter` load fields, `Tab` scroll fields |
 | Options | Same options as REST mode (TLS, redirects, timeout, cookies) |
 
 **Writing a query** (Query tab):
@@ -554,8 +554,14 @@ Variables are serialised as a flat JSON object (`{"key": "value", …}`) and sen
    | `INT` (blue) | Interface |
    | `UNI` (magenta) | Union |
 
-2. Navigate with `↑`/`↓`
-3. Press `Enter` on a type — sends `{ __type(name: "X") { fields args enumValues } }` and displays fields, return types, and arg types in the right panel
+2. Navigate with `↑`/`↓` — or press `/` to **filter by name**:
+   - Type to narrow the list (case-insensitive, matching substring highlighted in yellow)
+   - `Backspace` removes the last character; `Esc` clears the filter
+   - A `(N matches)` counter is shown in the search bar at the bottom of the left panel
+
+3. Press `Enter` on a type — sends `{ __type(name: "X") { fields args enumValues } }` and displays fields, return types, and arg types in the right panel. Focus switches automatically to the right panel (magenta border).
+
+4. **Scrolling the field list** — once a type is loaded, `↑`/`↓` scroll the right panel. Press `Tab` to toggle focus between the type list (left) and the field detail (right). `Esc` returns to the type list and clears any active filter.
 
 Two-phase design (depth ≤ 3 per query) passes CDN depth limits enforced by proxies like Netlify GCDN.
 
@@ -1093,8 +1099,11 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `Enter` | GraphQL Variables tab | Edit selected variable |
 | `←` / `→` | GraphQL mode | Navigate GraphQL sub-tabs |
 | `f` | GraphQL Schema tab | Fetch type list via introspection |
-| `↑` / `↓` | GraphQL Schema tab | Navigate type list |
+| `/` | GraphQL Schema tab | Open type filter (search by name) |
+| `↑` / `↓` | GraphQL Schema tab | Navigate type list (left) or scroll fields (right) |
 | `Enter` | GraphQL Schema tab | Load fields for selected type |
+| `Tab` | GraphQL Schema tab | Toggle focus between type list and field detail |
+| `Esc` | GraphQL Schema tab | Clear filter / return to type list |
 | `Tab` | Modal | Cycle input fields (Name ↔ URL, Key ↔ Value) |
 | `←` / `→` | Modal (New Request) | Cycle HTTP method |
 | `Enter` | Modal | Confirm |

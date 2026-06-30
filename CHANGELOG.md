@@ -9,6 +9,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.10.8] — 2026-06-30
+
+### Added
+- **GraphQL Schema — type filter** — press `/` on the Schema tab to open a search bar at the bottom of the type list. Typing filters types by name (case-insensitive substring match); the matching portion is underlined in yellow. A `(N matches)` counter updates in real time. `Backspace` removes the last character; `Esc` clears the filter and resets the cursor.
+- **GraphQL Schema — field detail scroll** — after pressing `Enter` to load a type's fields, focus switches automatically to the right panel (magenta border) and `↑`/`↓` scroll through the field list. `Tab` toggles focus between the type list (left) and the field detail (right). `Esc` returns to the type list.
+
+---
+
 ## [0.10.7] — 2026-06-30
 
 ### Fixed

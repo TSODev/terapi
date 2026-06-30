@@ -381,19 +381,38 @@ fn render_graphql_schema(frame: &mut Frame, app: &App, area: Rect) {
         }
 
         SchemaState::Ready { types, detail } => {
+            let filter = app.schema_search.as_deref().unwrap_or("").to_lowercase();
+            let filtered_types: Vec<&crate::app::GqlTypeSummary> = types.iter()
+                .filter(|t| filter.is_empty() || t.name.to_lowercase().contains(&filter))
+                .collect();
+
+            let left_chunks = if app.schema_search.is_some() {
+                Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([Constraint::Min(1), Constraint::Length(1)])
+                    .split(inner)
+            } else {
+                Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([Constraint::Min(1), Constraint::Length(0)])
+                    .split(inner)
+            };
+
             let chunks = Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints([Constraint::Percentage(35), Constraint::Percentage(65)])
-                .split(inner);
+                .split(left_chunks[0]);
 
             // ── Left: type list ───────────────────────────────────────────
+            let left_focused = !app.schema_detail_focused;
+            let left_border_color = if left_focused { Color::Magenta } else { Color::Indexed(238) };
             let left_block = Block::default()
                 .borders(Borders::RIGHT)
-                .border_style(Style::default().fg(Color::Indexed(238)));
+                .border_style(Style::default().fg(left_border_color));
             let left_inner = left_block.inner(chunks[0]);
             frame.render_widget(left_block, chunks[0]);
 
-            let items: Vec<ListItem> = types.iter().enumerate().map(|(i, t)| {
+            let items: Vec<ListItem> = filtered_types.iter().enumerate().map(|(i, t)| {
                 let (kind_abbr, kind_color) = match t.kind.as_str() {
                     "OBJECT"       => ("OBJ", Color::Cyan),
                     "INTERFACE"    => ("INT", Color::Blue),
@@ -409,12 +428,45 @@ fn render_graphql_schema(frame: &mut Frame, app: &App, area: Rect) {
                 } else {
                     Style::default().fg(Color::White)
                 };
-                ListItem::new(Line::from(vec![
-                    Span::raw(if selected { "► " } else { "  " }),
-                    Span::styled(kind_abbr, Style::default().fg(kind_color)),
-                    Span::raw("  "),
-                    Span::styled(t.name.clone(), name_style),
-                ]))
+                // highlight matching substring in yellow when searching
+                let name_span = if !filter.is_empty() {
+                    let name = &t.name;
+                    let lower = name.to_lowercase();
+                    if let Some(pos) = lower.find(&filter) {
+                        let end = pos + filter.len();
+                        let pre  = &name[..pos];
+                        let mat  = &name[pos..end];
+                        let post = &name[end..];
+                        let hl_style = if selected {
+                            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD | Modifier::UNDERLINED)
+                        } else {
+                            Style::default().fg(Color::Yellow).add_modifier(Modifier::UNDERLINED)
+                        };
+                        Line::from(vec![
+                            Span::raw(if selected { "► " } else { "  " }),
+                            Span::styled(kind_abbr, Style::default().fg(kind_color)),
+                            Span::raw("  "),
+                            Span::styled(pre.to_string(), name_style),
+                            Span::styled(mat.to_string(), hl_style),
+                            Span::styled(post.to_string(), name_style),
+                        ])
+                    } else {
+                        Line::from(vec![
+                            Span::raw(if selected { "► " } else { "  " }),
+                            Span::styled(kind_abbr, Style::default().fg(kind_color)),
+                            Span::raw("  "),
+                            Span::styled(t.name.clone(), name_style),
+                        ])
+                    }
+                } else {
+                    Line::from(vec![
+                        Span::raw(if selected { "► " } else { "  " }),
+                        Span::styled(kind_abbr, Style::default().fg(kind_color)),
+                        Span::raw("  "),
+                        Span::styled(t.name.clone(), name_style),
+                    ])
+                };
+                ListItem::new(name_span)
             }).collect();
 
             let mut list_state = ratatui::widgets::ListState::default();
@@ -425,11 +477,27 @@ fn render_graphql_schema(frame: &mut Frame, app: &App, area: Rect) {
                 &mut list_state,
             );
 
+            // ── Search bar (bottom of left panel when active) ─────────────
+            if app.schema_search.is_some() {
+                let search_text = app.schema_search.as_deref().unwrap_or("");
+                let count = filtered_types.len();
+                let bar = Line::from(vec![
+                    Span::styled(" / ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                    Span::styled(search_text.to_string(), Style::default().fg(Color::White)),
+                    Span::styled(
+                        format!("  ({} match{})", count, if count == 1 { "" } else { "es" }),
+                        Style::default().fg(Color::Indexed(244)),
+                    ),
+                ]);
+                frame.render_widget(Paragraph::new(bar), left_chunks[1]);
+            }
+
             // ── Right: type detail ────────────────────────────────────────
             let right_area = chunks[1];
             match detail {
                 SchemaDetail::None => {
-                    let t = types.get(app.schema_type_cursor);
+                    let t = filtered_types.get(app.schema_type_cursor).copied()
+                        .or_else(|| types.get(app.schema_type_cursor));
                     let name = t.map(|t| t.name.as_str()).unwrap_or("");
                     let lines = vec![
                         Line::from(""),
@@ -471,6 +539,21 @@ fn render_graphql_schema(frame: &mut Frame, app: &App, area: Rect) {
                     frame.render_widget(Paragraph::new(lines), right_area);
                 }
                 SchemaDetail::Loaded(t) => {
+                    let detail_focused = app.schema_detail_focused;
+                    let detail_title = if detail_focused {
+                        format!(" {} ↑/↓: scroll  Tab: back ", t.name)
+                    } else {
+                        format!(" {} — Tab: scroll fields ", t.name)
+                    };
+                    let detail_block = Block::default()
+                        .borders(Borders::LEFT)
+                        .title(detail_title)
+                        .border_style(Style::default().fg(
+                            if detail_focused { Color::Magenta } else { Color::Indexed(238) }
+                        ));
+                    let detail_inner = detail_block.inner(right_area);
+                    frame.render_widget(detail_block, right_area);
+
                     let mut lines: Vec<Line> = Vec::new();
 
                     lines.push(Line::from(vec![
@@ -537,7 +620,7 @@ fn render_graphql_schema(frame: &mut Frame, app: &App, area: Rect) {
 
                     frame.render_widget(
                         Paragraph::new(lines).scroll((app.schema_field_scroll, 0)),
-                        right_area,
+                        detail_inner,
                     );
                 }
             }

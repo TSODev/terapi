@@ -103,6 +103,8 @@ pub struct App {
     pub schema_state: SchemaState,
     pub schema_type_cursor: usize,
     pub schema_field_scroll: u16,
+    pub schema_search: Option<String>,
+    pub schema_detail_focused: bool,
     // Campaigns tab
     pub campaigns: Vec<CampaignEntry>,
     pub campaign_cursor: usize,
@@ -221,6 +223,8 @@ impl App {
             schema_state: SchemaState::Idle,
             schema_type_cursor: 0,
             schema_field_scroll: 0,
+            schema_search: None,
+            schema_detail_focused: false,
             campaigns,
             campaign_cursor: 0,
             campaign_focus: CampaignFocus::List,
@@ -575,50 +579,138 @@ impl App {
             KeyCode::Char('f')
                 if self.active_tab == Tab::Request
                     && self.graphql_mode
-                    && self.active_graphql_tab == GraphqlTab::Schema =>
+                    && self.active_graphql_tab == GraphqlTab::Schema
+                    && self.schema_search.is_none() =>
             {
                 self.fetch_schema();
             }
+            // Search: '/' opens filter bar
+            KeyCode::Char('/')
+                if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Schema
+                    && matches!(self.schema_state, SchemaState::Ready { .. })
+                    && self.schema_search.is_none()
+                    && !self.schema_detail_focused =>
+            {
+                self.schema_search = Some(String::new());
+                self.schema_type_cursor = 0;
+                self.schema_detail_focused = false;
+            }
+            // Search: typing appends to filter
+            KeyCode::Char(c)
+                if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Schema
+                    && self.schema_search.is_some() =>
+            {
+                if let Some(ref mut s) = self.schema_search {
+                    s.push(c);
+                }
+                self.schema_type_cursor = 0;
+                if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {
+                    *detail = SchemaDetail::None;
+                }
+                self.schema_field_scroll = 0;
+            }
+            // Search: backspace pops char
+            KeyCode::Backspace
+                if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Schema
+                    && self.schema_search.is_some() =>
+            {
+                if let Some(ref mut s) = self.schema_search {
+                    s.pop();
+                }
+                self.schema_type_cursor = 0;
+                if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {
+                    *detail = SchemaDetail::None;
+                }
+                self.schema_field_scroll = 0;
+            }
+            // Esc: close search or unfocus detail
+            KeyCode::Esc
+                if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Schema
+                    && (self.schema_search.is_some() || self.schema_detail_focused) =>
+            {
+                self.schema_search = None;
+                self.schema_detail_focused = false;
+                self.schema_type_cursor = 0;
+                if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {
+                    *detail = SchemaDetail::None;
+                }
+                self.schema_field_scroll = 0;
+            }
+            // Tab: toggle focus to detail panel when detail is loaded
+            KeyCode::Tab
+                if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Schema
+                    && matches!(self.schema_state, SchemaState::Ready { detail: SchemaDetail::Loaded(_), .. }) =>
+            {
+                self.schema_detail_focused = !self.schema_detail_focused;
+            }
+            // Enter: load type detail (from type list side)
             KeyCode::Enter
                 if self.active_tab == Tab::Request
                     && self.graphql_mode
-                    && self.active_graphql_tab == GraphqlTab::Schema =>
+                    && self.active_graphql_tab == GraphqlTab::Schema
+                    && !self.schema_detail_focused =>
             {
                 if let SchemaState::Ready { ref types, .. } = self.schema_state {
-                    if let Some(t) = types.get(self.schema_type_cursor) {
+                    let filter = self.schema_search.as_deref().unwrap_or("").to_lowercase();
+                    let filtered: Vec<_> = types.iter()
+                        .filter(|t| filter.is_empty() || t.name.to_lowercase().contains(&filter))
+                        .collect();
+                    if let Some(t) = filtered.get(self.schema_type_cursor) {
                         let name = t.name.clone();
                         self.fetch_type_detail(name);
+                        self.schema_detail_focused = true;
                     }
                 }
             }
+            // Up: navigate type list (left) or scroll detail (right)
             KeyCode::Up
                 if self.active_tab == Tab::Request
                     && self.graphql_mode
                     && self.active_graphql_tab == GraphqlTab::Schema =>
             {
-                if self.schema_type_cursor > 0 {
-                    self.schema_type_cursor -= 1;
-                    self.schema_field_scroll = 0;
-                    if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {
-                        *detail = SchemaDetail::None;
+                if self.schema_detail_focused {
+                    self.schema_field_scroll = self.schema_field_scroll.saturating_sub(1);
+                } else {
+                    if self.schema_type_cursor > 0 {
+                        self.schema_type_cursor -= 1;
+                        self.schema_field_scroll = 0;
+                        if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {
+                            *detail = SchemaDetail::None;
+                        }
                     }
                 }
             }
+            // Down: navigate type list (left) or scroll detail (right)
             KeyCode::Down
                 if self.active_tab == Tab::Request
                     && self.graphql_mode
                     && self.active_graphql_tab == GraphqlTab::Schema =>
             {
-                let len = if let SchemaState::Ready { ref types, .. } = self.schema_state {
-                    types.len()
+                if self.schema_detail_focused {
+                    self.schema_field_scroll = self.schema_field_scroll.saturating_add(1);
                 } else {
-                    0
-                };
-                if self.schema_type_cursor + 1 < len {
-                    self.schema_type_cursor += 1;
-                    self.schema_field_scroll = 0;
-                    if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {
-                        *detail = SchemaDetail::None;
+                    let len = if let SchemaState::Ready { ref types, .. } = self.schema_state {
+                        let filter = self.schema_search.as_deref().unwrap_or("").to_lowercase();
+                        types.iter().filter(|t| filter.is_empty() || t.name.to_lowercase().contains(&filter)).count()
+                    } else {
+                        0
+                    };
+                    if self.schema_type_cursor + 1 < len {
+                        self.schema_type_cursor += 1;
+                        self.schema_field_scroll = 0;
+                        if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {
+                            *detail = SchemaDetail::None;
+                        }
                     }
                 }
             }

@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.10.4] — 2026-06-30
+
+### Fixed
+- **`cargo install` broken** — `time 0.3.52` changed the `Parsable::parse()` signature in a semver-compatible patch, breaking `cookie 0.18.1` (transitive dependency via `reqwest`). Pinned `time = ">=0.3, <0.3.52"` until `reqwest`/`cookie` upstream fixes propagate.
+
+---
+
 ## [0.10.3] — 2026-06-30
 
 ### Added

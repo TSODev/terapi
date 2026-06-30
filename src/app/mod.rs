@@ -76,6 +76,7 @@ pub struct App {
     pub previous_response_body: Option<String>,
     pub pending_diff_open: bool,
     pub pending_json_editor_open: bool,
+    pub pending_response_viewer_open: bool,
     pub response_status: Option<u16>,
     pub response_elapsed_ms: Option<u64>,
     pub response_headers: Vec<(String, String)>,
@@ -196,6 +197,7 @@ impl App {
             previous_response_body: None,
             pending_diff_open: false,
             pending_json_editor_open: false,
+            pending_response_viewer_open: false,
             response_status: None,
             response_elapsed_ms: None,
             response_headers: Vec::new(),
@@ -893,6 +895,12 @@ impl App {
                 && self.previous_response_body.is_some()
                 && self.response_body.is_some() => {
                 self.pending_diff_open = true;
+            }
+            KeyCode::Char('E')
+                if self.active_tab == Tab::Request
+                && self.response_body.is_some()
+                && self.request_focus == RequestFocus::Response => {
+                self.pending_response_viewer_open = true;
             }
             KeyCode::Up if self.active_tab == Tab::Request => {
                 match self.response_view {

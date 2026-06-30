@@ -116,7 +116,7 @@ impl App {
                     self.response_folds = HashSet::new();
                     let diff_hint = if self.previous_response_body.is_some() { "  d: diff" } else { "" };
                     self.status_message = format!(
-                        "{}  {}ms  —  Tab: panels  e: edit URL  s: send  m: method  ←/→: section  r: raw{}  q: quit",
+                        "{}  {}ms  —  Tab: panels  e: edit URL  s: send  m: method  ←/→: section  r: raw  E: open (read-only){}  q: quit",
                         http_status_label(self.response_status.unwrap_or(0)),
                         self.response_elapsed_ms.unwrap_or(0),
                         diff_hint,

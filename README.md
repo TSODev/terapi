@@ -47,6 +47,14 @@ cargo build --release
 
 **Requirements:** Rust 1.75+ (edition 2021), any modern terminal with 256-color support.
 
+**Environment setup** — `terapi-env.sh` (included in the repo) configures all environment variables with sensible defaults and launches terapi:
+
+```bash
+./terapi-env.sh                        # TUI
+./terapi-env.sh run campaign.toml      # headless runner
+source ./terapi-env.sh                 # export vars only, no launch
+```
+
 ---
 
 ## Usage
@@ -119,6 +127,7 @@ After import, a report is printed:
 | `i` | Edit description (Description sub-tab — enter editor) / Edit body (Body sub-tab — enter editor) |
 | `a` / `d` | URL Params sub-tab — add / delete param |
 | `t` | Toggle body mode: Text ↔ JSON (Body sub-tab, outside editor) |
+| `E` | Open body in external JSON editor (`$TERAPI_JSON_EDITOR`, defaults to `jsoned`) |
 | `←` / `→` | Navigate sub-tabs (also exits URL mode) |
 | `Enter` | Send request (URL mode) / fold-unfold JSON node / edit body field (JSON mode) |
 | `Esc` | Finish URL edit / exit body editor |

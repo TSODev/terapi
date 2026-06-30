@@ -9,6 +9,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - **`graphql_query` in `--format json` output** — when running `terapi run --format json`, steps with `kind = "graphql"` now include a `graphql_query` field containing the resolved query string (after `{{VAR}}` substitution). REST and other step kinds are unaffected (no field added). `StepResult` gains `graphql_query: Option<String>` used by both the CLI JSON reporter and the campaign streaming infrastructure.
+- **External JSON editor (`E` key)** — press `E` on the Body tab (Request panel, Text mode, outside edit mode) or on the Body section of a campaign builder step to open the body in an external JSON editor. Terapi suspends the TUI, writes the body to `/tmp/terapi_body.json`, runs `$TERAPI_JSON_EDITOR` (defaults to `jsoned`), then reads the file back and updates the body on exit. Works in both the main TUI and `terapi build`.
+- **`terapi-env.sh`** — shell script that sets terapi environment variables with sensible defaults (`TERAPI_JSON_EDITOR` auto-detects `jsoned`, `TERAPI_DIFF` auto-detects `difft`/`delta`, `EDITOR`/`VISUAL` fall back to `vi`) then execs `terapi "$@"`. Can also be sourced (`source terapi-env.sh`) to export variables into the current shell without launching terapi.
 
 ---
 

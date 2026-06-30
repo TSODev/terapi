@@ -86,6 +86,34 @@ cargo build --release
 
 **Requirements:** Rust 1.75+, any modern terminal with 256-color support.
 
+### Environment setup
+
+`terapi-env.sh` (included in the repository) configures all terapi environment variables with sensible defaults and launches terapi:
+
+```bash
+./terapi-env.sh                        # TUI
+./terapi-env.sh run campaign.toml      # headless runner
+./terapi-env.sh build                  # campaign builder
+
+# Or source it to export vars into the current shell without launching:
+source ./terapi-env.sh
+terapi run campaign.toml --format json
+```
+
+| Variable | Default (auto-detected) | Purpose |
+|----------|------------------------|---------|
+| `TERAPI_DIR` | `~/.config/terapi/` | Data directory (collections, envs, campaigns) |
+| `TERAPI_JSON_EDITOR` | `jsoned` (if in PATH) | External editor for body JSON (`E` key) |
+| `TERAPI_DIFF` | `difft` or `delta` (if in PATH) | External diff tool for response comparison (`d` key) |
+| `EDITOR` / `VISUAL` | `vi` | Fallback text editor for TOML files (`E` key in Collections/Campaigns) |
+
+Override any variable before calling the script:
+
+```bash
+TERAPI_DIR=~/myproject/.terapi ./terapi-env.sh
+TERAPI_JSON_EDITOR=nvim ./terapi-env.sh
+```
+
 ---
 
 ## TUI mode
@@ -414,6 +442,8 @@ The body editor has two modes, toggled with `t` (when the Body sub-tab is active
 
 Press `i` to enter edit mode (border turns green). Full multi-line editing: arrows, Home/End, Backspace/Delete. Press `Esc` to exit.
 
+Press `E` (outside edit mode) to open the body in the external JSON editor configured via `$TERAPI_JSON_EDITOR` (defaults to `jsoned`). The TUI suspends, the editor opens `/tmp/terapi_body.json`, and the content is reloaded when the editor exits. See [External JSON editor](#external-json-editor).
+
 **JSON mode** (structured key/value)
 
 ```
@@ -684,6 +714,29 @@ export TERAPI_DIFF=difft
 export TERAPI_DIFF="nvim -d"
 ```
 
+#### External JSON editor
+
+Press `E` on the **Body sub-tab** (Text mode, outside edit mode) to open the request body in an external JSON editor. Terapi suspends the TUI, writes the body to `/tmp/terapi_body.json`, launches the editor, and reloads the file on exit.
+
+The same shortcut works in **`terapi build`**: press `E` while the cursor is on the Body section of a step in Browse mode.
+
+**Tool selection** — set `TERAPI_JSON_EDITOR` in your environment:
+
+| `TERAPI_JSON_EDITOR` value | Effect |
+|----------------------------|--------|
+| *(not set)* | `jsoned` — interactive TUI JSON editor |
+| any editor command | launched with the temp file path as argument |
+
+```bash
+export TERAPI_JSON_EDITOR=jsoned
+
+# Or use any editor:
+export TERAPI_JSON_EDITOR="nvim"
+export TERAPI_JSON_EDITOR="hx"
+```
+
+> `terapi-env.sh` (included in the repo) auto-detects `jsoned` and sets the variable automatically. See [Environment setup](#environment-setup).
+
 ### Collections panel
 
 Displays the full collection tree loaded from disk. Collections can contain folders (one level deep) and root-level requests.
@@ -947,6 +1000,7 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `Esc` | Request panel (Auth sub-tab, OAuth2 waiting) | Cancel browser wait or clear OAuth2 error |
 | `i` | Request panel (Body sub-tab) | Enter body editor mode |
 | `t` | Request panel (Body sub-tab, outside editor) | Toggle body mode: Text ↔ JSON |
+| `E` | Request panel (Body sub-tab, Text mode, outside editor) | Open body in external JSON editor (`$TERAPI_JSON_EDITOR`) |
 | `a` | Body editor (JSON mode) | Add field |
 | `d` | Body editor (JSON mode) | Delete selected field |
 | `Enter` / `e` | Body editor (JSON mode) | Edit selected field |

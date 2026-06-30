@@ -36,8 +36,9 @@ default     = "DEMO_KEY"
 kind = "set"
 name = "Init"
 [steps.vars]
-PAGE     = "0"
-START_MS = "{{TIMESTAMP_MS}}"
+PAGE           = "0"
+START_MS       = "{{TIMESTAMP_MS}}"
+RATE_LIMIT_RPS = "0.5"
 
 # ── 2. Loop — paginate the browse endpoint ────────────────────────────────────
 # Stops when PAGE reaches MAX_PAGES (string equality after numeric increment).
@@ -127,6 +128,7 @@ build_output = "REPORT"
 [steps.fields]
 generated_at       = "{{DATETIME}}"
 api_key_used       = "{{API_KEY}}"
+rate_limit_rps     = "{{RATE_LIMIT_RPS}}"
 pages_fetched      = "{{MAX_PAGES}}"
 total_pages        = "{{TOTAL_PAGES}}"
 total_neos_in_api  = "{{TOTAL_ELEMENTS}}"

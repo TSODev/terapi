@@ -87,3 +87,24 @@ name          = "Summary list"
 jq_input      = "{{RECENT_CRATES}}"
 jq_expression = '[.[] | {name, version: .max_version, updated_at}] | sort_by(.updated_at) | reverse'
 jq_output     = "SUMMARY"
+
+# ── Étape 7 : enveloppe finale avec métadonnées ───────────────────────────────
+# build construit un objet JSON ; les valeurs JSON valides sont parsées et
+# embarquées telles quelles (COUNT → number, SUMMARY → array).
+
+[[steps]]
+kind         = "build"
+name         = "Report"
+build_output = "REPORT"
+[steps.fields]
+generated_at = "{{DATETIME}}"
+count        = "{{COUNT}}"
+crates       = "{{SUMMARY}}"
+
+# ── Output JSON ───────────────────────────────────────────────────────────────
+# Écrit le rapport dans /tmp/crates-updates-last-hour.json
+# Adapter `path` selon l'environnement souhaité.
+
+[[outputs]]
+from_step = "Report"
+path      = "/tmp/crates-updates-last-hour.json"

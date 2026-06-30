@@ -909,9 +909,7 @@ impl App {
                 if let Some(url) = self.current_response_url() {
                     self.set_url(&url.clone());
                     self.request_method_idx = 0; // GET
-                    self.active_tab = Tab::Request;
-                    self.request_focus = RequestFocus::Url;
-                    self.update_request_status_hint();
+                    self.update_response_status_hint();
                 }
             }
             KeyCode::Up if self.active_tab == Tab::Request => {

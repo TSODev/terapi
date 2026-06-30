@@ -762,7 +762,7 @@ The same body shortcut works in **`terapi build`**: press `E` while the cursor i
 export TERAPI_JSON_EDITOR=jsoned   # default
 export TERAPI_JSON_EDITOR="nvim"
 export TERAPI_JSON_EDITOR="hx"
-export TERAPI_JSON_EDITOR="fx"     # read-only viewer — great for response browsing
+export TERAPI_JSON_EDITOR="jsoned"  # read-only viewer — great for response browsing
 ```
 
 > `terapi-env.sh` (included in the repo) auto-detects `jsoned` and sets the variable automatically. See [Environment setup](#environment-setup).
@@ -2986,8 +2986,8 @@ terapi run examples/campaigns/crates-io-updates-last-hour.toml
 terapi run examples/campaigns/nasa-neo-perf.toml --param MAX_PAGES=10 --param API_KEY=DEMO_KEY
 # With a registered key (1 000 req/hour, 0.5 req/s):
 terapi run examples/campaigns/nasa-neo-perf.toml --param MAX_PAGES=100 --param API_KEY=your_key
-# Pipe the JSON report directly to fx:
-terapi run examples/campaigns/nasa-neo-perf.toml --format json | fx
+# Pipe the JSON report directly to jsoned:
+terapi run examples/campaigns/nasa-neo-perf.toml --format json | jsoned
 
 # itineraire_demo uses [[params]] — run with defaults or override:
 terapi run examples/campaigns/itineraire_demo.toml
@@ -3069,7 +3069,7 @@ Control how the campaign result is presented. Default is `text` (existing behavi
 Emits a single JSON object to stdout when the campaign finishes. Progress (step results, report) goes to **stderr** — stdout stays clean for piping or redirection. This means progress is visible in the terminal even when piping:
 
 ```bash
-terapi run campaign.toml --format json | fx   # progress on screen, JSON into fx
+terapi run campaign.toml --format json | jsoned   # progress on screen, JSON into jsoned
 terapi run campaign.toml --format json > results.json  # progress on screen, data saved
 ```
 

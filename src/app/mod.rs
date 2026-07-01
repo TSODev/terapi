@@ -405,6 +405,15 @@ impl App {
                     self.status_message = "Press q again to quit".into();
                 }
             }
+            // Schema detail focus toggle must come before the general Tab handler
+            KeyCode::Tab
+                if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Schema
+                    && matches!(self.schema_state, SchemaState::Ready { detail: SchemaDetail::Loaded(_), .. }) =>
+            {
+                self.schema_detail_focused = !self.schema_detail_focused;
+            }
             KeyCode::Tab | KeyCode::BackTab => {
                 self.active_tab = if key.code == KeyCode::Tab {
                     match self.active_tab {
@@ -643,15 +652,6 @@ impl App {
                     *detail = SchemaDetail::None;
                 }
                 self.schema_field_scroll = 0;
-            }
-            // Tab: toggle focus to detail panel when detail is loaded
-            KeyCode::Tab
-                if self.active_tab == Tab::Request
-                    && self.graphql_mode
-                    && self.active_graphql_tab == GraphqlTab::Schema
-                    && matches!(self.schema_state, SchemaState::Ready { detail: SchemaDetail::Loaded(_), .. }) =>
-            {
-                self.schema_detail_focused = !self.schema_detail_focused;
             }
             // Enter: load type detail (from type list side)
             KeyCode::Enter

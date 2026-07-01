@@ -405,6 +405,51 @@ impl App {
                     self.status_message = "Press q again to quit".into();
                 }
             }
+            // Schema search: intercept ALL chars/Backspace/Esc before any other handler
+            KeyCode::Char(c)
+                if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Schema
+                    && self.schema_search.is_some() =>
+            {
+                if let Some(ref mut s) = self.schema_search {
+                    s.push(c);
+                }
+                self.schema_type_cursor = 0;
+                if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {
+                    *detail = SchemaDetail::None;
+                }
+                self.schema_field_scroll = 0;
+            }
+            KeyCode::Backspace
+                if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Schema
+                    && self.schema_search.is_some() =>
+            {
+                if let Some(ref mut s) = self.schema_search {
+                    s.pop();
+                }
+                self.schema_type_cursor = 0;
+                if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {
+                    *detail = SchemaDetail::None;
+                }
+                self.schema_field_scroll = 0;
+            }
+            KeyCode::Esc
+                if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Schema
+                    && (self.schema_search.is_some() || self.schema_detail_focused) =>
+            {
+                self.schema_search = None;
+                self.schema_detail_focused = false;
+                self.schema_type_cursor = 0;
+                if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {
+                    *detail = SchemaDetail::None;
+                }
+                self.schema_field_scroll = 0;
+            }
             // Schema detail focus toggle must come before the general Tab handler
             KeyCode::Tab
                 if self.active_tab == Tab::Request
@@ -605,53 +650,6 @@ impl App {
                 self.schema_search = Some(String::new());
                 self.schema_type_cursor = 0;
                 self.schema_detail_focused = false;
-            }
-            // Search: typing appends to filter
-            KeyCode::Char(c)
-                if self.active_tab == Tab::Request
-                    && self.graphql_mode
-                    && self.active_graphql_tab == GraphqlTab::Schema
-                    && self.schema_search.is_some() =>
-            {
-                if let Some(ref mut s) = self.schema_search {
-                    s.push(c);
-                }
-                self.schema_type_cursor = 0;
-                if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {
-                    *detail = SchemaDetail::None;
-                }
-                self.schema_field_scroll = 0;
-            }
-            // Search: backspace pops char
-            KeyCode::Backspace
-                if self.active_tab == Tab::Request
-                    && self.graphql_mode
-                    && self.active_graphql_tab == GraphqlTab::Schema
-                    && self.schema_search.is_some() =>
-            {
-                if let Some(ref mut s) = self.schema_search {
-                    s.pop();
-                }
-                self.schema_type_cursor = 0;
-                if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {
-                    *detail = SchemaDetail::None;
-                }
-                self.schema_field_scroll = 0;
-            }
-            // Esc: close search or unfocus detail
-            KeyCode::Esc
-                if self.active_tab == Tab::Request
-                    && self.graphql_mode
-                    && self.active_graphql_tab == GraphqlTab::Schema
-                    && (self.schema_search.is_some() || self.schema_detail_focused) =>
-            {
-                self.schema_search = None;
-                self.schema_detail_focused = false;
-                self.schema_type_cursor = 0;
-                if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {
-                    *detail = SchemaDetail::None;
-                }
-                self.schema_field_scroll = 0;
             }
             // Enter: load type detail (from type list side)
             KeyCode::Enter

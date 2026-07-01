@@ -542,6 +542,8 @@ Variables are serialised as a flat JSON object (`{"key": "value", …}`) and sen
 
 **Sending** — press `s` (or `Enter` in URL mode). Terapi builds `{"query": "...", "variables": {...}}` and posts it as JSON. `Content-Type: application/json` is added automatically if absent.
 
+> **`{{VAR}}` in the query body** — environment variables used directly inside the query string are substituted as raw strings (no JSON quoting or escaping). This is safe for numeric values (`$limit: Int!`, `$offset: Int!`) where the substituted value is a bare number. For string values, always use the **Variables tab** instead: define the variable there and reference it as a typed GraphQL argument (`$name: String!`). Mixing `{{VAR}}` with string arguments risks producing invalid JSON if the value contains quotes or special characters.
+
 **Browsing the schema** (Schema tab):
 
 1. Press `f` — sends `{ __schema { types { name kind } } }` and displays all user-defined types in the left panel with colour-coded kind badges:

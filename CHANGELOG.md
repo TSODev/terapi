@@ -17,6 +17,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **GraphQL Schema — field detail scroll** — after pressing `Enter` to load a type's fields, focus switches automatically to the right panel (magenta border) and `↑`/`↓` scroll through the field list. `Tab` toggles focus between the type list (left) and the field detail (right). `Esc` returns to the type list.
 
 ### Fixed
+- **GraphQL Schema — search filter intercepts all characters** — characters like `e`, `s`, `g`, `n` were caught by their own key handlers (URL edit, send, GQL toggle…) before reaching the filter, making it impossible to type words containing those letters. The `Char(c)` / `Backspace` / `Esc` search handlers are now placed at the top of the match, before all other handlers, so the filter captures every keystroke when active.
+- **GraphQL Schema — `unreachable_patterns` compiler warning** — the guarded `KeyCode::Tab` arm for schema detail focus toggle was placed after the unguarded `KeyCode::Tab | KeyCode::BackTab` arm, making it dead code. Moved before the general Tab handler.
 - **GraphQL mode — Headers tab keys not working** — `a` (add header), `d` (delete), `↑`/`↓` (navigate) had no effect when on the `Headers` sub-tab in GraphQL mode. The key guards were checking `active_request_tab == RequestTab::Headers` (REST only) and never matched `active_graphql_tab == GraphqlTab::Headers`.
 - **GraphQL mode — Options tab keys not working** — same root cause: `↑`/`↓` and `Space`/`Enter` for the Options sub-tab (TLS, redirects, timeout, cookie jar) did not respond in GraphQL mode.
 - **Non-exhaustive match on `GraphqlTab` in status hint** — `update_graphql_status_hint()` was missing the `Auth` arm after the variant was added, causing a compile error.

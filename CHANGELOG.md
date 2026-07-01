@@ -7,6 +7,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [0.10.6] — 2026-07-01
+
 ### Added
 - **Auth tab in GraphQL mode** — a new `Auth` sub-tab is now available in GraphQL mode (between `Headers` and `Schema`), giving access to the same authentication panel as REST mode: No Auth, Bearer, Basic, API Key, OAuth2 Client Credentials, and OAuth2 Authorization Code. All keys work identically (`↑`/`↓` to navigate, `Space`/`Enter` to edit fields, `f` to fetch an OAuth2 token, `Esc` to cancel a pending OAuth2 flow). Auth config is saved and restored with GraphQL requests in collections.
 - **GraphQL Schema — type filter** — press `/` on the Schema tab to open a search bar at the bottom of the type list. Typing filters types by name (case-insensitive substring match); the matching portion is underlined in yellow. A `(N matches)` counter updates in real time. `Backspace` removes the last character; `Esc` clears the filter and resets the cursor.

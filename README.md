@@ -1006,6 +1006,17 @@ terapi build my_campaign.toml       # edit an existing file
 
 ---
 
+## Related projects
+
+Other keyboard-driven TUI tools from the same author:
+
+| Project | Description |
+|---------|-------------|
+| [**jsoned**](https://github.com/TSODev/jsoned) | Keyboard-driven TUI for viewing and editing JSON, with format conversion (YAML, TOML, CSV). Works great as `$TERAPI_JSON_EDITOR`. |
+| [**rowdy**](https://github.com/TSODev/rowdy) | Fast, modern TUI database management tool written in Rust. |
+
+---
+
 ## Feedback & contributions
 
 Bug reports, feature requests, and questions are welcome:

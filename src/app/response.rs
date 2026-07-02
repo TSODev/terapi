@@ -116,7 +116,7 @@ impl App {
                     self.response_folds = HashSet::new();
                     self.rebuild_response_rows();
                     self.update_response_status_hint();
-                    self.record_history(Some(http.status), Some(http.elapsed_ms), Some(http.body));
+                    self.record_history(Some(http.status), Some(http.elapsed_ms));
                 }
                 Err(msg) => {
                     self.response_status = None;
@@ -128,7 +128,7 @@ impl App {
                     self.rebuild_response_rows();
                     let short = msg.lines().next().unwrap_or(&msg).chars().take(80).collect::<String>();
                     self.status_message = format!("Error: {}  —  r: JSON view  e: edit URL  s: retry  q: quit", short);
-                    self.record_history(None, None, Some(format!("Error: {}", msg)));
+                    self.record_history(None, None);
                 }
             }
         }
@@ -189,7 +189,7 @@ impl App {
         self.response_scroll = (self.response_cursor as u16).saturating_sub(3);
     }
 
-    fn record_history(&mut self, status: Option<u16>, elapsed_ms: Option<u64>, response_body: Option<String>) {
+    fn record_history(&mut self, status: Option<u16>, elapsed_ms: Option<u64>) {
         if let Some(raw) = &self.last_request_raw {
             let gql_query = if self.graphql_mode {
                 let q = self.graphql_query_textarea.lines().join("\n");
@@ -206,7 +206,6 @@ impl App {
                 body: raw.body.clone(),
                 status,
                 elapsed_ms,
-                response_body,
                 graphql: self.graphql_mode,
                 graphql_query: gql_query,
                 graphql_variables: if self.graphql_mode {

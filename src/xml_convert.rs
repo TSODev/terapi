@@ -91,13 +91,17 @@ fn node_to_value(node: roxmltree::Node) -> Value {
         grouped.entry(tag).or_default().push(node_to_value(child));
     }
 
+    // Collapse whitespace (including embedded newlines/tabs from a pretty-printed
+    // source document) to single spaces — a raw '\n' in a JSON string value
+    // corrupts the response viewer's table rendering (row overlaps its neighbours).
     let text: String = node.children()
         .filter(|c| c.is_text())
         .filter_map(|c| c.text())
         .collect::<Vec<_>>()
-        .join("")
-        .trim()
-        .to_string();
+        .join(" ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
 
     if order.is_empty() {
         // Leaf element: plain string value, unless it also carries attributes.

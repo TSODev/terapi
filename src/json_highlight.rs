@@ -97,7 +97,7 @@ fn collect(
             depth,
             key,
             value_type: ValueType::Str,
-            value_preview: format!("\"{}\"", s),
+            value_preview: format!("\"{}\"", single_line(s)),
             fold_path: None,
             is_folded: false,
             dot_path: to_dot_path(path),
@@ -187,9 +187,21 @@ fn preview_atom(v: &Value) -> String {
         Value::Null => "null".into(),
         Value::Bool(b) => b.to_string(),
         Value::Number(n) => n.to_string(),
-        Value::String(s) => format!("\"{}\"", s),
+        Value::String(s) => format!("\"{}\"", single_line(s)),
         Value::Array(a) => format!("[{}]", a.len()),
         Value::Object(m) => format!("{{{}}}", m.len()),
+    }
+}
+
+/// Collapses embedded newlines/tabs/runs of whitespace to single spaces — a
+/// raw '\n' in a table cell's text corrupts the response viewer's row
+/// layout (the row overlaps its neighbours), regardless of whether the
+/// string came from a real JSON API or an XML→JSON conversion.
+fn single_line(s: &str) -> String {
+    if s.contains(['\n', '\r', '\t']) {
+        s.split_whitespace().collect::<Vec<_>>().join(" ")
+    } else {
+        s.to_string()
     }
 }
 

@@ -24,13 +24,24 @@ fi
 
 # ── Response diff tool ─────────────────────────────────────────────────────────
 # Used when pressing d in JSON or Raw view to compare two responses.
-# The tool receives two file paths as arguments: $TERAPI_DIFF file1 file2
+#
+# TERAPI_JSON_DIFFER takes priority when set: invoked as
+#   $TERAPI_JSON_DIFFER prev --diff curr
+# (structural, jsoned-style differs — one positional file + a --diff flag).
+if command -v jsoned &>/dev/null; then
+    export TERAPI_JSON_DIFFER="${TERAPI_JSON_DIFFER:-jsoned}"
+fi
+#
+# TERAPI_DIFF is the fallback (or used directly if TERAPI_JSON_DIFFER is unset):
+# the tool receives two file paths as arguments: $TERAPI_DIFF file1 file2
 # Examples: difft, delta, colordiff -u, nvim -d
-# Default (when unset): diff -u file1 file2 | less -R
-if command -v difft &>/dev/null; then
-    export TERAPI_DIFF="${TERAPI_DIFF:-difft}"
-elif command -v delta &>/dev/null; then
-    export TERAPI_DIFF="${TERAPI_DIFF:-delta}"
+# Default (when both unset): diff -u file1 file2 | less -R
+if [ -z "$TERAPI_JSON_DIFFER" ]; then
+    if command -v difft &>/dev/null; then
+        export TERAPI_DIFF="${TERAPI_DIFF:-difft}"
+    elif command -v delta &>/dev/null; then
+        export TERAPI_DIFF="${TERAPI_DIFF:-delta}"
+    fi
 fi
 
 # ── Fallback text editor ───────────────────────────────────────────────────────

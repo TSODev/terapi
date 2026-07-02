@@ -238,15 +238,24 @@ async fn run_tui(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, json: Op
                 let curr_path = "/tmp/terapi_curr.json";
                 let _ = std::fs::write(prev_path, prev);
                 let _ = std::fs::write(curr_path, curr);
-                let cmd = std::env::var("TERAPI_DIFF")
-                    .map(|d| format!("{} \"{}\" \"{}\"", d, prev_path, curr_path))
-                    .unwrap_or_else(|_| format!(
-                        "diff -u \"{}\" \"{}\" | ${{PAGER:-less -R}}",
-                        prev_path, curr_path
-                    ));
                 disable_raw_mode()?;
                 execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-                let _ = std::process::Command::new("sh").arg("-c").arg(&cmd).status();
+                if let Ok(differ) = std::env::var("TERAPI_JSON_DIFFER") {
+                    // Launch directly (not via sh -c) to preserve TTY inheritance for TUI diff viewers.
+                    let _ = std::process::Command::new(&differ)
+                        .arg(prev_path)
+                        .arg("--diff")
+                        .arg(curr_path)
+                        .status();
+                } else {
+                    let cmd = std::env::var("TERAPI_DIFF")
+                        .map(|d| format!("{} \"{}\" \"{}\"", d, prev_path, curr_path))
+                        .unwrap_or_else(|_| format!(
+                            "diff -u \"{}\" \"{}\" | ${{PAGER:-less -R}}",
+                            prev_path, curr_path
+                        ));
+                    let _ = std::process::Command::new("sh").arg("-c").arg(&cmd).status();
+                }
                 enable_raw_mode()?;
                 execute!(terminal.backend_mut(), EnterAlternateScreen)?;
                 terminal.clear()?;

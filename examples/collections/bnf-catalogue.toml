@@ -1,0 +1,63 @@
+[collection]
+name        = "BnF — Catalogue général (SRU)"
+description = "Notices bibliographiques et d'autorité du catalogue général de la BnF, via SRU. Contrairement à l'API SRU de Gallica (bloquée par un WAF Cloudflare), ce endpoint répond normalement. Sans authentification."
+
+# ── Explain ──────────────────────────────────────────────────────────────────
+# Base URL : https://catalogue.bnf.fr/api/SRU — protocole SRU 1.2 standard.
+# Notices en UNIMARC (marcxchange) — riche mais verbeux (champs/sous-champs codés).
+
+[[folders]]
+name = "Explain"
+
+[[folders.requests]]
+name        = "Explain (capacités du service)"
+method      = "GET"
+url         = "https://catalogue.bnf.fr/api/SRU?version=1.2&operation=explain"
+description = "Liste tous les index disponibles : bib.* (notices bibliographiques), aut.* (notices d'autorité) — bib.title, bib.author, bib.isbn, bib.subject, bib.date, bib.digitized, aut.anywhere, aut.isni…"
+
+# ── Recherche bibliographique (bib.*) ─────────────────────────────────────────
+
+[[folders]]
+name = "Recherche bibliographique (bib.*)"
+
+[[folders.requests]]
+name        = "Recherche par auteur — Victor Hugo"
+method      = "GET"
+url         = "https://catalogue.bnf.fr/api/SRU?version=1.2&operation=searchRetrieve&query=bib.author%20all%20%22victor%20hugo%22&maximumRecords=10"
+description = "Opérateur CQL 'all' (tous les mots doivent matcher) sur l'index bib.author — environ 9200 notices bibliographiques."
+
+[[folders.requests]]
+name        = 'Recherche par titre — Les Misérables'
+method      = "GET"
+url         = "https://catalogue.bnf.fr/api/SRU?version=1.2&operation=searchRetrieve&query=bib.title%20all%20%22les%20miserables%22&maximumRecords=10"
+description = 'Environ 1100 notices. Chaque résultat est une notice UNIMARC (<mxc:record format="UNIMARC">) avec des datafield/subfield MARC codés — bon cas de test pour la conversion XML vers JSON de terapi (beaucoup de siblings répétés).'
+
+[[folders.requests]]
+name        = "Recherche par ISBN"
+method      = "GET"
+url         = "https://catalogue.bnf.fr/api/SRU?version=1.2&operation=searchRetrieve&query=bib.isbn%20any%20%229782070612758%22&maximumRecords=1"
+description = "Recherche exacte par ISBN-13 — renvoie 1 notice si l'ouvrage est catalogué (0 sinon)."
+
+[[folders.requests]]
+name        = "Recherche par sujet"
+method      = "GET"
+url         = "https://catalogue.bnf.fr/api/SRU?version=1.2&operation=searchRetrieve&query=bib.subject%20all%20%22intelligence%20artificielle%22&maximumRecords=10"
+description = "Recherche par matière/sujet Rameau — environ 9200 notices."
+
+[[folders.requests]]
+name        = "Documents numérisés uniquement (bib.digitized)"
+method      = "GET"
+url         = "https://catalogue.bnf.fr/api/SRU?version=1.2&operation=searchRetrieve&query=bib.author%20all%20%22victor%20hugo%22%20and%20bib.digitized%20any%20%22freeAccess%22&maximumRecords=10"
+description = "Combine deux critères avec l'opérateur booléen CQL 'and'. bib.digitized accepte 'freeAccess' (libre sur Gallica) ou 'restrictedAccess' (accès conditionnel)."
+
+# ── Notices d'autorité (aut.*) ────────────────────────────────────────────────
+# Personnes, collectivités, sujets Rameau — distinctes des notices bibliographiques.
+
+[[folders]]
+name = "Notices d'autorité (aut.*)"
+
+[[folders.requests]]
+name        = "Recherche notice d'autorité — Victor Hugo"
+method      = "GET"
+url         = "https://catalogue.bnf.fr/api/SRU?version=1.2&operation=searchRetrieve&query=aut.anywhere%20all%20%22victor%20hugo%22&maximumRecords=5"
+description = "Recherche parmi les notices d'autorité de référence (par défaut) — environ 1900 résultats. aut.status permet d'élargir aux notices non validées."

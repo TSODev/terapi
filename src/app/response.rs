@@ -168,6 +168,9 @@ impl App {
             if let Ok(json) = crate::xml_convert::xml_to_json(body) {
                 return Some(json);
             }
+            if crate::xml_convert::is_html(body) {
+                return Some(crate::xml_convert::html_notice_json(body));
+            }
         }
         Some(body.to_string())
     }

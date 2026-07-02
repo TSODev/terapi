@@ -1331,7 +1331,13 @@ fn render_response_raw(frame: &mut Frame, app: &App, area: Rect) {
         .find(|(k, _)| k.eq_ignore_ascii_case("content-type"))
         .map(|(_, v)| v.as_str());
     let lines = if xml_convert::is_xml(text, content_type) {
-        highlight_xml(text).unwrap_or_else(|| highlight_raw(text))
+        highlight_xml(text).unwrap_or_else(|| {
+            if xml_convert::is_html(text) {
+                html_notice_lines(text)
+            } else {
+                highlight_raw(text)
+            }
+        })
     } else {
         highlight_raw(text)
     };
@@ -1339,6 +1345,23 @@ fn render_response_raw(frame: &mut Frame, app: &App, area: Rect) {
         .wrap(Wrap { trim: false })
         .scroll((app.response_scroll, 0));
     frame.render_widget(para, area);
+}
+
+/// Notice shown in the Raw view when the body is an HTML page rather than
+/// JSON/XML — a plain (unstyled) dump of the body would otherwise get
+/// nonsensically tokenised by the JSON-oriented `highlight_raw`.
+fn html_notice_lines(text: &str) -> Vec<Line<'static>> {
+    let notice_style = Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD);
+    let plain_style = Style::default().fg(Color::Indexed(250));
+    let mut lines = vec![
+        Line::from(Span::styled(
+            "⚠ HTML response — likely an error/block page, not JSON or XML",
+            notice_style,
+        )),
+        Line::from(Span::raw("")),
+    ];
+    lines.extend(text.lines().map(|l| Line::from(Span::styled(l.to_string(), plain_style))));
+    lines
 }
 
 /// Pretty-prints and colorises an XML document for the Raw response view.
@@ -3289,4 +3312,5 @@ fn render_step_result_line(sr: &crate::campaign::StepResult, selected: bool) -> 
     }
     Line::from(spans)
 }
+
 

@@ -16,6 +16,29 @@ pub fn is_xml(body: &str, content_type: Option<&str>) -> bool {
     body.trim_start().starts_with('<')
 }
 
+/// Detects an HTML page (error/block page, login wall…) — real-world HTML is
+/// rarely well-formed XML (unescaped entities, IE conditional comments, void
+/// elements), so `roxmltree` correctly rejects it and callers fall through
+/// here to show something more useful than a raw parser error.
+pub fn is_html(body: &str) -> bool {
+    let t = body.trim_start().to_lowercase();
+    t.starts_with("<!doctype html") || t.starts_with("<html")
+}
+
+/// Builds a small JSON payload explaining that the body is HTML rather than
+/// JSON/XML, with a preview of the raw content — shown in the JSON tree view
+/// in place of a bare `serde_json` "expected value at line 1 column 1" error.
+pub fn html_notice_json(body: &str) -> String {
+    let preview: String = body.chars().take(300).collect();
+    let mut map = Map::new();
+    map.insert(
+        "notice".to_string(),
+        Value::String("This is an HTML page, not JSON or well-formed XML — likely an error or block page from the server (WAF, login wall, 403/500…).".to_string()),
+    );
+    map.insert("body_preview".to_string(), Value::String(preview));
+    serde_json::to_string_pretty(&Value::Object(map)).unwrap_or_default()
+}
+
 /// Converts an XML document to a JSON string using an arbitrary (there is no
 /// canonical XML→JSON mapping) but readable convention:
 /// - attributes become `@name` keys

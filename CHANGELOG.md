@@ -9,6 +9,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 - **`User-Agent` header missing from campaign/builder requests** — the interactive TUI's `reqwest::Client` already sent `User-Agent: terapi/<version>` on every request, but the two `reqwest::Client` instances built in `campaign.rs` (used by headless `terapi run` and by `terapi build`'s step preview/run) did not, so campaign and builder requests went out with no `User-Agent` header at all unless the target server supplied its own default. Both clients now set `.user_agent(concat!("terapi/", env!("CARGO_PKG_VERSION")))`, matching the TUI and the behavior already documented in USAGE.md.
+- **`User-Agent` not shown in the Response panel's HTTP view** — the TUI's `reqwest::Client` sends `User-Agent: terapi/<version>` on every request, but the Request section of the HTTP wire view (`r` → HTTP) never showed it, since it's set on the client itself and never appears in `request_headers`. `send_request()` now also injects it into the `RawRequest` snapshot used for display (default value, or the user's own override if a `User-Agent` header was already added in the Headers sub-tab), so the HTTP view accurately reflects what's actually sent.
 
 ---
 

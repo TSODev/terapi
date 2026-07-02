@@ -363,6 +363,16 @@ impl App {
             resolved_headers.push(("Content-Type".to_string(), "application/json".to_string()));
         }
 
+        // Surface the User-Agent actually sent (default, or user override already in resolved_headers)
+        // in the HTTP view's Request section — the real header comes from http_client's
+        // .user_agent() and is otherwise invisible since it's never in request_headers.
+        if !resolved_headers.iter().any(|(k, _)| k.eq_ignore_ascii_case("user-agent")) {
+            resolved_headers.push((
+                "User-Agent".to_string(),
+                concat!("terapi/", env!("CARGO_PKG_VERSION")).to_string(),
+            ));
+        }
+
         let tx = self.response_tx.clone();
         let client = self.http_client.clone();
 

@@ -420,12 +420,18 @@ impl App {
                     self.status_message = "Press q again to quit".into();
                 }
             }
-            // Schema search: intercept ALL chars/Backspace/Esc before any other handler
+            // Schema search: intercept ALL chars/Backspace before any other handler, but only
+            // while the type list is actually focused — once Enter/Tab moves focus to the
+            // detail panel, the search box is no longer "being edited" and keys like 'z'
+            // (expand) must fall through to their normal Schema-tab handlers instead of
+            // being swallowed into the filter text (schema_search isn't cleared on Enter,
+            // it stays Some(...) so you can Tab back to the same filtered list).
             KeyCode::Char(c)
                 if self.active_tab == Tab::Request
                     && self.graphql_mode
                     && self.active_graphql_tab == GraphqlTab::Schema
-                    && self.schema_search.is_some() =>
+                    && self.schema_search.is_some()
+                    && !self.schema_detail_focused =>
             {
                 if let Some(ref mut s) = self.schema_search {
                     s.push(c);
@@ -440,7 +446,8 @@ impl App {
                 if self.active_tab == Tab::Request
                     && self.graphql_mode
                     && self.active_graphql_tab == GraphqlTab::Schema
-                    && self.schema_search.is_some() =>
+                    && self.schema_search.is_some()
+                    && !self.schema_detail_focused =>
             {
                 if let Some(ref mut s) = self.schema_search {
                     s.pop();

@@ -1830,7 +1830,10 @@ fn render_response_http(frame: &mut Frame, app: &App, area: Rect) {
         }
     }
 
-    frame.render_widget(Paragraph::new(lines).scroll((app.response_scroll, 0)), area);
+    frame.render_widget(
+        Paragraph::new(lines).wrap(Wrap { trim: false }).scroll((app.response_scroll, 0)),
+        area,
+    );
 }
 
 fn http_reason(status: u16) -> &'static str {

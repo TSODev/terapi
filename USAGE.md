@@ -659,7 +659,7 @@ Press `/` in the JSON view to open a search bar at the bottom. Type to filter �
 | Raw | Plain response body text with JSON syntax highlighting |
 | HTTP | Full HTTP exchange with diagnostics, redirect chain, and cookie details |
 
-The **HTTP view** is the primary debugging tool — it shows the exact request sent (all `{{VAR}}` resolved), the full response, redirect chain, received cookies, and timing diagnostics.
+The **HTTP view** is the primary debugging tool — it shows the exact request sent (all `{{VAR}}` resolved), the full response, redirect chain, received cookies, and timing diagnostics. Long lines (a GraphQL query serialised into the request body, a long URL…) wrap across multiple lines instead of being cut off at the terminal width.
 
 **Large responses** — the JSON tree is cached and only re-parsed/re-flattened when the response actually changes (a new response arrives, or a node is folded/unfolded), and only the visible rows are drawn — even a response with 100k+ flattened rows (e.g. a full municipality list from a geo API) doesn't slow down typing elsewhere in the UI.
 

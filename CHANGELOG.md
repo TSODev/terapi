@@ -7,6 +7,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [0.10.8] — 2026-07-02
+
 ### Added
 - **`TERAPI_JSON_DIFFER`** — new env var for structural diff tools whose CLI takes one positional file plus a `--diff` flag (e.g. `jsoned <file> --diff <file2>`), which don't fit `TERAPI_DIFF`'s two-bare-positionals contract (`$TERAPI_DIFF prev curr`). Takes priority over `TERAPI_DIFF` when set; pressing `d` invokes it directly (no `sh -c`, preserving TTY inheritance) as `$TERAPI_JSON_DIFFER prev --diff curr`. `terapi-env.sh` auto-detects `jsoned` on `PATH` and exports it; falls back to `TERAPI_DIFF` auto-detection (`difft`/`delta`) only when `TERAPI_JSON_DIFFER` is unset.
 

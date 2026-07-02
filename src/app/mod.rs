@@ -112,6 +112,9 @@ pub struct App {
     pub schema_field_scroll: u16,
     pub schema_search: Option<String>,
     pub schema_detail_focused: bool,
+    /// When true, the detail panel takes the whole Schema tab width (type list hidden) —
+    /// toggled with `z`, mirrors the builder's full-panel step-run takeover.
+    pub schema_detail_expanded: bool,
     // Campaigns tab
     pub campaigns: Vec<CampaignEntry>,
     pub campaign_cursor: usize,
@@ -236,6 +239,7 @@ impl App {
             schema_field_scroll: 0,
             schema_search: None,
             schema_detail_focused: false,
+            schema_detail_expanded: false,
             campaigns,
             campaign_cursor: 0,
             campaign_focus: CampaignFocus::List,
@@ -451,15 +455,30 @@ impl App {
                 if self.active_tab == Tab::Request
                     && self.graphql_mode
                     && self.active_graphql_tab == GraphqlTab::Schema
-                    && (self.schema_search.is_some() || self.schema_detail_focused) =>
+                    && (self.schema_search.is_some() || self.schema_detail_focused || self.schema_detail_expanded) =>
             {
                 self.schema_search = None;
                 self.schema_detail_focused = false;
+                self.schema_detail_expanded = false;
                 self.schema_type_cursor = 0;
                 if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {
                     *detail = SchemaDetail::None;
                 }
                 self.schema_field_scroll = 0;
+            }
+            // Expand/collapse the detail panel to the full Schema tab width — must come
+            // before the general Char('z')-less handlers below (none currently claim 'z',
+            // but keep this near the other Schema-tab-specific bindings for discoverability).
+            KeyCode::Char('z')
+                if self.active_tab == Tab::Request
+                    && self.graphql_mode
+                    && self.active_graphql_tab == GraphqlTab::Schema
+                    && matches!(self.schema_state, SchemaState::Ready { detail: SchemaDetail::Loaded(_), .. }) =>
+            {
+                self.schema_detail_expanded = !self.schema_detail_expanded;
+                if self.schema_detail_expanded {
+                    self.schema_detail_focused = true;
+                }
             }
             // Schema detail focus toggle must come before the general Tab handler
             KeyCode::Tab
@@ -681,17 +700,19 @@ impl App {
                     }
                 }
             }
-            // Up: navigate type list (left) or scroll detail (right)
-            KeyCode::Up
+            // Up/PageUp: navigate type list (left) or scroll detail (right)
+            KeyCode::Up | KeyCode::PageUp
                 if self.active_tab == Tab::Request
                     && self.graphql_mode
                     && self.active_graphql_tab == GraphqlTab::Schema =>
             {
+                let step = if key.code == KeyCode::PageUp { 10 } else { 1 };
                 if self.schema_detail_focused {
-                    self.schema_field_scroll = self.schema_field_scroll.saturating_sub(1);
+                    self.schema_field_scroll = self.schema_field_scroll.saturating_sub(step);
                 } else {
-                    if self.schema_type_cursor > 0 {
-                        self.schema_type_cursor -= 1;
+                    let new_cursor = self.schema_type_cursor.saturating_sub(step as usize);
+                    if new_cursor != self.schema_type_cursor {
+                        self.schema_type_cursor = new_cursor;
                         self.schema_field_scroll = 0;
                         if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {
                             *detail = SchemaDetail::None;
@@ -699,14 +720,19 @@ impl App {
                     }
                 }
             }
-            // Down: navigate type list (left) or scroll detail (right)
-            KeyCode::Down
+            // Down/PageDown: navigate type list (left) or scroll detail (right)
+            KeyCode::Down | KeyCode::PageDown
                 if self.active_tab == Tab::Request
                     && self.graphql_mode
                     && self.active_graphql_tab == GraphqlTab::Schema =>
             {
+                let step = if key.code == KeyCode::PageDown { 10 } else { 1 };
                 if self.schema_detail_focused {
-                    self.schema_field_scroll = self.schema_field_scroll.saturating_add(1);
+                    // Clamp so the last line can't scroll past the top of the panel —
+                    // schema_field_scroll used to grow unbounded (saturating_add(1) forever),
+                    // scrolling into empty space with no way back except Esc.
+                    let max_scroll = self.schema_detail_line_count().saturating_sub(1) as u16;
+                    self.schema_field_scroll = self.schema_field_scroll.saturating_add(step).min(max_scroll);
                 } else {
                     let len = if let SchemaState::Ready { ref types, .. } = self.schema_state {
                         let filter = self.schema_search.as_deref().unwrap_or("").to_lowercase();
@@ -714,11 +740,14 @@ impl App {
                     } else {
                         0
                     };
-                    if self.schema_type_cursor + 1 < len {
-                        self.schema_type_cursor += 1;
-                        self.schema_field_scroll = 0;
-                        if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {
-                            *detail = SchemaDetail::None;
+                    if len > 0 {
+                        let new_cursor = (self.schema_type_cursor + step as usize).min(len - 1);
+                        if new_cursor != self.schema_type_cursor {
+                            self.schema_type_cursor = new_cursor;
+                            self.schema_field_scroll = 0;
+                            if let SchemaState::Ready { ref mut detail, .. } = self.schema_state {
+                                *detail = SchemaDetail::None;
+                            }
                         }
                     }
                 }

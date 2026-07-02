@@ -68,6 +68,45 @@ impl App {
             let _ = tx.send(result.map(SchemaMsg::TypeDetail));
         });
     }
+
+    /// Number of lines the schema detail panel renders for the currently loaded type —
+    /// mirrors `render_graphql_schema`'s `lines` construction in `ui.rs` exactly (name+kind,
+    /// optional description, blank separator, then one line per field/enum value, plus one
+    /// extra line per field that has args). Used to clamp `schema_field_scroll` and to show
+    /// a position indicator, since the render function only has `&App` and can't compute
+    /// this itself and write it back. Keep in sync with `ui.rs` if that line layout changes.
+    pub(super) fn schema_detail_line_count(&self) -> usize {
+        let SchemaState::Ready { detail: SchemaDetail::Loaded(t), .. } = &self.schema_state else {
+            return 0;
+        };
+        let mut n = 1; // name + kind
+        if t.description.is_some() {
+            n += 1;
+        }
+        n += 1; // blank separator
+
+        let fields_to_show: &[GqlField] = if !t.fields.is_empty() {
+            &t.fields
+        } else if !t.input_fields.is_empty() {
+            &t.input_fields
+        } else {
+            &[]
+        };
+
+        if !fields_to_show.is_empty() {
+            for f in fields_to_show {
+                n += 1;
+                if !f.args.is_empty() {
+                    n += 1;
+                }
+            }
+        } else if !t.enum_values.is_empty() {
+            n += t.enum_values.len();
+        } else {
+            n += 1; // "(no fields)"
+        }
+        n
+    }
 }
 
 fn headers_with_ct(headers: &[(String, String)]) -> Vec<(String, String)> {

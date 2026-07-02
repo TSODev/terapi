@@ -399,58 +399,74 @@ fn render_graphql_schema(frame: &mut Frame, app: &App, area: Rect) {
                     .split(inner)
             };
 
-            let chunks = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints([Constraint::Percentage(35), Constraint::Percentage(65)])
-                .split(left_chunks[0]);
+            // Detail panel takes the whole tab width when expanded (`z`) — type list hidden,
+            // mirrors the builder's full-panel step-run takeover.
+            let expanded = app.schema_detail_expanded
+                && matches!(detail, SchemaDetail::Loaded(_));
 
-            // ── Left: type list ───────────────────────────────────────────
-            let left_focused = !app.schema_detail_focused;
-            let left_border_color = if left_focused { Color::Magenta } else { Color::Indexed(238) };
-            let left_block = Block::default()
-                .borders(Borders::RIGHT)
-                .border_style(Style::default().fg(left_border_color));
-            let left_inner = left_block.inner(chunks[0]);
-            frame.render_widget(left_block, chunks[0]);
+            let right_area = if expanded {
+                left_chunks[0]
+            } else {
+                let chunks = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .constraints([Constraint::Percentage(35), Constraint::Percentage(65)])
+                    .split(left_chunks[0]);
 
-            let items: Vec<ListItem> = filtered_types.iter().enumerate().map(|(i, t)| {
-                let (kind_abbr, kind_color) = match t.kind.as_str() {
-                    "OBJECT"       => ("OBJ", Color::Cyan),
-                    "INTERFACE"    => ("INT", Color::Blue),
-                    "UNION"        => ("UNI", Color::Magenta),
-                    "ENUM"         => ("ENM", Color::Yellow),
-                    "INPUT_OBJECT" => ("INP", Color::Green),
-                    "SCALAR"       => ("SCL", Color::Indexed(244)),
-                    _              => ("???", Color::Indexed(244)),
-                };
-                let selected = i == app.schema_type_cursor;
-                let name_style = if selected {
-                    Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
-                } else {
-                    Style::default().fg(Color::White)
-                };
-                // highlight matching substring in yellow when searching
-                let name_span = if !filter.is_empty() {
-                    let name = &t.name;
-                    let lower = name.to_lowercase();
-                    if let Some(pos) = lower.find(&filter) {
-                        let end = pos + filter.len();
-                        let pre  = &name[..pos];
-                        let mat  = &name[pos..end];
-                        let post = &name[end..];
-                        let hl_style = if selected {
-                            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD | Modifier::UNDERLINED)
+                // ── Left: type list ───────────────────────────────────────
+                let left_focused = !app.schema_detail_focused;
+                let left_border_color = if left_focused { Color::Magenta } else { Color::Indexed(238) };
+                let left_block = Block::default()
+                    .borders(Borders::RIGHT)
+                    .border_style(Style::default().fg(left_border_color));
+                let left_inner = left_block.inner(chunks[0]);
+                frame.render_widget(left_block, chunks[0]);
+
+                let items: Vec<ListItem> = filtered_types.iter().enumerate().map(|(i, t)| {
+                    let (kind_abbr, kind_color) = match t.kind.as_str() {
+                        "OBJECT"       => ("OBJ", Color::Cyan),
+                        "INTERFACE"    => ("INT", Color::Blue),
+                        "UNION"        => ("UNI", Color::Magenta),
+                        "ENUM"         => ("ENM", Color::Yellow),
+                        "INPUT_OBJECT" => ("INP", Color::Green),
+                        "SCALAR"       => ("SCL", Color::Indexed(244)),
+                        _              => ("???", Color::Indexed(244)),
+                    };
+                    let selected = i == app.schema_type_cursor;
+                    let name_style = if selected {
+                        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default().fg(Color::White)
+                    };
+                    // highlight matching substring in yellow when searching
+                    let name_span = if !filter.is_empty() {
+                        let name = &t.name;
+                        let lower = name.to_lowercase();
+                        if let Some(pos) = lower.find(&filter) {
+                            let end = pos + filter.len();
+                            let pre  = &name[..pos];
+                            let mat  = &name[pos..end];
+                            let post = &name[end..];
+                            let hl_style = if selected {
+                                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD | Modifier::UNDERLINED)
+                            } else {
+                                Style::default().fg(Color::Yellow).add_modifier(Modifier::UNDERLINED)
+                            };
+                            Line::from(vec![
+                                Span::raw(if selected { "► " } else { "  " }),
+                                Span::styled(kind_abbr, Style::default().fg(kind_color)),
+                                Span::raw("  "),
+                                Span::styled(pre.to_string(), name_style),
+                                Span::styled(mat.to_string(), hl_style),
+                                Span::styled(post.to_string(), name_style),
+                            ])
                         } else {
-                            Style::default().fg(Color::Yellow).add_modifier(Modifier::UNDERLINED)
-                        };
-                        Line::from(vec![
-                            Span::raw(if selected { "► " } else { "  " }),
-                            Span::styled(kind_abbr, Style::default().fg(kind_color)),
-                            Span::raw("  "),
-                            Span::styled(pre.to_string(), name_style),
-                            Span::styled(mat.to_string(), hl_style),
-                            Span::styled(post.to_string(), name_style),
-                        ])
+                            Line::from(vec![
+                                Span::raw(if selected { "► " } else { "  " }),
+                                Span::styled(kind_abbr, Style::default().fg(kind_color)),
+                                Span::raw("  "),
+                                Span::styled(t.name.clone(), name_style),
+                            ])
+                        }
                     } else {
                         Line::from(vec![
                             Span::raw(if selected { "► " } else { "  " }),
@@ -458,43 +474,37 @@ fn render_graphql_schema(frame: &mut Frame, app: &App, area: Rect) {
                             Span::raw("  "),
                             Span::styled(t.name.clone(), name_style),
                         ])
-                    }
-                } else {
-                    Line::from(vec![
-                        Span::raw(if selected { "► " } else { "  " }),
-                        Span::styled(kind_abbr, Style::default().fg(kind_color)),
-                        Span::raw("  "),
-                        Span::styled(t.name.clone(), name_style),
-                    ])
-                };
-                ListItem::new(name_span)
-            }).collect();
+                    };
+                    ListItem::new(name_span)
+                }).collect();
 
-            let mut list_state = ratatui::widgets::ListState::default();
-            list_state.select(Some(app.schema_type_cursor));
-            frame.render_stateful_widget(
-                List::new(items).highlight_style(Style::default()),
-                left_inner,
-                &mut list_state,
-            );
+                let mut list_state = ratatui::widgets::ListState::default();
+                list_state.select(Some(app.schema_type_cursor));
+                frame.render_stateful_widget(
+                    List::new(items).highlight_style(Style::default()),
+                    left_inner,
+                    &mut list_state,
+                );
 
-            // ── Search bar (bottom of left panel when active) ─────────────
-            if app.schema_search.is_some() {
-                let search_text = app.schema_search.as_deref().unwrap_or("");
-                let count = filtered_types.len();
-                let bar = Line::from(vec![
-                    Span::styled(" / ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                    Span::styled(search_text.to_string(), Style::default().fg(Color::White)),
-                    Span::styled(
-                        format!("  ({} match{})", count, if count == 1 { "" } else { "es" }),
-                        Style::default().fg(Color::Indexed(244)),
-                    ),
-                ]);
-                frame.render_widget(Paragraph::new(bar), left_chunks[1]);
-            }
+                // ── Search bar (bottom of left panel when active) ─────────────
+                if app.schema_search.is_some() {
+                    let search_text = app.schema_search.as_deref().unwrap_or("");
+                    let count = filtered_types.len();
+                    let bar = Line::from(vec![
+                        Span::styled(" / ", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                        Span::styled(search_text.to_string(), Style::default().fg(Color::White)),
+                        Span::styled(
+                            format!("  ({} match{})", count, if count == 1 { "" } else { "es" }),
+                            Style::default().fg(Color::Indexed(244)),
+                        ),
+                    ]);
+                    frame.render_widget(Paragraph::new(bar), left_chunks[1]);
+                }
+
+                chunks[1]
+            };
 
             // ── Right: type detail ────────────────────────────────────────
-            let right_area = chunks[1];
             match detail {
                 SchemaDetail::None => {
                     let t = filtered_types.get(app.schema_type_cursor).copied()
@@ -541,19 +551,7 @@ fn render_graphql_schema(frame: &mut Frame, app: &App, area: Rect) {
                 }
                 SchemaDetail::Loaded(t) => {
                     let detail_focused = app.schema_detail_focused;
-                    let detail_title = if detail_focused {
-                        format!(" {} ↑/↓: scroll  Tab: back ", t.name)
-                    } else {
-                        format!(" {} — Tab: scroll fields ", t.name)
-                    };
-                    let detail_block = Block::default()
-                        .borders(Borders::LEFT)
-                        .title(detail_title)
-                        .border_style(Style::default().fg(
-                            if detail_focused { Color::Magenta } else { Color::Indexed(238) }
-                        ));
-                    let detail_inner = detail_block.inner(right_area);
-                    frame.render_widget(detail_block, right_area);
+                    let expand_key = if expanded { "z: collapse" } else { "z: expand" };
 
                     let mut lines: Vec<Line> = Vec::new();
 
@@ -618,6 +616,33 @@ fn render_graphql_schema(frame: &mut Frame, app: &App, area: Rect) {
                             Style::default().fg(Color::Indexed(238)),
                         )));
                     }
+
+                    // Position indicator ("[13-30/57]") — only shown once content overflows
+                    // the panel, since schema_field_scroll used to have no visible bound.
+                    let total_lines = lines.len();
+                    let visible_height = right_area.height as usize; // LEFT border only, height unaffected
+                    let scroll = app.schema_field_scroll as usize;
+                    let indicator = if total_lines > visible_height {
+                        format!("  [{}-{}/{}]", scroll + 1, (scroll + visible_height).min(total_lines), total_lines)
+                    } else {
+                        String::new()
+                    };
+
+                    let detail_title = if expanded {
+                        format!(" {}{}  ↑/↓ PgUp/PgDn: scroll  {}  Esc: back ", t.name, indicator, expand_key)
+                    } else if detail_focused {
+                        format!(" {}{}  ↑/↓ PgUp/PgDn: scroll  {}  Tab: back ", t.name, indicator, expand_key)
+                    } else {
+                        format!(" {} — Tab: focus  {} ", t.name, expand_key)
+                    };
+                    let detail_block = Block::default()
+                        .borders(Borders::LEFT)
+                        .title(detail_title)
+                        .border_style(Style::default().fg(
+                            if detail_focused { Color::Magenta } else { Color::Indexed(238) }
+                        ));
+                    let detail_inner = detail_block.inner(right_area);
+                    frame.render_widget(detail_block, right_area);
 
                     frame.render_widget(
                         Paragraph::new(lines).scroll((app.schema_field_scroll, 0)),
@@ -3332,5 +3357,3 @@ fn render_step_result_line(sr: &crate::campaign::StepResult, selected: bool) -> 
     }
     Line::from(spans)
 }
-
-

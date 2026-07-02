@@ -516,7 +516,7 @@ Press `g` on the Request tab to switch to **GraphQL mode**. The URL bar shows a 
 | Variables | Key/value pairs serialised as the `variables` JSON object |
 | Headers | Same header picker as REST mode (`a` add, `d` delete, `↑`/`↓` navigate) |
 | Auth | Same auth panel as REST mode — No Auth / Bearer / Basic / API Key / OAuth2 CC / OAuth2 AC |
-| Schema | Schema browser — `f` fetch types, `/` filter, `↑/↓` navigate, `Enter` load fields, `Tab` scroll fields |
+| Schema | Schema browser — `f` fetch types, `/` filter, `↑/↓`/`PgUp`/`PgDn` navigate or scroll, `Enter` load fields, `Tab` focus fields, `z` expand |
 | Options | Same options as REST mode (TLS, redirects, timeout, cookies) |
 
 **Writing a query** (Query tab):
@@ -540,6 +540,15 @@ Press `g` on the Request tab to switch to **GraphQL mode**. The URL bar shows a 
 | `↑` / `↓` | Navigate variables |
 
 Variables are serialised as a flat JSON object (`{"key": "value", …}`) and sent as the `variables` field alongside the query.
+
+**Browsing the schema** (Schema tab):
+- Press `f` to fetch the type list (two-phase introspection: type names first, then fields on demand)
+- `↑`/`↓` navigate the type list; `PgUp`/`PgDn` jump 10 types at a time — useful on large schemas (e.g. GitHub's GraphQL API has hundreds of types)
+- Press `/` to filter the type list by name
+- Press `Enter` on a type to load its fields into the detail panel (right side) and switch focus there
+- With the detail panel focused: `↑`/`↓` scrolls one line, `PgUp`/`PgDn` scrolls 10 lines; a position indicator (`[13-30/57]`) appears in the panel title once the field list overflows the visible area
+- Press `z` to **expand** the detail panel to the full tab width (hides the type list) — handy for types with many fields or long argument lists; press `z` again or `Esc` to collapse back
+- `Tab` toggles focus between the type list and the detail panel; `Esc` also clears the search filter and returns to the type list
 
 **Sending** — press `s` (or `Enter` in URL mode). Terapi builds `{"query": "...", "variables": {...}}` and posts it as JSON. `Content-Type: application/json` is added automatically if absent.
 

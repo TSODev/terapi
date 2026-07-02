@@ -631,7 +631,7 @@ impl App {
             GraphqlTab::Variables => "GQL Variables  a: add  d: delete  Enter: edit  ↑/↓: nav  ←/→: section  s: send  g: REST  q: quit".into(),
             GraphqlTab::Headers   => "GQL Headers  a: add  d: delete  ↑/↓: nav  ←/→: section  s: send  g: REST  q: quit".into(),
             GraphqlTab::Auth      => "GQL Auth  ↑/↓: nav  Space/Enter: edit  f: fetch OAuth2 token  ←/→: section  s: send  g: REST  q: quit".into(),
-            GraphqlTab::Schema    => "GQL Schema  f: fetch  ↑/↓: types  Enter: load fields  ←/→: section  g: REST  q: quit".into(),
+            GraphqlTab::Schema    => "GQL Schema  f: fetch  ↑/↓ PgUp/PgDn: types/scroll  Enter: load  Tab: focus  z: expand  /: search  ←/→: section  q: quit".into(),
             GraphqlTab::Options   => "GQL Options  ↑/↓: nav  Space/Enter: toggle/cycle  ←/→: section  s: send  g: REST  q: quit".into(),
         };
     }

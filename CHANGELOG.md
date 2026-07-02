@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **GraphQL Schema browser — expand mode, PgUp/PgDn, position indicator** — the detail panel (right side, field list of the selected type) now supports `PgUp`/`PgDn` (10-line/10-type jumps) alongside `↑`/`↓`, shows a position indicator in its title (`Query [13-30/223]`) once content overflows the panel, and `z` toggles an **expand** mode that gives the detail panel the full Schema tab width (type list hidden) — useful on large schemas like GitHub's GraphQL API, where the `Query` type alone has 200+ fields. Mirrors the builder's existing full-panel step-run takeover pattern. New `App::schema_detail_expanded: bool`; `App::schema_detail_line_count()` (`app/schema.rs`) computes the field list's line count so scroll can be bounded and the indicator computed without `ui.rs` (which only has `&App`) needing to mutate state.
+
+### Fixed
+- **GraphQL Schema detail scroll had no upper bound** — `schema_field_scroll` grew via `saturating_add(1)` on every `↓` press with no ceiling, so scrolling past the last field just showed empty space with no way back except `Esc`. Now clamped to the actual content height (computed via the new `schema_detail_line_count()`).
+
 ---
 
 ## [0.10.9] — 2026-07-02

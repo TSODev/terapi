@@ -7,6 +7,7 @@ mod import;
 mod json_highlight;
 mod storage;
 mod ui;
+mod xml_convert;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};

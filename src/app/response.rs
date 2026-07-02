@@ -154,9 +154,27 @@ impl App {
         }
     }
 
+    /// Body text used to build the JSON tree view: converts XML to JSON
+    /// (best-effort, no canonical mapping — see xml_convert.rs) when the
+    /// response looks like XML, otherwise passes the raw body through
+    /// unchanged. Used everywhere the JSON tree is built (render, fold,
+    /// search, dot-path, URL follow) so they all stay in sync.
+    pub fn response_json_text(&self) -> Option<String> {
+        let body = self.response_body.as_deref()?;
+        let content_type = self.response_headers.iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case("content-type"))
+            .map(|(_, v)| v.as_str());
+        if crate::xml_convert::is_xml(body, content_type) {
+            if let Ok(json) = crate::xml_convert::xml_to_json(body) {
+                return Some(json);
+            }
+        }
+        Some(body.to_string())
+    }
+
     pub(super) fn response_line_count(&self) -> usize {
         crate::json_highlight::rows(
-            self.response_body.as_deref().unwrap_or(""),
+            self.response_json_text().as_deref().unwrap_or(""),
             &self.response_folds,
         )
         .len()
@@ -244,11 +262,11 @@ impl App {
             Some(s) if !s.is_empty() => s.to_lowercase(),
             _ => return vec![],
         };
-        let json = match &self.response_body {
+        let json = match self.response_json_text() {
             Some(j) => j,
             None => return vec![],
         };
-        crate::json_highlight::rows(json, &self.response_folds)
+        crate::json_highlight::rows(&json, &self.response_folds)
             .into_iter()
             .enumerate()
             .filter(|(_, r)| {
@@ -295,8 +313,8 @@ impl App {
 
     /// Returns the URL string under the JSON cursor, if any (starts with http:// or https://).
     pub(super) fn current_response_url(&self) -> Option<String> {
-        let json = self.response_body.as_deref()?;
-        let rows = crate::json_highlight::rows(json, &self.response_folds);
+        let json = self.response_json_text()?;
+        let rows = crate::json_highlight::rows(&json, &self.response_folds);
         let row = rows.get(self.response_cursor)?;
         let v = row.value_preview.trim_matches('"');
         if v.starts_with("http://") || v.starts_with("https://") {
@@ -325,8 +343,8 @@ impl App {
     }
 
     pub(super) fn toggle_response_fold(&mut self) {
-        let json = self.response_body.as_deref().unwrap_or("");
-        let json_rows = crate::json_highlight::rows(json, &self.response_folds);
+        let json = self.response_json_text().unwrap_or_default();
+        let json_rows = crate::json_highlight::rows(&json, &self.response_folds);
 
         if let Some(path) = json_rows
             .get(self.response_cursor)

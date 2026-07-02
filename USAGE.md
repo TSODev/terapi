@@ -652,6 +652,12 @@ Press `/` in the JSON view to open a search bar at the bottom. Type to filter �
 
 The **HTTP view** is the primary debugging tool — it shows the exact request sent (all `{{VAR}}` resolved), the full response, redirect chain, received cookies, and timing diagnostics.
 
+**XML responses** — detected via `Content-Type` (any `*/xml` or `*+xml`) or by sniffing the body when the header is missing/wrong (a leading `<`):
+- **Raw view** pretty-prints and syntax-highlights the XML (indented, tags/attributes/values colour-coded) instead of showing the minified original.
+- **JSON view** converts the XML to JSON and displays it in the same tree — since there's no canonical XML→JSON mapping, terapi uses a fixed, arbitrary convention: attributes become `@name` keys, a leaf element's text becomes its value directly, and repeated sibling tags become a JSON array. Namespace prefixes (`dc:`, `srw:`…) are dropped, keeping only the local tag name. Fold, search, the extraction path bar and `f: follow URL` all operate on this converted tree, so they stay in sync with what's on screen.
+- **HTTP view** is untouched — the body is shown exactly as received, no conversion or pretty-print.
+- This conversion only applies to the interactive response viewer. Campaign `extract`/`assert` steps still parse the body directly as JSON (`campaign.rs`) — an XML response in a headless campaign won't be extracted from and assertions against it will fail, same as before this feature.
+
 ```
 ── Request ──────────────────────────────────────────────
 POST /login HTTP/1.1

@@ -36,3 +36,4 @@ chrono = "0.4"
 rand = "0.8"
 # pin time below 0.3.52 which broke cookie-0.18.1 (parse() signature change)
 time = ">=0.3, <0.3.52"
+roxmltree = "0.21"

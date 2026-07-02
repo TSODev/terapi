@@ -13,6 +13,7 @@ use crate::app::{
     METHODS,
 };
 use crate::json_highlight::{self, ValueType};
+use crate::xml_convert;
 
 pub fn render(frame: &mut Frame, app: &App) {
     let area = frame.area();
@@ -1191,8 +1192,8 @@ fn render_response_json(frame: &mut Frame, app: &App, area: Rect) {
     let term = app.json_search.as_deref().unwrap_or("").to_lowercase();
     let has_term = !term.is_empty();
 
-    let json_rows = match &app.response_body {
-        Some(json) => json_highlight::rows(json, &app.response_folds),
+    let json_rows = match app.response_json_text() {
+        Some(json) => json_highlight::rows(&json, &app.response_folds),
         None => vec![],
     };
 
@@ -1326,11 +1327,105 @@ fn render_response_json(frame: &mut Frame, app: &App, area: Rect) {
 
 fn render_response_raw(frame: &mut Frame, app: &App, area: Rect) {
     let text = app.response_body.as_deref().unwrap_or("No response.");
-    let lines = highlight_raw(text);
+    let content_type = app.response_headers.iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("content-type"))
+        .map(|(_, v)| v.as_str());
+    let lines = if xml_convert::is_xml(text, content_type) {
+        highlight_xml(text).unwrap_or_else(|| highlight_raw(text))
+    } else {
+        highlight_raw(text)
+    };
     let para = Paragraph::new(lines)
         .wrap(Wrap { trim: false })
         .scroll((app.response_scroll, 0));
     frame.render_widget(para, area);
+}
+
+/// Pretty-prints and colorises an XML document for the Raw response view.
+/// Returns None if the body doesn't actually parse as XML (e.g. an HTML
+/// error page starting with `<`), so the caller can fall back to
+/// `highlight_raw`.
+fn highlight_xml(text: &str) -> Option<Vec<Line<'static>>> {
+    let doc = roxmltree::Document::parse(text).ok()?;
+    let mut lines = Vec::new();
+    let trimmed = text.trim_start();
+    if trimmed.starts_with("<?xml") {
+        if let Some(end) = trimmed.find("?>") {
+            lines.push(Line::from(Span::styled(
+                trimmed[..end + 2].to_string(),
+                Style::default().fg(Color::Indexed(245)),
+            )));
+        }
+    }
+    render_xml_node(doc.root_element(), 0, &mut lines);
+    Some(lines)
+}
+
+fn render_xml_node(node: roxmltree::Node, depth: usize, lines: &mut Vec<Line<'static>>) {
+    let tag_style      = Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD);
+    let attr_name_style = Style::default().fg(Color::Blue);
+    let attr_val_style  = Style::default().fg(Color::Green);
+    let punct_style     = Style::default().fg(Color::Indexed(240));
+    let text_style      = Style::default().fg(Color::White);
+
+    let indent = "  ".repeat(depth);
+    let tag_name = node.tag_name().name();
+
+    let element_children: Vec<_> = node.children().filter(|c| c.is_element()).collect();
+    let text_content: String = node.children()
+        .filter(|c| c.is_text())
+        .filter_map(|c| c.text())
+        .collect::<Vec<_>>()
+        .join("")
+        .trim()
+        .to_string();
+
+    let mut open_spans = vec![
+        Span::raw(indent.clone()),
+        Span::styled("<", punct_style),
+        Span::styled(tag_name.to_string(), tag_style),
+    ];
+    for attr in node.attributes() {
+        open_spans.push(Span::raw(" "));
+        open_spans.push(Span::styled(attr.name().to_string(), attr_name_style));
+        open_spans.push(Span::styled("=", punct_style));
+        open_spans.push(Span::styled(format!("\"{}\"", attr.value()), attr_val_style));
+    }
+
+    if element_children.is_empty() && text_content.is_empty() {
+        open_spans.push(Span::styled(" />", punct_style));
+        lines.push(Line::from(open_spans));
+        return;
+    }
+
+    open_spans.push(Span::styled(">", punct_style));
+
+    if element_children.is_empty() {
+        // Leaf element with text content — keep opening/closing tags on one line.
+        open_spans.push(Span::styled(text_content, text_style));
+        open_spans.push(Span::styled("</", punct_style));
+        open_spans.push(Span::styled(tag_name.to_string(), tag_style));
+        open_spans.push(Span::styled(">", punct_style));
+        lines.push(Line::from(open_spans));
+        return;
+    }
+
+    lines.push(Line::from(open_spans));
+    if !text_content.is_empty() {
+        lines.push(Line::from(vec![
+            Span::raw("  ".repeat(depth + 1)),
+            Span::styled(text_content, text_style),
+        ]));
+    }
+    for child in element_children {
+        render_xml_node(child, depth + 1, lines);
+    }
+    lines.push(Line::from(vec![
+        Span::raw(indent),
+        Span::styled("</", punct_style),
+        Span::styled(tag_name.to_string(), tag_style),
+        Span::styled(">", punct_style),
+    ]));
 }
 
 /// JSON-aware syntax highlighter for the Raw response view.
@@ -3194,3 +3289,4 @@ fn render_step_result_line(sr: &crate::campaign::StepResult, selected: bool) -> 
     }
     Line::from(spans)
 }
+

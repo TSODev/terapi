@@ -104,7 +104,8 @@ terapi run campaign.toml --format json
 |----------|------------------------|---------|
 | `TERAPI_DIR` | `~/.config/terapi/` | Data directory (collections, envs, campaigns) |
 | `TERAPI_JSON_EDITOR` | `jsoned` (if in PATH) | External editor/viewer for body JSON and response (`E` key) |
-| `TERAPI_DIFF` | `difft` or `delta` (if in PATH) | External diff tool for response comparison (`d` key) |
+| `TERAPI_JSON_DIFFER` | `jsoned` (if in PATH) | Structural diff tool for response comparison (`d` key); takes priority over `TERAPI_DIFF` when set |
+| `TERAPI_DIFF` | `difft` or `delta` (if in PATH, and `TERAPI_JSON_DIFFER` unset) | External diff tool for response comparison (`d` key) — two bare file-path args |
 | `EDITOR` / `VISUAL` | `vi` | Fallback text editor for TOML files (`E` key in Collections/Campaigns) |
 
 Override any variable before calling the script:
@@ -730,18 +731,32 @@ Press `d` in the **JSON** or **Raw** view to compare the last two responses side
 
 Terapi suspends the TUI, writes both bodies to `/tmp/terapi_prev.json` and `/tmp/terapi_curr.json`, runs the diff command, then resumes.
 
-**Tool selection** — set `TERAPI_DIFF` in your environment:
+Two env vars can drive this, checked in order:
 
-| `TERAPI_DIFF` value | Effect |
-|---------------------|--------|
-| *(not set)* | `diff -u … \| ${PAGER:-less -R}` — always available |
-| `difft` | Structural / semantic diff — best for JSON (ignores reformatting) |
-| `delta` | Syntax-highlighted diff pager |
-| `nvim -d` | Neovim side-by-side interactive diff |
-| `colordiff -u` | Coloured unified diff |
+1. **`TERAPI_JSON_DIFFER`** — for structural, jsoned-style differs whose CLI takes one positional file plus a `--diff` flag. Invoked directly (no `sh -c`, so TTY is preserved for interactive TUI tools) as:
+   ```
+   $TERAPI_JSON_DIFFER /tmp/terapi_prev.json --diff /tmp/terapi_curr.json
+   ```
+2. **`TERAPI_DIFF`** — fallback (or used when `TERAPI_JSON_DIFFER` is unset), for tools that take two bare file-path args:
+   ```
+   $TERAPI_DIFF /tmp/terapi_prev.json /tmp/terapi_curr.json
+   ```
+
+| Variable | Value | Effect |
+|----------|-------|--------|
+| `TERAPI_JSON_DIFFER` | *(not set)* | skipped, falls through to `TERAPI_DIFF` |
+| `TERAPI_JSON_DIFFER` | `jsoned` | key-path structural diff in a read-only TUI (not line-based) |
+| `TERAPI_DIFF` | *(not set)* | `diff -u … \| ${PAGER:-less -R}` — always available |
+| `TERAPI_DIFF` | `difft` | Structural / semantic diff — best for JSON (ignores reformatting) |
+| `TERAPI_DIFF` | `delta` | Syntax-highlighted diff pager |
+| `TERAPI_DIFF` | `nvim -d` | Neovim side-by-side interactive diff |
+| `TERAPI_DIFF` | `colordiff -u` | Coloured unified diff |
 
 ```bash
-# Recommended for JSON API responses:
+# Recommended for JSON API responses (structural diff, ignores key reordering):
+export TERAPI_JSON_DIFFER=jsoned
+
+# Line-based alternative:
 export TERAPI_DIFF=difft
 
 # Or in your shell profile:
@@ -1055,7 +1070,7 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `↑` / `↓` | Request panel | Move response cursor (JSON) / scroll (Raw) |
 | `Enter` | Request panel (response mode) | Fold / unfold selected JSON node |
 | `r` | Request panel | Cycle response view: JSON → Raw → HTTP exchange |
-| `d` | Request panel (JSON or Raw view) | Diff last two responses in external tool (`$TERAPI_DIFF`) |
+| `d` | Request panel (JSON or Raw view) | Diff last two responses in external tool (`$TERAPI_JSON_DIFFER`, else `$TERAPI_DIFF`) |
 | `/` | Request panel (JSON view) | Open search bar — filter rows by key or value |
 | `>` | JSON search | Jump to next match |
 | `<` | JSON search | Jump to previous match |

@@ -7,3 +7,4 @@ PUBLISH.md
 .terapi/
 .DS_Store
 examples/eu_capitals_weather.json
+examples/collections/bnf-gallica.toml

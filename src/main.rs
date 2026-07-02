@@ -77,8 +77,22 @@ enum Commands {
     },
 }
 
+/// Restore the terminal (raw mode + alternate screen) before a panic's default report
+/// prints — otherwise a panic anywhere while a raw-mode/alternate-screen TUI is active
+/// (main TUI or `terapi build`) leaves the terminal in a broken state (garbled input,
+/// invisible cursor) until the user runs `reset`/`stty sane`.
+fn install_panic_hook() {
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        let _ = disable_raw_mode();
+        let _ = execute!(io::stdout(), LeaveAlternateScreen);
+        default_hook(panic_info);
+    }));
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
+    install_panic_hook();
     let cli = Cli::parse();
 
     match cli.command {

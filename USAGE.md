@@ -1055,6 +1055,7 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `Tab` | Global | Cycle panels forward: Collections → Request → Env → History → Campaigns |
 | `Shift+Tab` | Global | Cycle panels backward: Collections → Campaigns → History → Env → Request |
 | `q` | Global | Quit — press twice to confirm (status bar turns yellow on first press) |
+| `Ctrl+C` | Global | Quit immediately, no confirmation — emergency exit, bypasses modals/overlays |
 | `Esc` | Global | Close modal / exit edit mode — does **not** quit the app |
 | `n` | Request panel | New request — clear all fields |
 | `e` | Request panel | Enter URL edit mode |
@@ -3632,6 +3633,7 @@ When there are unsaved changes (`*` in the pipeline title), pressing `q` shows a
 | `p` | TOML preview |
 | `w` | Save |
 | `q` | Quit (confirmation if unsaved) |
+| `Ctrl+C` | Quit immediately, no confirmation — emergency exit |
 
 #### Step editor (Browse mode)
 

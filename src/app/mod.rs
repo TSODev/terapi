@@ -1,5 +1,5 @@
 use anyhow::Result;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::collections::HashSet;
 use tokio::sync::mpsc;
 use tui_textarea::TextArea;
@@ -272,6 +272,15 @@ impl App {
     }
 
     pub fn handle_key(&mut self, key: KeyEvent) -> Result<()> {
+        // Ctrl+C isn't SIGINT in a crossterm raw-mode terminal (that signal generation is
+        // disabled), so it would otherwise do nothing. Treat it as an immediate, unconditional
+        // quit — bypasses modals/overlays and the q/q confirm dance, since the whole point of
+        // Ctrl+C is being an emergency escape hatch.
+        if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
+            self.running = false;
+            return Ok(());
+        }
+
         // Reset quit confirmation on any key except q itself
         let was_confirming_quit = self.confirm_quit;
         if key.code != KeyCode::Char('q') {

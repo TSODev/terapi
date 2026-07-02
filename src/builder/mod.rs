@@ -106,6 +106,17 @@ impl BuilderApp {
     }
 
     pub fn handle_key(&mut self, key: crossterm::event::KeyEvent) -> Result<()> {
+        // Ctrl+C isn't SIGINT in a crossterm raw-mode terminal (that signal generation is
+        // disabled), so it would otherwise do nothing. Treat it as an immediate,
+        // unconditional quit — bypasses the unsaved-changes confirm dialog, since the whole
+        // point of Ctrl+C is being an emergency escape hatch.
+        {
+            use crossterm::event::{KeyCode, KeyModifiers};
+            if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
+                self.running = false;
+                return Ok(());
+            }
+        }
         if self.quit_confirm {
             return self.handle_quit_confirm_key(key);
         }

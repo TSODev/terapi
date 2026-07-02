@@ -654,7 +654,7 @@ The **HTTP view** is the primary debugging tool — it shows the exact request s
 
 **XML responses** — detected via `Content-Type` (any `*/xml` or `*+xml`) or by sniffing the body when the header is missing/wrong (a leading `<`):
 - **Raw view** pretty-prints and syntax-highlights the XML (indented, tags/attributes/values colour-coded) instead of showing the minified original.
-- **JSON view** converts the XML to JSON and displays it in the same tree — since there's no canonical XML→JSON mapping, terapi uses a fixed, arbitrary convention: attributes become `@name` keys, a leaf element's text becomes its value directly, and repeated sibling tags become a JSON array. Namespace prefixes (`dc:`, `srw:`…) are dropped, keeping only the local tag name. Fold, search, the extraction path bar and `f: follow URL` all operate on this converted tree, so they stay in sync with what's on screen.
+- **JSON view** converts the XML to JSON and displays it in the same tree — since there's no canonical XML→JSON mapping, terapi uses a fixed, arbitrary convention: attributes become `@name` keys, a leaf element's text becomes its value directly, and repeated sibling tags become a JSON array. Namespace prefixes (`dc:`, `srw:`…) are dropped, keeping only the local tag name. The tree's top-level object always starts with a `FromXML: true` entry, so it's immediately visible that this is a converted view rather than the API's real JSON. Fold, search, the extraction path bar and `f: follow URL` all operate on this converted tree, so they stay in sync with what's on screen.
 - **HTTP view** is untouched — the body is shown exactly as received, no conversion or pretty-print.
 - This conversion only applies to the interactive response viewer. Campaign `extract`/`assert` steps still parse the body directly as JSON (`campaign.rs`) — an XML response in a headless campaign won't be extracted from and assertions against it will fail, same as before this feature.
 - **HTML error/block pages** (e.g. a WAF challenge page on a 403, a login-wall redirect) also start with `<` and get caught by the sniffing above, but real-world HTML rarely parses as well-formed XML — instead of a confusing raw parser error, terapi shows `⚠ HTML response — likely an error/block page, not JSON or XML` with a preview of the body, in both the JSON and Raw views.
@@ -1280,6 +1280,7 @@ Ready-to-use collections are available in `examples/collections/`:
 | `france-geo.toml` | API Géo + IGN — municipalities, departments, regions, geocoding | 4 | 19 | None |
 | `france-eau.toml` | Hub'Eau — hydrometry, river and groundwater quality | 3 | 19 | None |
 | `france-meteo.toml` | Météo-France — forecasts, observations, weather alerts | 4 | 17 | Bearer `{{METEO_TOKEN}}` |
+| `bnf-catalogue.toml` | BnF — general catalogue SRU (bibliographic UNIMARC records + authority records) | 3 | 7 | None |
 
 **Quick install:**
 

@@ -50,6 +50,9 @@ pub fn xml_to_json(body: &str) -> Result<String, String> {
     let doc = roxmltree::Document::parse(body).map_err(|e| e.to_string())?;
     let root = doc.root_element();
     let mut top = Map::new();
+    // Marks this tree as a converted view, not the server's real JSON — the
+    // conversion below uses an arbitrary convention, not a canonical one.
+    top.insert("FromXML".to_string(), Value::Bool(true));
     top.insert(root.tag_name().name().to_string(), node_to_value(root));
     serde_json::to_string_pretty(&Value::Object(top)).map_err(|e| e.to_string())
 }
@@ -99,4 +102,3 @@ fn node_to_value(node: roxmltree::Node) -> Value {
     }
     Value::Object(map)
 }
-

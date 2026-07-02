@@ -1,0 +1,106 @@
+[collection]
+name        = "BnF — Gallica & IIIF"
+description = "Recherche SRU (XML), documents Gallica par identifiant ARK, images IIIF. Toutes publiques et gratuites, sans clé."
+
+# ── Gallica — Recherche (SRU) ───────────────────────────────────────────────────
+# Protocole SRU (Search/Retrieve URL) standard, sur l'index Dublin Core.
+# Base URL : https://gallica.bnf.fr/SRU
+# ⚠ gallica.bnf.fr bloque (403) les IP de datacenter/cloud via son WAF anti-scraping
+#   — teste depuis un réseau résidentiel si tu obtiens des 403 partout, y compris
+#   sur la page d'accueil.
+
+[[folders]]
+name = "Gallica — Recherche (SRU)"
+
+[[folders.requests]]
+name        = "Explain (capacités du service SRU)"
+method      = "GET"
+url         = "https://gallica.bnf.fr/SRU?version=1.2&operation=explain"
+description = "Opération standard SRU 'explain' — renvoie en XML les index disponibles, schémas de résultats et limites du service."
+
+[[folders.requests]]
+name        = "Recherche par titre — Les Misérables"
+method      = "GET"
+url         = "https://gallica.bnf.fr/SRU?version=1.2&operation=searchRetrieve&query=dc.title%20any%20%22les%20miserables%22&maximumRecords=10"
+description = "Requête CQL sur l'index dc.title (opérateur 'any'). Renvoie un flux XML — bon cas de test pour un parseur XML."
+
+[[folders.requests]]
+name        = "Recherche par auteur — Victor Hugo"
+method      = "GET"
+url         = "https://gallica.bnf.fr/SRU?version=1.2&operation=searchRetrieve&query=dc.creator%20all%20%22victor%20hugo%22&maximumRecords=20"
+description = "Index dc.creator, opérateur CQL 'all' (tous les mots doivent matcher). Ajoute startRecord= pour paginer."
+
+# ── Gallica — Document (ARK) ─────────────────────────────────────────────────────
+# Une fois un identifiant pérenne ARK récupéré (ex: ark:/12148/bpt6k1101249),
+# ces services donnent accès aux métadonnées, à la pagination et au texte OCR.
+# Toutes les requêtes ci-dessous portent sur le même ouvrage (Les Misérables, t.1).
+
+[[folders]]
+name = "Gallica — Document (ARK)"
+
+[[folders.requests]]
+name        = "Pagination — nombre de pages"
+method      = "GET"
+url         = "https://gallica.bnf.fr/services/Pagination?ark=ark:/12148/bpt6k1101249"
+description = "Nombre total de pages/vues du document, avec la numérotation de chaque folio (XML)."
+
+[[folders.requests]]
+name        = "Table des matières (Toc)"
+method      = "GET"
+url         = "https://gallica.bnf.fr/services/Toc?ark=ark:/12148/bpt6k1101249"
+description = "Structure hiérarchique de l'ouvrage (chapitres, parties) avec numéro de page pour chaque entrée."
+
+[[folders.requests]]
+name        = "Métadonnées OAI"
+method      = "GET"
+url         = "https://gallica.bnf.fr/services/OAIRecord?ark=ark:/12148/bpt6k1101249"
+description = "Notice bibliographique Dublin Core complète : titre, auteur, date, éditeur, langue, droits."
+
+[[folders.requests]]
+name        = "Texte OCR (ALTO XML) — page 1"
+method      = "GET"
+url         = "https://gallica.bnf.fr/RequestDigitalElement?O=ark:/12148/bpt6k1101249&E=ALTO&Deb=1"
+description = "Texte océrisé de la page 1 au format ALTO/XML, avec les coordonnées de chaque mot sur la page. 'Deb' = page de départ."
+
+[[folders.requests]]
+name        = "Texte brut OCR — page 1"
+method      = "GET"
+url         = "https://gallica.bnf.fr/RequestDigitalElement?O=ark:/12148/bpt6k1101249&E=TEXTE&Deb=1"
+description = "Même service, mais texte brut sans balisage XML — plus simple à ingérer directement."
+
+# ── IIIF — Images ─────────────────────────────────────────────────────────────
+# Standard IIIF Image API / Presentation API. Portion, zoom et rotation via
+# les paramètres d'URL : {ark}/f{page}/{region}/{size}/{rotation}/{quality}.{format}
+
+[[folders]]
+name = "IIIF — Images"
+
+[[folders.requests]]
+name        = "Manifest (IIIF Presentation API)"
+method      = "GET"
+url         = "https://gallica.bnf.fr/iiif/ark:/12148/bpt6k1101249/manifest.json"
+description = "Manifeste JSON-LD de l'ouvrage : structure en canvases (une par page), métadonnées, URL de base par page."
+
+[[folders.requests]]
+name        = "Info image (IIIF Image API) — page 1"
+method      = "GET"
+url         = "https://gallica.bnf.fr/iiif/ark:/12148/bpt6k1101249/f1/info.json"
+description = "Capacités de l'image (dimensions natives, tailles/formats/qualités disponibles) — à consulter avant de composer une URL de recadrage."
+
+[[folders.requests]]
+name        = "Image pleine page — page 1"
+method      = "GET"
+url         = "https://gallica.bnf.fr/iiif/ark:/12148/bpt6k1101249/f1/full/full/0/native.jpg"
+description = "JPEG pleine résolution, sans recadrage ni rotation. Réponse binaire — le viewer texte de terapi montre surtout status/headers, pas l'image."
+
+[[folders.requests]]
+name        = "Région recadrée + zoom 50%"
+method      = "GET"
+url         = "https://gallica.bnf.fr/iiif/ark:/12148/bpt6k1101249/f1/0,0,2000,3000/pct:50/0/native.jpg"
+description = "Découpe une région (x,y,largeur,hauteur) puis redimensionne à 50% — démontre les paramètres 'region' et 'size'."
+
+[[folders.requests]]
+name        = "Rotation 90°"
+method      = "GET"
+url         = "https://gallica.bnf.fr/iiif/ark:/12148/bpt6k1101249/f1/full/full/90/native.jpg"
+description = "Image pleine page tournée de 90° — démontre le paramètre 'rotation' (0-360, ou '!' pour un miroir)."

@@ -1273,6 +1273,7 @@ Ready-to-use collections are available in `examples/collections/`:
 | `france-geo.toml` | API Géo + IGN — municipalities, departments, regions, geocoding | 4 | 19 | None |
 | `france-eau.toml` | Hub'Eau — hydrometry, river and groundwater quality | 3 | 19 | None |
 | `france-meteo.toml` | Météo-France — forecasts, observations, weather alerts | 4 | 17 | Bearer `{{METEO_TOKEN}}` |
+| `bnf-gallica.toml` | BnF — SRU search (XML), Gallica documents by ARK, IIIF images | 3 | 13 | None |
 
 **Quick install:**
 

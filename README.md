@@ -337,6 +337,7 @@ Ready-to-use collections in `examples/collections/` — copy them to your terapi
 | `france-geo.toml` | API Géo + API Adresse IGN — communes, départements, régions, géocodage | Aucune |
 | `france-eau.toml` | Hub'Eau — hydrométrie, qualité rivières et nappes | Aucune |
 | `france-meteo.toml` | Météo-France — prévisions, observations, vigilance | Bearer `{{METEO_TOKEN}}` |
+| `bnf-gallica.toml` | BnF — recherche SRU (XML), documents Gallica par ARK, images IIIF | Aucune |
 
 ```bash
 # Copier une collection dans le répertoire global

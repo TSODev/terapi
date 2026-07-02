@@ -435,6 +435,7 @@ impl App {
         self.response_cursor = 0;
         self.response_scroll = 0;
         self.response_folds = HashSet::new();
+        self.response_rows = Vec::new();
         self.var_picker = None;
         self.status_message = "New request — e: edit URL  ←/→: section  s: send  S: save  q: quit".into();
     }
@@ -670,6 +671,7 @@ impl App {
             self.response_cursor = 0;
             self.response_scroll = 0;
             self.response_folds = HashSet::new();
+            self.response_rows = Vec::new();
             self.active_tab = Tab::Request;
 
             if entry.graphql {

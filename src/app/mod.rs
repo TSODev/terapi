@@ -86,6 +86,13 @@ pub struct App {
     pub response_cursor: usize,
     pub response_scroll: u16,
     pub response_folds: HashSet<String>,
+    /// Cached `json_highlight::rows()` output for the current response — rebuilding this is
+    /// O(response size) (full re-parse + re-flatten), so it must only happen when
+    /// `response_body`/`response_folds`/`response_headers` actually change, never on every
+    /// render (rendering runs on every keystroke, even on unrelated tabs like URL Params —
+    /// a large response, e.g. ~140k flattened rows, made typing anywhere feel like ~1 char/s).
+    /// See `rebuild_response_rows()`.
+    pub response_rows: Vec<crate::json_highlight::JsonRow>,
     pub json_search: Option<String>,
     pub key_col_width: u16,
     pub status_message: String,
@@ -148,6 +155,9 @@ impl App {
         let (schema_tx, schema_rx) = mpsc::unbounded_channel();
         let (campaign_tx, campaign_rx) = mpsc::unbounded_channel();
         let (oauth2_tx, oauth2_rx) = mpsc::unbounded_channel();
+        let response_rows = response_body.as_deref()
+            .map(|b| crate::json_highlight::rows(&crate::xml_convert::to_json_text(b, None), &HashSet::new()))
+            .unwrap_or_default();
         Self {
             running: true,
             confirm_quit: false,
@@ -209,6 +219,7 @@ impl App {
             response_cursor: 0,
             response_scroll: 0,
             response_folds: HashSet::new(),
+            response_rows,
             json_search: None,
             key_col_width: 22,
             status_message: "Tab: panels  e: edit URL  s: send  S: save  n: new  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into(),

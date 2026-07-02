@@ -652,6 +652,8 @@ Press `/` in the JSON view to open a search bar at the bottom. Type to filter �
 
 The **HTTP view** is the primary debugging tool — it shows the exact request sent (all `{{VAR}}` resolved), the full response, redirect chain, received cookies, and timing diagnostics.
 
+**Large responses** — the JSON tree is cached and only re-parsed/re-flattened when the response actually changes (a new response arrives, or a node is folded/unfolded), and only the visible rows are drawn — even a response with 100k+ flattened rows (e.g. a full municipality list from a geo API) doesn't slow down typing elsewhere in the UI.
+
 **XML responses** — detected via `Content-Type` (any `*/xml` or `*+xml`) or by sniffing the body when the header is missing/wrong (a leading `<`):
 - **Raw view** pretty-prints and syntax-highlights the XML (indented, tags/attributes/values colour-coded) instead of showing the minified original.
 - **JSON view** converts the XML to JSON and displays it in the same tree — since there's no canonical XML→JSON mapping, terapi uses a fixed, arbitrary convention: attributes become `@name` keys, a leaf element's text becomes its value directly, and repeated sibling tags become a JSON array. Namespace prefixes (`dc:`, `srw:`…) are dropped, keeping only the local tag name. The tree's top-level object always starts with a `FromXML: true` entry, so it's immediately visible that this is a converted view rather than the API's real JSON. Fold, search, the extraction path bar and `f: follow URL` all operate on this converted tree, so they stay in sync with what's on screen.

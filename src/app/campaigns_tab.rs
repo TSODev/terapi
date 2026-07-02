@@ -53,6 +53,7 @@ impl App {
         self.response_cursor = 0;
         self.response_scroll = 0;
         self.response_folds = std::collections::HashSet::new();
+        self.response_rows = Vec::new();
         self.last_request_raw = None;
         self.response_redirects = Vec::new();
         self.response_cookies = Vec::new();

@@ -114,6 +114,7 @@ impl App {
                     self.response_cursor = 0;
                     self.response_scroll = 0;
                     self.response_folds = HashSet::new();
+                    self.rebuild_response_rows();
                     self.update_response_status_hint();
                     self.record_history(Some(http.status), Some(http.elapsed_ms), Some(http.body));
                 }
@@ -124,6 +125,7 @@ impl App {
                     self.response_cursor = 0;
                     self.response_scroll = 0;
                     self.response_folds = HashSet::new();
+                    self.rebuild_response_rows();
                     let short = msg.lines().next().unwrap_or(&msg).chars().take(80).collect::<String>();
                     self.status_message = format!("Error: {}  —  r: JSON view  e: edit URL  s: retry  q: quit", short);
                     self.record_history(None, None, Some(format!("Error: {}", msg)));
@@ -167,12 +169,20 @@ impl App {
         Some(crate::xml_convert::to_json_text(body, content_type))
     }
 
+    /// Recomputes `response_rows` (the flattened JSON tree). Call this every time
+    /// `response_body`, `response_folds`, or `response_headers` changes — never from
+    /// rendering, which runs on every keystroke regardless of which tab is focused and
+    /// would otherwise re-parse/re-flatten the whole response on every frame (a ~140k-row
+    /// response made typing anywhere feel like ~1 char/s before this cache existed).
+    pub(super) fn rebuild_response_rows(&mut self) {
+        self.response_rows = match self.response_json_text() {
+            Some(json) => crate::json_highlight::rows(&json, &self.response_folds),
+            None => Vec::new(),
+        };
+    }
+
     pub(super) fn response_line_count(&self) -> usize {
-        crate::json_highlight::rows(
-            self.response_json_text().as_deref().unwrap_or(""),
-            &self.response_folds,
-        )
-        .len()
+        self.response_rows.len()
     }
 
     pub(super) fn sync_scroll(&mut self) {
@@ -257,12 +267,7 @@ impl App {
             Some(s) if !s.is_empty() => s.to_lowercase(),
             _ => return vec![],
         };
-        let json = match self.response_json_text() {
-            Some(j) => j,
-            None => return vec![],
-        };
-        crate::json_highlight::rows(&json, &self.response_folds)
-            .into_iter()
+        self.response_rows.iter()
             .enumerate()
             .filter(|(_, r)| {
                 r.key.to_lowercase().contains(&term)
@@ -308,9 +313,7 @@ impl App {
 
     /// Returns the URL string under the JSON cursor, if any (starts with http:// or https://).
     pub(super) fn current_response_url(&self) -> Option<String> {
-        let json = self.response_json_text()?;
-        let rows = crate::json_highlight::rows(&json, &self.response_folds);
-        let row = rows.get(self.response_cursor)?;
+        let row = self.response_rows.get(self.response_cursor)?;
         let v = row.value_preview.trim_matches('"');
         if v.starts_with("http://") || v.starts_with("https://") {
             Some(v.to_string())
@@ -338,16 +341,14 @@ impl App {
     }
 
     pub(super) fn toggle_response_fold(&mut self) {
-        let json = self.response_json_text().unwrap_or_default();
-        let json_rows = crate::json_highlight::rows(&json, &self.response_folds);
-
-        if let Some(path) = json_rows
+        if let Some(path) = self.response_rows
             .get(self.response_cursor)
             .and_then(|r| r.fold_path.clone())
         {
             if !self.response_folds.remove(&path) {
                 self.response_folds.insert(path);
             }
+            self.rebuild_response_rows();
             let new_len = self.response_line_count();
             if self.response_cursor >= new_len && new_len > 0 {
                 self.response_cursor = new_len - 1;

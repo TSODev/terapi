@@ -12,7 +12,7 @@ use crate::app::{
     SaveField, SchemaDetail, SchemaState, Tab, VarField, COMMON_CONTENT_TYPES, COMMON_HEADERS,
     METHODS,
 };
-use crate::json_highlight::{self, ValueType};
+use crate::json_highlight::ValueType;
 use crate::xml_convert;
 
 pub fn render(frame: &mut Frame, app: &App) {
@@ -1192,10 +1192,7 @@ fn render_response_json(frame: &mut Frame, app: &App, area: Rect) {
     let term = app.json_search.as_deref().unwrap_or("").to_lowercase();
     let has_term = !term.is_empty();
 
-    let json_rows = match app.response_json_text() {
-        Some(json) => json_highlight::rows(&json, &app.response_folds),
-        None => vec![],
-    };
+    let json_rows = &app.response_rows;
 
     let match_count = if has_term {
         json_rows.iter().filter(|r| {
@@ -1205,7 +1202,30 @@ fn render_response_json(frame: &mut Frame, app: &App, area: Rect) {
         0
     };
 
-    let rows: Vec<Row> = json_rows.iter().map(|r| {
+    // Only build ratatui Row/Cell objects for the visible window, not the whole response —
+    // for a large response (e.g. ~140k rows), constructing a Row per JsonRow every single
+    // frame is itself a major cost even once json_highlight::rows() is cached (measured
+    // ~325ms/frame for 140k rows). All rows have a fixed height of 1, so this windowing
+    // is a simplified version of ratatui Table's own get_row_bounds(): keep the cursor
+    // in view, otherwise follow response_scroll.
+    let total = json_rows.len();
+    let visible_height = (table_area.height as usize).saturating_sub(1); // minus header row
+    let mut win_start = (app.response_scroll as usize).min(total.saturating_sub(1));
+    let mut win_end = (win_start + visible_height).min(total);
+    if total > 0 {
+        let sel = app.response_cursor.min(total - 1);
+        if sel >= win_end {
+            win_end = sel + 1;
+            win_start = win_end.saturating_sub(visible_height);
+        }
+        if sel < win_start {
+            win_start = sel;
+            win_end = (win_start + visible_height).min(total);
+        }
+    }
+    let visible_rows = &json_rows[win_start..win_end];
+
+    let rows: Vec<Row> = visible_rows.iter().map(|r| {
         let is_match = has_term && (
             r.key.to_lowercase().contains(&term) ||
             r.value_preview.to_lowercase().contains(&term)
@@ -1276,8 +1296,8 @@ fn render_response_json(frame: &mut Frame, app: &App, area: Rect) {
         .column_spacing(1);
 
     let mut state = TableState::default()
-        .with_selected(Some(app.response_cursor))
-        .with_offset(app.response_scroll as usize);
+        .with_selected(Some(app.response_cursor.saturating_sub(win_start)))
+        .with_offset(0);
 
     frame.render_stateful_widget(table, table_area, &mut state);
 

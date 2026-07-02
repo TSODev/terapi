@@ -379,6 +379,7 @@ pub async fn run_step_preview_with_context(
     base_env: HashMap<String, String>,
 ) -> StepResult {
     let client = reqwest::Client::builder()
+        .user_agent(concat!("terapi/", env!("CARGO_PKG_VERSION")))
         .timeout(std::time::Duration::from_secs(30))
         .build()
         .unwrap_or_else(|_| reqwest::Client::new());
@@ -448,6 +449,7 @@ pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<Campaig
     base_env.extend(overrides);
 
     let client = match reqwest::Client::builder()
+        .user_agent(concat!("terapi/", env!("CARGO_PKG_VERSION")))
         .timeout(std::time::Duration::from_secs(30))
         .build()
     {

@@ -7,6 +7,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **`User-Agent` header missing from campaign/builder requests** — the interactive TUI's `reqwest::Client` already sent `User-Agent: terapi/<version>` on every request, but the two `reqwest::Client` instances built in `campaign.rs` (used by headless `terapi run` and by `terapi build`'s step preview/run) did not, so campaign and builder requests went out with no `User-Agent` header at all unless the target server supplied its own default. Both clients now set `.user_agent(concat!("terapi/", env!("CARGO_PKG_VERSION")))`, matching the TUI and the behavior already documented in USAGE.md.
+
 ---
 
 ## [0.10.8] — 2026-07-02

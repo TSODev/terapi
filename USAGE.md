@@ -397,7 +397,7 @@ Active boolean options turn yellow. The timeout shows the current value in brack
 
 **Cookie jar** — when enabled, terapi behaves like a browser for cookies: `Set-Cookie` headers received in responses are stored and automatically included in the `Cookie` header of subsequent requests. Useful for testing session-based authentication (login → session cookie → authenticated requests).
 
-> **User-Agent** — terapi automatically sets `User-Agent: terapi/<version>` on every request. You can override it per-request by adding a `User-Agent` header in the Headers sub-tab.
+> **User-Agent** — terapi automatically sets `User-Agent: terapi/<version>` on every request it sends — interactive TUI requests, `terapi run` campaigns, and `terapi build` step preview/run alike. You can override it per-request by adding a `User-Agent` header in the Headers sub-tab (or `[steps.headers]` for campaign steps).
 
 The jar is cleared automatically when the option is toggled off or when starting a new request (`n`). All four options are persisted in the collection TOML and restored when loading a request from Collections.
 

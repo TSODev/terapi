@@ -39,6 +39,24 @@ pub fn html_notice_json(body: &str) -> String {
     serde_json::to_string_pretty(&Value::Object(map)).unwrap_or_default()
 }
 
+/// Best-effort JSON text for an arbitrary response body: converts XML to
+/// JSON (tagged `FromXML: true`), shows an HTML notice for error/block
+/// pages, or passes the body through unchanged if it looks like neither.
+/// The single entry point every JSON-tree consumer (render, fold, search,
+/// external editor/diff…) should go through, so they never drift apart on
+/// what "the JSON for this response" means.
+pub fn to_json_text(body: &str, content_type: Option<&str>) -> String {
+    if is_xml(body, content_type) {
+        if let Ok(json) = xml_to_json(body) {
+            return json;
+        }
+        if is_html(body) {
+            return html_notice_json(body);
+        }
+    }
+    body.to_string()
+}
+
 /// Converts an XML document to a JSON string using an arbitrary (there is no
 /// canonical XML→JSON mapping) but readable convention:
 /// - attributes become `@name` keys

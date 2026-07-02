@@ -164,15 +164,7 @@ impl App {
         let content_type = self.response_headers.iter()
             .find(|(k, _)| k.eq_ignore_ascii_case("content-type"))
             .map(|(_, v)| v.as_str());
-        if crate::xml_convert::is_xml(body, content_type) {
-            if let Ok(json) = crate::xml_convert::xml_to_json(body) {
-                return Some(json);
-            }
-            if crate::xml_convert::is_html(body) {
-                return Some(crate::xml_convert::html_notice_json(body));
-            }
-        }
-        Some(body.to_string())
+        Some(crate::xml_convert::to_json_text(body, content_type))
     }
 
     pub(super) fn response_line_count(&self) -> usize {

@@ -234,11 +234,16 @@ async fn run_tui(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, json: Op
 
         if app.pending_diff_open {
             app.pending_diff_open = false;
-            if let (Some(prev), Some(curr)) = (&app.previous_response_body.clone(), &app.response_body.clone()) {
+            if let (Some(prev), Some(_curr)) = (&app.previous_response_body.clone(), &app.response_body.clone()) {
+                // `prev` has no stored headers (only the raw body is snapshotted), so it's
+                // sniffed content-type-blind; `curr` goes through response_json_text() with
+                // the current response's real headers.
+                let prev_json = crate::xml_convert::to_json_text(prev, None);
+                let curr_json = app.response_json_text().unwrap_or_default();
                 let prev_path = "/tmp/terapi_prev.json";
                 let curr_path = "/tmp/terapi_curr.json";
-                let _ = std::fs::write(prev_path, prev);
-                let _ = std::fs::write(curr_path, curr);
+                let _ = std::fs::write(prev_path, &prev_json);
+                let _ = std::fs::write(curr_path, &curr_json);
                 disable_raw_mode()?;
                 execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
                 if let Ok(differ) = std::env::var("TERAPI_JSON_DIFFER") {
@@ -292,9 +297,9 @@ async fn run_tui(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, json: Op
 
         if app.pending_response_viewer_open {
             app.pending_response_viewer_open = false;
-            if let Some(ref body) = app.response_body.clone() {
+            if let Some(body) = app.response_json_text() {
                 let tmp = "/tmp/terapi_response.json";
-                let _ = std::fs::write(tmp, body);
+                let _ = std::fs::write(tmp, &body);
                 let editor = std::env::var("TERAPI_JSON_EDITOR")
                     .unwrap_or_else(|_| "jsoned".to_string());
                 disable_raw_mode()?;

@@ -658,6 +658,7 @@ The **HTTP view** is the primary debugging tool — it shows the exact request s
 - **HTTP view** is untouched — the body is shown exactly as received, no conversion or pretty-print.
 - This conversion only applies to the interactive response viewer. Campaign `extract`/`assert` steps still parse the body directly as JSON (`campaign.rs`) — an XML response in a headless campaign won't be extracted from and assertions against it will fail, same as before this feature.
 - **HTML error/block pages** (e.g. a WAF challenge page on a 403, a login-wall redirect) also start with `<` and get caught by the sniffing above, but real-world HTML rarely parses as well-formed XML — instead of a confusing raw parser error, terapi shows `⚠ HTML response — likely an error/block page, not JSON or XML` with a preview of the body, in both the JSON and Raw views.
+- `E` (external JSON editor, read-only on a response) and `d` (diff with the previous response) both open the **converted** JSON for an XML response, not the raw XML — so `$TERAPI_JSON_EDITOR`/`$TERAPI_JSON_DIFFER`/`$TERAPI_DIFF` always receive real JSON.
 
 ```
 ── Request ──────────────────────────────────────────────

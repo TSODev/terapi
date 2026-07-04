@@ -1380,12 +1380,37 @@ fn render_response_json(frame: &mut Frame, app: &App, area: Rect) {
     }
 }
 
+/// Above this size, `Paragraph`'s wrap computation over a raw body (often a single
+/// multi-megabyte source line for compact JSON APIs) costs hundreds of ms *per frame*
+/// regardless of syntax highlighting — measured ~290ms at 3.4MB, ~1.25s at 13.8MB.
+/// Syntax coloring only accounts for a fraction of that (the wrap pass dominates), so a
+/// monochrome fallback doesn't fix it; skip rendering the body text entirely instead and
+/// point at the JSON view (already cached + windowed) and the external editor (`E`).
+const LARGE_BODY_THRESHOLD: usize = 1_000_000;
+
+/// Notice shown in place of a raw body dump once it crosses `LARGE_BODY_THRESHOLD`.
+fn large_body_notice(byte_len: usize) -> Vec<Line<'static>> {
+    let notice_style = Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD);
+    let hint_style = Style::default().fg(Color::Indexed(244));
+    vec![
+        Line::from(Span::styled(
+            format!("⚠ Response too large for raw display ({:.1} MB)", byte_len as f64 / 1_000_000.0),
+            notice_style,
+        )),
+        Line::from(Span::raw("")),
+        Line::from(Span::styled("  r → JSON view: navigable, optimized for large responses", hint_style)),
+        Line::from(Span::styled("  E → open the full body in an external editor", hint_style)),
+    ]
+}
+
 fn render_response_raw(frame: &mut Frame, app: &App, area: Rect) {
     let text = app.response_body.as_deref().unwrap_or("No response.");
     let content_type = app.response_headers.iter()
         .find(|(k, _)| k.eq_ignore_ascii_case("content-type"))
         .map(|(_, v)| v.as_str());
-    let lines = if xml_convert::is_xml(text, content_type) {
+    let lines = if text.len() > LARGE_BODY_THRESHOLD {
+        large_body_notice(text.len())
+    } else if xml_convert::is_xml(text, content_type) {
         highlight_xml(text).unwrap_or_else(|| {
             if xml_convert::is_html(text) {
                 html_notice_lines(text)
@@ -1733,7 +1758,11 @@ fn render_response_http(frame: &mut Frame, app: &App, area: Rect) {
             }
             lines.push(Line::from(Span::raw("")));
             let body = app.response_body.as_deref().unwrap_or("");
-            lines.extend(highlight_raw(body));
+            if body.len() > LARGE_BODY_THRESHOLD {
+                lines.extend(large_body_notice(body.len()));
+            } else {
+                lines.extend(highlight_raw(body));
+            }
 
             // ── Redirect chain ────────────────────────────────────────────
             if !app.response_redirects.is_empty() {

@@ -208,6 +208,7 @@ impl App {
                 .user_agent(concat!("terapi/", env!("CARGO_PKG_VERSION")))
                 .timeout(std::time::Duration::from_secs(30))
                 .redirect(reqwest::redirect::Policy::limited(10))
+                .pool_max_idle_per_host(0)
                 .build()
                 .expect("HTTP client init failed"),
             cookie_jar_store: std::sync::Arc::new(reqwest::cookie::Jar::default()),
@@ -269,7 +270,8 @@ impl App {
             .user_agent(concat!("terapi/", env!("CARGO_PKG_VERSION")))
             .timeout(std::time::Duration::from_secs(self.request_timeout_secs))
             .danger_accept_invalid_certs(self.skip_tls_verify)
-            .redirect(reqwest::redirect::Policy::none()); // redirects handled manually
+            .redirect(reqwest::redirect::Policy::none()) // redirects handled manually
+            .pool_max_idle_per_host(0);
         if self.cookie_jar {
             builder = builder.cookie_provider(self.cookie_jar_store.clone());
         }

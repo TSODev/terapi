@@ -381,6 +381,7 @@ pub async fn run_step_preview_with_context(
     let client = reqwest::Client::builder()
         .user_agent(concat!("terapi/", env!("CARGO_PKG_VERSION")))
         .timeout(std::time::Duration::from_secs(30))
+        .pool_max_idle_per_host(0)
         .build()
         .unwrap_or_else(|_| reqwest::Client::new());
     let (tx, _rx) = mpsc::unbounded_channel::<CampaignEvent>();
@@ -451,6 +452,7 @@ pub async fn run_streaming(campaign: Campaign, tx: mpsc::UnboundedSender<Campaig
     let client = match reqwest::Client::builder()
         .user_agent(concat!("terapi/", env!("CARGO_PKG_VERSION")))
         .timeout(std::time::Duration::from_secs(30))
+        .pool_max_idle_per_host(0)
         .build()
     {
         Ok(c) => c,

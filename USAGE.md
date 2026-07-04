@@ -604,6 +604,7 @@ The JSON view displays a 3-column table: **Key / Type / Value**.
 - Press `f` (JSON view) when the cursor is on a URL value to **follow the URL** — it is instantly loaded into the request bar with method set to GET and the URL field focused.
 - Use `-` / `=` to shrink or grow the Key column width.
 - Use `↑` / `↓` to move the cursor row by row (JSON view) or scroll (Raw / HTTP views).
+- Press `z` to **expand** the Response panel to the whole Request tab body — hides the URL bar, sub-tabs, and request content, giving the response maximal room; the outer tab bar and status bar stay visible. Press `z` again or `Esc` to collapse back.
 
 **Extraction path bar:**
 
@@ -1097,6 +1098,7 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `Esc` | JSON search | Close search and clear filter |
 | `-` | Request panel | Shrink Key column |
 | `=` | Request panel | Grow Key column |
+| `z` | Request panel (response has a body) | Expand/collapse Response panel to the whole tab body |
 | `↑` / `↓` | Collections panel | Move cursor |
 | `Enter` | Collections panel (folder) | Expand / collapse folder |
 | `Enter` | Collections panel (request) | Load request into Request tab |

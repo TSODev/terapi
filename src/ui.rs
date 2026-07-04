@@ -75,6 +75,15 @@ fn render_body(frame: &mut Frame, app: &App, area: Rect) {
 // ── Request panel ────────────────────────────────────────────────────────────
 
 fn render_request_panel(frame: &mut Frame, app: &App, area: Rect) {
+    // Expanded Response takeover (`z`) — gives the Response panel the entire Request tab
+    // body (URL bar, sub-tabs, and request content all hidden), while the outer tab bar and
+    // status bar (with keybinding hints) stay visible. Mirrors the GraphQL Schema detail
+    // panel's own expand mode and the builder's full-panel step-run takeover.
+    if app.response_expanded {
+        render_response(frame, app, area);
+        return;
+    }
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -1125,11 +1134,12 @@ fn render_headers_editor(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_response(frame: &mut Frame, app: &App, area: Rect) {
+    let expand_hint = if app.response_expanded { "  z: collapse " } else { "  z: expand " };
     let title = if app.request_loading {
         Line::from(vec![
             Span::raw(" "),
             Span::styled("⟳ sending…", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-            Span::raw("  r: cycle view  -/=: resize "),
+            Span::raw(format!("  r: cycle view  -/=: resize{}", expand_hint)),
         ])
     } else {
         let style_for = |v: &ResponseView| {
@@ -1167,7 +1177,7 @@ fn render_response(frame: &mut Frame, app: &App, area: Rect) {
                 ));
             }
         }
-        spans.push(Span::raw("  r: cycle  -/=: resize "));
+        spans.push(Span::raw(format!("  r: cycle  -/=: resize{}", expand_hint)));
         Line::from(spans)
     };
 

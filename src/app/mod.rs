@@ -93,6 +93,10 @@ pub struct App {
     /// a large response, e.g. ~140k flattened rows, made typing anywhere feel like ~1 char/s).
     /// See `rebuild_response_rows()`.
     pub response_rows: Vec<crate::json_highlight::JsonRow>,
+    /// When true, the Response panel takes the whole Request tab body (URL bar, sub-tabs,
+    /// and request content hidden) — toggled with `z`, mirrors the GraphQL Schema detail
+    /// panel's own expand mode. Tab bar and status bar stay visible.
+    pub response_expanded: bool,
     pub json_search: Option<String>,
     pub key_col_width: u16,
     pub status_message: String,
@@ -223,6 +227,7 @@ impl App {
             response_scroll: 0,
             response_folds: HashSet::new(),
             response_rows,
+            response_expanded: false,
             json_search: None,
             key_col_width: 22,
             status_message: "Tab: panels  e: edit URL  s: send  S: save  n: new  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into(),
@@ -1034,6 +1039,22 @@ impl App {
                 };
                 self.response_cursor = 0;
                 self.response_scroll = 0;
+            }
+            // Response panel expand/collapse — takes the whole Request tab body (URL bar,
+            // sub-tabs, request content hidden), keeping the outer tab bar + status bar
+            // visible. Excludes the GraphQL Schema tab, which already binds `z` to its own
+            // detail-panel expand — without this exclusion, pressing `z` on Schema before a
+            // type is loaded (that arm's guard fails to match) would fall through here and
+            // hide the whole schema browser instead of doing nothing, as it did before.
+            KeyCode::Char('z')
+                if self.active_tab == Tab::Request
+                    && self.response_body.is_some()
+                    && !(self.graphql_mode && self.active_graphql_tab == GraphqlTab::Schema) =>
+            {
+                self.response_expanded = !self.response_expanded;
+            }
+            KeyCode::Esc if self.active_tab == Tab::Request && self.response_expanded => {
+                self.response_expanded = false;
             }
             KeyCode::Char('d')
                 if self.active_tab == Tab::Request

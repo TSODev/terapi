@@ -1083,30 +1083,30 @@ impl App {
                     self.update_response_status_hint();
                 }
             }
-            KeyCode::Up if self.active_tab == Tab::Request => {
+            KeyCode::Up | KeyCode::PageUp if self.active_tab == Tab::Request => {
+                let step = if key.code == KeyCode::PageUp { 10 } else { 1 };
                 match self.response_view {
                     ResponseView::Json => {
-                        self.response_cursor = self.response_cursor.saturating_sub(1);
+                        self.response_cursor = self.response_cursor.saturating_sub(step);
                         self.sync_scroll();
                         self.update_response_status_hint();
                     }
                     ResponseView::Raw | ResponseView::Http => {
-                        self.response_scroll = self.response_scroll.saturating_sub(1);
+                        self.response_scroll = self.response_scroll.saturating_sub(step as u16);
                     }
                 }
             }
-            KeyCode::Down if self.active_tab == Tab::Request => {
+            KeyCode::Down | KeyCode::PageDown if self.active_tab == Tab::Request => {
+                let step = if key.code == KeyCode::PageDown { 10 } else { 1 };
                 match self.response_view {
                     ResponseView::Json => {
                         let len = self.response_line_count();
-                        if self.response_cursor + 1 < len {
-                            self.response_cursor += 1;
-                        }
+                        self.response_cursor = (self.response_cursor + step).min(len.saturating_sub(1));
                         self.sync_scroll();
                         self.update_response_status_hint();
                     }
                     ResponseView::Raw | ResponseView::Http => {
-                        self.response_scroll = self.response_scroll.saturating_add(1);
+                        self.response_scroll = self.response_scroll.saturating_add(step as u16);
                     }
                 }
             }

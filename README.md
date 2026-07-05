@@ -121,6 +121,7 @@ After import, a report is printed:
 | `e` | Edit URL (enter URL mode) |
 | `m` | Cycle HTTP method (outside URL mode) |
 | `↑` / `↓` | Cycle HTTP method (in URL mode) / move response cursor / scroll |
+| `PgUp` / `PgDn` | Move response cursor / scroll — 10 rows/lines at a time |
 | `n` | New request — clear all fields |
 | `s` | Send request |
 | `S` | Save current request to a collection |
@@ -279,6 +280,8 @@ Content-Type: application/json
 ```
 
 Transport errors (DNS failure, TLS error, timeout) are displayed inline with the full `caused by:` chain.
+
+Above 1 MB, the Raw view and the HTTP view's response body show a short notice instead of the raw text (word-wrapping a multi-megabyte body every frame is expensive) — use `r` for the JSON view (cached and windowed, stays fast on huge responses) or `E` to open the full body in an external editor.
 
 ---
 

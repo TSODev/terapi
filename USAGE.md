@@ -603,7 +603,7 @@ The JSON view displays a 3-column table: **Key / Type / Value**.
 - Press `d` (JSON or Raw view) to diff the last two responses in an external tool — see [Response diff](#response-diff) below.
 - Press `f` (JSON view) when the cursor is on a URL value to **follow the URL** — it is instantly loaded into the request bar with method set to GET and the URL field focused.
 - Use `-` / `=` to shrink or grow the Key column width.
-- Use `↑` / `↓` to move the cursor row by row (JSON view) or scroll (Raw / HTTP views).
+- Use `↑` / `↓` to move the cursor row by row (JSON view) or scroll (Raw / HTTP views); `PgUp` / `PgDn` do the same 10 rows/lines at a time — useful on a large response (thousands of rows) where reaching a distant row would otherwise mean holding `↓` for a while.
 - Press `z` to **expand** the Response panel to the whole Request tab body — hides the URL bar, sub-tabs, and request content, giving the response maximal room; the outer tab bar and status bar stay visible. Press `z` again or `Esc` to collapse back.
 
 **Extraction path bar:**
@@ -662,7 +662,7 @@ Press `/` in the JSON view to open a search bar at the bottom. Type to filter �
 
 The **HTTP view** is the primary debugging tool — it shows the exact request sent (all `{{VAR}}` resolved), the full response, redirect chain, received cookies, and timing diagnostics. Long lines (a GraphQL query serialised into the request body, a long URL…) wrap across multiple lines instead of being cut off at the terminal width.
 
-**Large responses** — the JSON tree is cached and only re-parsed/re-flattened when the response actually changes (a new response arrives, or a node is folded/unfolded), and only the visible rows are drawn — even a response with 100k+ flattened rows (e.g. a full municipality list from a geo API) doesn't slow down typing elsewhere in the UI.
+**Large responses** — the JSON tree is cached and only re-parsed/re-flattened when the response actually changes (a new response arrives, or a node is folded/unfolded), and only the visible rows are drawn — even a response with 100k+ flattened rows (e.g. a full municipality list from a geo API) doesn't slow down typing elsewhere in the UI. The **Raw** view and the **HTTP** view's response body, however, don't windowed-render the same way — above 1 MB they show a short notice instead of the raw text (`r` for the JSON view, `E` to open the full body in an external editor), since word-wrapping a multi-megabyte body every frame is expensive regardless of syntax coloring. This only affects the raw body dump; headers, diagnostics, redirects and cookies in the HTTP view are unaffected.
 
 **XML responses** — detected via `Content-Type` (any `*/xml` or `*+xml`) or by sniffing the body when the header is missing/wrong (a leading `<`):
 - **Raw view** pretty-prints and syntax-highlights the XML (indented, tags/attributes/values colour-coded) instead of showing the minified original.
@@ -1088,7 +1088,8 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `Enter` | Request panel (URL mode) | Send request |
 | `Esc` | Request panel (URL mode) | Finish URL edit (stay on current sub-tab) |
 | `Esc` | Request panel (body editor, Text or JSON) | Exit body editor |
-| `↑` / `↓` | Request panel | Move response cursor (JSON) / scroll (Raw) |
+| `↑` / `↓` | Request panel | Move response cursor (JSON) / scroll (Raw, HTTP) |
+| `PgUp` / `PgDn` | Request panel | Same as `↑` / `↓`, 10 rows/lines at a time |
 | `Enter` | Request panel (response mode) | Fold / unfold selected JSON node |
 | `r` | Request panel | Cycle response view: JSON → Raw → HTTP exchange |
 | `d` | Request panel (JSON or Raw view) | Diff last two responses in external tool (`$TERAPI_JSON_DIFFER`, else `$TERAPI_DIFF`) |

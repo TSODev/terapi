@@ -20,13 +20,13 @@
 
 **terapi** aims to be all of the above in one tool:
 
-> **Full documentation** → [USAGE.md](https://github.com/TSODev/terapi/blob/main/USAGE.md)
-> **What's New** → [CHANGELOG.md](https://github.com/TSODev/terapi/blob/main/CHANGELOG.md)
-
 - **GraphQL native** — schema introspection, variable editing, collections save/load
 - **Pipeline automation** — chain requests, extract variables, run campaigns headlessly
 - **Local-first** — collections stored as TOML, git-friendly, no account, no cloud
 - **Single binary** — `cargo install terapi`, instant startup, zero Electron
+
+> **Full documentation** → [USAGE.md](https://github.com/TSODev/terapi/blob/main/USAGE.md)
+> **What's New** → [CHANGELOG.md](https://github.com/TSODev/terapi/blob/main/CHANGELOG.md)
 
 ---
 

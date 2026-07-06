@@ -41,7 +41,7 @@
 
   @page {
     size: A4 landscape;
-    margin: 9mm 11mm;
+    margin: 6mm 11mm;
   }
 
   body {
@@ -197,9 +197,9 @@
 
   /* ── Footer ──────────────────────────────────────────────────────────── */
   footer {
-    margin-top: 6px;
+    margin-top: 2px;
     border-top: 1px solid var(--border);
-    padding-top: 4px;
+    padding-top: 2px;
     font-size: 6.3pt;
     color: var(--muted);
     display: flex;
@@ -274,16 +274,6 @@
         </table>
       </div>
 
-      <!-- History -->
-      <div class="section slate">
-        <div class="section-title"><span class="icon">🕘</span> History Panel</div>
-        <table>
-          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Navigate entries</td></tr>
-          <tr><td><kbd>Enter</kbd></td><td>Load into Request tab (restores GraphQL mode too)</td></tr>
-          <tr><td><kbd>d</kbd></td><td>Delete entry</td></tr>
-        </table>
-      </div>
-
     </div>
 
     <!-- ═══════════════════ COLUMN 2 ═══════════════════ -->
@@ -299,18 +289,16 @@
           <tr><td><kbd>S</kbd></td><td>Save to collection</td></tr>
           <tr><td><kbd>n</kbd></td><td>New request — clear all fields</td></tr>
           <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Navigate sub-tabs</td></tr>
-          <tr><td><kbd>g</kbd></td><td>Toggle GraphQL ↔ REST</td></tr>
           <tr class="sep"><td><kbd>i</kbd></td><td>Edit description / enter body editor</td></tr>
-          <tr><td><kbd>t</kbd></td><td>Toggle body mode: Text ↔ JSON</td></tr>
-          <tr><td><kbd>a</kbd> <kbd>d</kbd></td><td>Body (JSON) / URL Params — add / delete field</td></tr>
-          <tr><td><kbd>E</kbd></td><td>Open body in external editor (<span class="mono">$TERAPI_JSON_EDITOR</span>)</td></tr>
-          <tr class="sep"><td><kbd>{{</kbd></td><td>Open <span class="mono">{{VAR}}</span> picker — env vars + built-ins</td></tr>
+          <tr><td><kbd>t</kbd> <kbd>a</kbd> <kbd>d</kbd></td><td>Toggle Text↔JSON / add-delete field (JSON mode)</td></tr>
+          <tr><td><kbd>E</kbd></td><td>Open body in <span class="mono">$TERAPI_JSON_EDITOR</span></td></tr>
+          <tr class="sep"><td><kbd>{{</kbd></td><td><span class="mono">{{VAR}}</span> picker — env vars + built-ins</td></tr>
         </table>
       </div>
 
-      <!-- Auth sub-tab -->
+      <!-- Auth + Options -->
       <div class="section rest">
-        <div class="section-title"><span class="icon">🔑</span> Request — Auth Sub-tab</div>
+        <div class="section-title"><span class="icon">🔑</span> Request — Auth &amp; Options</div>
         <table>
           <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Navigate fields</td></tr>
           <tr><td><kbd>Space</kbd>/<kbd>Enter</kbd></td><td>Type row — cycle auth type</td></tr>
@@ -318,28 +306,22 @@
           <tr><td><kbd>Space</kbd></td><td>Location row — Header ↔ Query Param</td></tr>
           <tr><td><kbd>f</kbd></td><td>Fetch OAuth2 token manually</td></tr>
           <tr><td><kbd>Esc</kbd></td><td>Cancel OAuth2 browser wait</td></tr>
-        </table>
-      </div>
-
-      <!-- Options -->
-      <div class="section rest">
-        <div class="section-title"><span class="icon">⚙</span> Request — Options Sub-tab</div>
-        <table>
-          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Navigate options</td></tr>
-          <tr><td><kbd>Space</kbd>/<kbd>Enter</kbd></td><td>Toggle option, or cycle timeout value</td></tr>
+          <tr class="sep"><td><kbd>Space</kbd>/<kbd>Enter</kbd></td><td>Options — toggle / cycle timeout</td></tr>
           <tr class="sub"><td>&nbsp;</td><td>Skip TLS · Follow redirects · Timeout · Cookie jar</td></tr>
         </table>
       </div>
 
-      <!-- Campaigns -->
+      <!-- History + Campaigns -->
       <div class="section camp">
-        <div class="section-title"><span class="icon">🚀</span> Campaigns Panel</div>
+        <div class="section-title"><span class="icon">🕘</span> History &amp; Campaigns Panels</div>
         <table>
-          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Navigate list — or step cursor (Done panel)</td></tr>
-          <tr><td><kbd>r</kbd></td><td>Run campaign (or open params modal)</td></tr>
-          <tr><td><kbd>L</kbd></td><td>Load selected step into Request tab (Done)</td></tr>
-          <tr><td><kbd>E</kbd></td><td>Open campaign TOML in <span class="mono">$EDITOR</span></td></tr>
-          <tr><td><kbd>Esc</kbd></td><td>Clear run result</td></tr>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>History — navigate entries</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>History — load into Request tab</td></tr>
+          <tr><td><kbd>d</kbd></td><td>History — delete entry</td></tr>
+          <tr class="sep"><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Campaigns — navigate list / step cursor</td></tr>
+          <tr><td><kbd>r</kbd></td><td>Campaigns — run (or open params modal)</td></tr>
+          <tr><td><kbd>L</kbd></td><td>Campaigns — load step into Request tab</td></tr>
+          <tr><td><kbd>E</kbd></td><td>Campaigns — open TOML in <span class="mono">$EDITOR</span></td></tr>
         </table>
       </div>
 

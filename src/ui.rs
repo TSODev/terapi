@@ -2813,6 +2813,10 @@ fn render_placeholder(frame: &mut Frame, area: Rect, title: &str, msg: &str) {
     frame.render_widget(widget, area);
 }
 
+/// Shared background for the whole 2-line status bar — gives it a distinct
+/// "band" instead of plain text floating on the terminal's own background.
+const STATUS_BG: Color = Color::Indexed(236);
+
 fn render_status(frame: &mut Frame, app: &App, area: Rect) {
     let rows = Layout::default()
         .direction(Direction::Vertical)
@@ -2822,33 +2826,112 @@ fn render_status(frame: &mut Frame, app: &App, area: Rect) {
     // ── Context bar (top row) ──────────────────────────────────────────────
     let ctx_cols = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Min(0), Constraint::Length(32)])
+        .constraints([Constraint::Min(0), Constraint::Length(28)])
         .split(rows[0]);
 
     let breadcrumb = context_breadcrumb(app);
     frame.render_widget(
-        Paragraph::new(breadcrumb).style(Style::default().fg(Color::Cyan)),
+        Paragraph::new(format!(" {}", breadcrumb))
+            .style(Style::default().fg(Color::Cyan).bg(STATUS_BG)),
         ctx_cols[0],
     );
 
+    // Env indicator gets its own "chip" — a solid-colour pill — only when it
+    // actually carries a meaningful state (active env / unresolved var
+    // warning); the neutral "no active env" case stays a plain muted label
+    // on the ambient bar so it doesn't visually compete for attention.
     let (env_str, env_color) = env_indicator(app);
+    let is_chip = env_color != Color::Indexed(238);
+    let env_style = if is_chip {
+        Style::default().fg(Color::Black).bg(env_color).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(env_color).bg(STATUS_BG)
+    };
     frame.render_widget(
-        Paragraph::new(env_str)
-            .style(Style::default().fg(env_color))
+        Paragraph::new(format!(" {} ", env_str))
+            .style(env_style)
             .alignment(Alignment::Right),
         ctx_cols[1],
     );
 
-    // ── Hints bar (bottom row) ─────────────────────────────────────────────
-    let (hint_text, hint_color) = if app.confirm_quit {
-        (app.status_message.as_str(), Color::Yellow)
+    // ── Hints bar (bottom row) ──────────────────────────────────────────────
+    let line = if app.confirm_quit {
+        Line::from(Span::styled(
+            format!(" {}", app.status_message),
+            Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD),
+        ))
     } else {
-        (app.status_message.as_str(), Color::Gray)
+        style_hint_line(&app.status_message)
     };
-    frame.render_widget(
-        Paragraph::new(hint_text).style(Style::default().fg(hint_color)),
-        rows[1],
-    );
+    frame.render_widget(Paragraph::new(line), rows[1]);
+}
+
+/// Splits a status hint string (built ad hoc all over `app/`, always following
+/// the loose convention `"info  key: label  key: label…"`) into styled spans
+/// on the shared `STATUS_BG` band — bold key tokens, dim colons, muted labels,
+/// colour-coded HTTP status codes — without requiring every call site that
+/// sets `status_message` to change. Falls back to plain muted text for any
+/// segment that doesn't match a recognised shape.
+fn style_hint_line(text: &str) -> Line<'static> {
+    let dim   = Style::default().fg(Color::Indexed(242)).bg(STATUS_BG);
+    let label = Style::default().fg(Color::Indexed(250)).bg(STATUS_BG);
+    let key   = Style::default().fg(Color::White).bg(STATUS_BG).add_modifier(Modifier::BOLD);
+    let info  = Style::default().fg(Color::Indexed(253)).bg(STATUS_BG);
+    let warn  = Style::default().fg(Color::Yellow).bg(STATUS_BG).add_modifier(Modifier::BOLD);
+
+    let mut spans = vec![Span::styled(" ", dim)];
+    let segments: Vec<&str> = text.split("  ").map(str::trim).filter(|s| !s.is_empty()).collect();
+
+    for (i, seg) in segments.iter().enumerate() {
+        if i > 0 {
+            spans.push(Span::styled("  ", dim));
+        }
+        // "200 OK" / "404 Not Found" — 3 digits followed by a space (or nothing else),
+        // not just any segment starting with 3 digits (e.g. an elapsed time "3598ms").
+        let is_status_code = seg.len() >= 3
+            && seg.as_bytes()[..3].iter().all(u8::is_ascii_digit)
+            && matches!(seg.as_bytes().get(3), None | Some(b' '));
+        if is_status_code {
+            let color = match &seg.as_bytes()[0] {
+                b'2' => Color::Green,
+                b'3' => Color::Cyan,
+                b'4' => Color::Yellow,
+                _    => Color::Red,
+            };
+            spans.push(Span::styled(
+                seg.to_string(),
+                Style::default().fg(color).bg(STATUS_BG).add_modifier(Modifier::BOLD),
+            ));
+        } else if seg.starts_with('⚠') {
+            spans.push(Span::styled(seg.to_string(), warn));
+        } else if seg.ends_with("ms")
+            && seg[..seg.len() - 2].chars().all(|c| c.is_ascii_digit())
+            && !seg[..seg.len() - 2].is_empty()
+        {
+            // Same colour-coded threshold as the HTTP view's Diagnostics section
+            // (< 300ms green / < 1s yellow / >= 1s red) — one elapsed-time convention.
+            let ms: u64 = seg[..seg.len() - 2].parse().unwrap_or(0);
+            let color = if ms < 300 { Color::Green } else if ms < 1000 { Color::Yellow } else { Color::Red };
+            spans.push(Span::styled(
+                seg.to_string(),
+                Style::default().fg(color).bg(STATUS_BG).add_modifier(Modifier::BOLD),
+            ));
+        } else if *seg == "—" {
+            spans.push(Span::styled(seg.to_string(), dim));
+        } else if let Some(idx) = seg.find(": ") {
+            let (k, rest) = seg.split_at(idx);
+            if !k.is_empty() && !k.contains(' ') {
+                spans.push(Span::styled(k.to_string(), key));
+                spans.push(Span::styled(": ", dim));
+                spans.push(Span::styled(rest[2..].to_string(), label));
+            } else {
+                spans.push(Span::styled(seg.to_string(), info));
+            }
+        } else {
+            spans.push(Span::styled(seg.to_string(), info));
+        }
+    }
+    Line::from(spans)
 }
 
 fn context_breadcrumb(app: &App) -> String {

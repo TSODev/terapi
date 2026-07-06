@@ -25,9 +25,12 @@
 - **Local-first** — collections stored as TOML, git-friendly, no account, no cloud
 - **Single binary** — `cargo install terapi`, instant startup, zero Electron
 
-> **Full documentation** → [USAGE.md](https://github.com/TSODev/terapi/blob/main/USAGE.md)
-> **What's New** → [CHANGELOG.md](https://github.com/TSODev/terapi/blob/main/CHANGELOG.md)
-> **Printable keyboard reference** → [terapi-keymap.html](https://github.com/TSODev/terapi/blob/main/terapi-keymap.html)
+## Documentation
+
+- [USAGE.md](https://github.com/TSODev/terapi/blob/main/USAGE.md) — full documentation
+- [CHANGELOG.md](https://github.com/TSODev/terapi/blob/main/CHANGELOG.md) — what's new
+- [terapi-keymap.html](https://github.com/TSODev/terapi/blob/main/terapi-keymap.html) — printable keyboard reference (HTML)
+- [terapi-keymap.pdf](https://github.com/TSODev/terapi/blob/main/terapi-keymap.pdf) — printable keyboard reference (PDF)
 
 ---
 
@@ -109,7 +112,7 @@ After import, a report is printed:
 
 ## TUI keybindings
 
-> Prefer a printable cheat sheet? See [terapi-keymap.html](https://github.com/TSODev/terapi/blob/main/terapi-keymap.html) — two-page A4-landscape reference covering the main TUI and the campaign builder.
+> Prefer a printable cheat sheet? Two-page A4-landscape reference covering the main TUI and the campaign builder — [HTML](https://github.com/TSODev/terapi/blob/main/terapi-keymap.html) or [PDF](https://github.com/TSODev/terapi/blob/main/terapi-keymap.pdf).
 
 | Key | Action |
 |-----|--------|

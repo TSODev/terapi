@@ -27,6 +27,7 @@
 
 > **Full documentation** → [USAGE.md](https://github.com/TSODev/terapi/blob/main/USAGE.md)
 > **What's New** → [CHANGELOG.md](https://github.com/TSODev/terapi/blob/main/CHANGELOG.md)
+> **Printable keyboard reference** → [terapi-keymap.html](https://github.com/TSODev/terapi/blob/main/terapi-keymap.html)
 
 ---
 
@@ -107,6 +108,8 @@ After import, a report is printed:
 ---
 
 ## TUI keybindings
+
+> Prefer a printable cheat sheet? See [terapi-keymap.html](https://github.com/TSODev/terapi/blob/main/terapi-keymap.html) — two-page A4-landscape reference covering the main TUI and the campaign builder.
 
 | Key | Action |
 |-----|--------|

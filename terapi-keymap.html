@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>terapi — Keyboard Reference</title>
+<style>
+  /* ── Reset & base ────────────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /*
+    Deliberate single-theme choice: like its sibling reference card
+    (rowdy-keymap.html), this is a print-first artifact — an A4-landscape
+    sheet meant to be printed and pinned next to a keyboard, not a
+    browsed web page. Paper is light; committing to one "ground" (rather
+    than a dark/light toggle nobody will use mid-print) keeps the sheet
+    legible on actual paper and in a print preview.
+  */
+  :root {
+    --bg:        #ffffff;
+    --paper:     #fbfcfd;
+    --text:      #1e293b;
+    --muted:     #64748b;
+    --key-bg:    #1e293b;
+    --key-fg:    #f8fafc;
+    --border:    #e2e8f0;
+
+    /* accents reused from terapi's own in-app color coding —
+       cyan = REST/HTTP (matches the JSON-key + HTTP-badge cyan),
+       magenta = GraphQL (matches the GQL badge exactly),
+       green = response/results (matches the Response panel border),
+       violet = orchestration (campaigns / pipeline),
+       amber = editing surfaces (env vars, step/body editors),
+       slate = cross-cutting / meta */
+    --c-slate:   #475569;
+    --c-cyan:    #0e7490;
+    --c-green:   #15803d;
+    --c-magenta: #a21caf;
+    --c-violet:  #6d28d9;
+    --c-amber:   #b45309;
+  }
+
+  @page {
+    size: A4 landscape;
+    margin: 9mm 11mm;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 7.3pt;
+    color: var(--text);
+    background: var(--paper);
+    line-height: 1.4;
+  }
+
+  .mono {
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", ui-monospace, Menlo, monospace;
+  }
+
+  /* ── Page ────────────────────────────────────────────────────────────── */
+  .page {
+    background: var(--bg);
+    max-width: 297mm;
+    margin: 0 auto 14px;
+    padding: 2px;
+  }
+  .page + .page {
+    border-top: 3px dashed var(--border);
+    padding-top: 16px;
+  }
+  @media print {
+    .page + .page { border-top: none; padding-top: 0; break-before: page; }
+  }
+  .page-label {
+    display: none;
+  }
+  @media screen {
+    .page-label {
+      display: block;
+      font-size: 7.5pt;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+  }
+
+  /* ── Header ──────────────────────────────────────────────────────────── */
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 2px solid var(--text);
+    padding-bottom: 4px;
+    margin-bottom: 8px;
+  }
+  header h1 {
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", ui-monospace, Menlo, monospace;
+    font-size: 15pt;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: var(--text);
+  }
+  header h1 span {
+    color: var(--c-cyan);
+  }
+  header .meta {
+    font-size: 6.8pt;
+    color: var(--muted);
+    text-align: right;
+    line-height: 1.6;
+  }
+  header .tagline {
+    font-size: 8.2pt;
+    color: var(--muted);
+    font-style: italic;
+    align-self: center;
+  }
+
+  /* ── Layout ──────────────────────────────────────────────────────────── */
+  .columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 9px;
+    align-items: start;
+  }
+
+  /* ── Section ─────────────────────────────────────────────────────────── */
+  .section {
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    overflow: hidden;
+    break-inside: avoid;
+    margin-bottom: 7px;
+  }
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3.5px 7px;
+    font-size: 7.2pt;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    color: #ffffff;
+  }
+  .section-title .icon { font-size: 8.5pt; }
+
+  /* colour variants, grounded in terapi's own badge/border colors */
+  .slate   .section-title { background: var(--c-slate);   }
+  .rest    .section-title { background: var(--c-cyan);    }
+  .resp    .section-title { background: var(--c-green);   }
+  .gql     .section-title { background: var(--c-magenta); }
+  .camp    .section-title { background: var(--c-violet);  }
+  .edit    .section-title { background: var(--c-amber);   }
+
+  /* ── Key table ───────────────────────────────────────────────────────── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  tr:nth-child(even) td { background: #f8fafc; }
+  td {
+    padding: 2px 7px;
+    vertical-align: middle;
+  }
+  td:first-child {
+    width: 36%;
+    white-space: nowrap;
+  }
+  td:last-child {
+    color: var(--muted);
+  }
+
+  /* ── Key badge ───────────────────────────────────────────────────────── */
+  kbd {
+    display: inline-block;
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", ui-monospace, monospace;
+    font-size: 6.5pt;
+    font-weight: 600;
+    background: var(--key-bg);
+    color: var(--key-fg);
+    border-radius: 3px;
+    padding: 1px 4px;
+    margin: 0 1px;
+    white-space: nowrap;
+    letter-spacing: 0.2px;
+  }
+
+  /* sub-row for indent / nested context */
+  .sub td { padding-left: 16px; color: var(--muted); font-style: italic; }
+  .sub td:first-child { color: var(--muted); }
+  .sub kbd { background: #94a3b8; }
+
+  /* separator row */
+  .sep td { padding-top: 3.5px; border-top: 1px solid var(--border); }
+
+  /* ── Footer ──────────────────────────────────────────────────────────── */
+  footer {
+    margin-top: 6px;
+    border-top: 1px solid var(--border);
+    padding-top: 4px;
+    font-size: 6.3pt;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ PAGE 1 — MAIN TUI ═══════════════════════════ -->
+<div class="page">
+  <div class="page-label">Page 1 of 2 — Main TUI</div>
+  <header>
+    <div>
+      <h1>⌨ <span>terapi</span></h1>
+      <div class="tagline">Terminal + API — REST &amp; GraphQL client, TUI-first</div>
+    </div>
+    <div class="meta">
+      v0.10.10 &nbsp;·&nbsp; MIT<br>
+      crates.io/crates/terapi<br>
+      github.com/TSODev/terapi
+    </div>
+  </header>
+
+  <div class="columns">
+
+    <!-- ═══════════════════ COLUMN 1 ═══════════════════ -->
+    <div>
+
+      <!-- Global -->
+      <div class="section slate">
+        <div class="section-title"><span class="icon">⌨</span> Global</div>
+        <table>
+          <tr><td><kbd>Tab</kbd> <kbd>Shift+Tab</kbd></td><td>Cycle panels forward / backward</td></tr>
+          <tr><td><kbd>q</kbd> <kbd>q</kbd></td><td>Quit — press twice to confirm</td></tr>
+          <tr><td><kbd>Ctrl+C</kbd></td><td>Quit immediately — no confirmation</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Close modal / exit edit mode (not quit)</td></tr>
+        </table>
+      </div>
+
+      <!-- Collections -->
+      <div class="section rest">
+        <div class="section-title"><span class="icon">📁</span> Collections Panel</div>
+        <table>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Move cursor</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Expand / collapse folder — or load request</td></tr>
+          <tr><td><kbd>/</kbd></td><td>Search / filter the tree</td></tr>
+          <tr class="sep"><td><kbd>n</kbd></td><td>New collection</td></tr>
+          <tr><td><kbd>f</kbd></td><td>New folder</td></tr>
+          <tr><td><kbd>a</kbd></td><td>Add request</td></tr>
+          <tr><td><kbd>e</kbd></td><td>Edit request — loads into Request tab</td></tr>
+          <tr><td><kbd>D</kbd></td><td>Duplicate — saves as "&lt;name&gt; copy"</td></tr>
+          <tr><td><kbd>d</kbd></td><td>Delete selected item</td></tr>
+          <tr><td><kbd>E</kbd></td><td>Open collection TOML in <span class="mono">$EDITOR</span></td></tr>
+        </table>
+      </div>
+
+      <!-- Env -->
+      <div class="section edit">
+        <div class="section-title"><span class="icon">🌱</span> Env Panel</div>
+        <table>
+          <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Switch focus: Environments ↔ Variables</td></tr>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Navigate within focused panel</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Activate env (left) / edit variable (right)</td></tr>
+          <tr><td><kbd>n</kbd></td><td>New environment</td></tr>
+          <tr><td><kbd>a</kbd></td><td>Add variable</td></tr>
+          <tr><td><kbd>d</kbd></td><td>Delete environment or variable</td></tr>
+        </table>
+      </div>
+
+      <!-- History -->
+      <div class="section slate">
+        <div class="section-title"><span class="icon">🕘</span> History Panel</div>
+        <table>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Navigate entries</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Load into Request tab (restores GraphQL mode too)</td></tr>
+          <tr><td><kbd>d</kbd></td><td>Delete entry</td></tr>
+        </table>
+      </div>
+
+    </div>
+
+    <!-- ═══════════════════ COLUMN 2 ═══════════════════ -->
+    <div>
+
+      <!-- Request REST -->
+      <div class="section rest">
+        <div class="section-title"><span class="icon">🌐</span> Request Panel — REST</div>
+        <table>
+          <tr><td><kbd>e</kbd></td><td>Edit URL (enter URL mode)</td></tr>
+          <tr><td><kbd>m</kbd></td><td>Cycle HTTP method</td></tr>
+          <tr><td><kbd>s</kbd></td><td>Send request</td></tr>
+          <tr><td><kbd>S</kbd></td><td>Save to collection</td></tr>
+          <tr><td><kbd>n</kbd></td><td>New request — clear all fields</td></tr>
+          <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Navigate sub-tabs</td></tr>
+          <tr><td><kbd>g</kbd></td><td>Toggle GraphQL ↔ REST</td></tr>
+          <tr class="sep"><td><kbd>i</kbd></td><td>Edit description / enter body editor</td></tr>
+          <tr><td><kbd>t</kbd></td><td>Toggle body mode: Text ↔ JSON</td></tr>
+          <tr><td><kbd>a</kbd> <kbd>d</kbd></td><td>Body (JSON) / URL Params — add / delete field</td></tr>
+          <tr><td><kbd>E</kbd></td><td>Open body in external editor (<span class="mono">$TERAPI_JSON_EDITOR</span>)</td></tr>
+          <tr class="sep"><td><kbd>{{</kbd></td><td>Open <span class="mono">{{VAR}}</span> picker — env vars + built-ins</td></tr>
+        </table>
+      </div>
+
+      <!-- Auth sub-tab -->
+      <div class="section rest">
+        <div class="section-title"><span class="icon">🔑</span> Request — Auth Sub-tab</div>
+        <table>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Navigate fields</td></tr>
+          <tr><td><kbd>Space</kbd>/<kbd>Enter</kbd></td><td>Type row — cycle auth type</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Field row — edit token / user / pass / key</td></tr>
+          <tr><td><kbd>Space</kbd></td><td>Location row — Header ↔ Query Param</td></tr>
+          <tr><td><kbd>f</kbd></td><td>Fetch OAuth2 token manually</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Cancel OAuth2 browser wait</td></tr>
+        </table>
+      </div>
+
+      <!-- Options -->
+      <div class="section rest">
+        <div class="section-title"><span class="icon">⚙</span> Request — Options Sub-tab</div>
+        <table>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Navigate options</td></tr>
+          <tr><td><kbd>Space</kbd>/<kbd>Enter</kbd></td><td>Toggle option, or cycle timeout value</td></tr>
+          <tr class="sub"><td>&nbsp;</td><td>Skip TLS · Follow redirects · Timeout · Cookie jar</td></tr>
+        </table>
+      </div>
+
+      <!-- Campaigns -->
+      <div class="section camp">
+        <div class="section-title"><span class="icon">🚀</span> Campaigns Panel</div>
+        <table>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Navigate list — or step cursor (Done panel)</td></tr>
+          <tr><td><kbd>r</kbd></td><td>Run campaign (or open params modal)</td></tr>
+          <tr><td><kbd>L</kbd></td><td>Load selected step into Request tab (Done)</td></tr>
+          <tr><td><kbd>E</kbd></td><td>Open campaign TOML in <span class="mono">$EDITOR</span></td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Clear run result</td></tr>
+        </table>
+      </div>
+
+    </div>
+
+    <!-- ═══════════════════ COLUMN 3 ═══════════════════ -->
+    <div>
+
+      <!-- Response viewer -->
+      <div class="section resp">
+        <div class="section-title"><span class="icon">📄</span> Response Viewer (JSON / Raw / HTTP)</div>
+        <table>
+          <tr><td><kbd>r</kbd></td><td>Cycle view: JSON → Raw → HTTP</td></tr>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Move cursor (JSON) / scroll (Raw, HTTP)</td></tr>
+          <tr><td><kbd>PgUp</kbd> <kbd>PgDn</kbd></td><td>Same, 10 rows/lines at a time</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Fold / unfold JSON node</td></tr>
+          <tr><td><kbd>z</kbd></td><td>Expand panel to the whole tab body</td></tr>
+          <tr class="sep"><td><kbd>/</kbd></td><td>Search bar (JSON view) — filter by key/value</td></tr>
+          <tr><td><kbd>&gt;</kbd> <kbd>&lt;</kbd></td><td>Next / previous match</td></tr>
+          <tr class="sep"><td><kbd>f</kbd></td><td>Follow URL under cursor (JSON view)</td></tr>
+          <tr><td><kbd>d</kbd></td><td>Diff last two responses (external tool)</td></tr>
+          <tr><td><kbd>E</kbd></td><td>Open response in external viewer (read-only)</td></tr>
+          <tr><td><kbd>-</kbd> <kbd>=</kbd></td><td>Shrink / grow Key column</td></tr>
+        </table>
+      </div>
+
+      <!-- GraphQL -->
+      <div class="section gql">
+        <div class="section-title"><span class="icon">◈</span> GraphQL Mode <span class="mono" style="font-weight:400;font-size:6.3pt;opacity:.9">(g to enter)</span></div>
+        <table>
+          <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Navigate GQL sub-tabs</td></tr>
+          <tr><td><kbd>i</kbd></td><td>Query tab — enter editor</td></tr>
+          <tr><td><kbd>Ctrl+Space</kbd></td><td>Query tab — autocompletion popup</td></tr>
+          <tr><td><kbd>a</kbd> <kbd>d</kbd></td><td>Variables tab — add / delete</td></tr>
+          <tr class="sep"><td><kbd>f</kbd></td><td>Schema tab — fetch type list</td></tr>
+          <tr><td><kbd>/</kbd></td><td>Schema tab — filter types by name</td></tr>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Schema — navigate types / scroll fields</td></tr>
+          <tr><td><kbd>PgUp</kbd> <kbd>PgDn</kbd></td><td>Schema — jump 10 types / 10 lines</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Schema — load fields for selected type</td></tr>
+          <tr><td><kbd>Tab</kbd></td><td>Schema — toggle type list ↔ field detail</td></tr>
+          <tr><td><kbd>z</kbd></td><td>Schema — expand detail panel</td></tr>
+        </table>
+      </div>
+
+      <!-- Tips -->
+      <div class="section slate">
+        <div class="section-title"><span class="icon">💡</span> Tips</div>
+        <table>
+          <tr><td>Built-ins</td><td><span class="mono">{{DATE}} {{UUID}} {{TIMESTAMP}}…</span> — no env needed</td></tr>
+          <tr><td>Storage</td><td><span class="mono">~/.config/terapi/</span> or <span class="mono">./.terapi/</span> per project</td></tr>
+          <tr><td>Override dir</td><td><span class="mono">TERAPI_DIR</span> env var (CI, custom path)</td></tr>
+          <tr><td>Body editor</td><td><span class="mono">$TERAPI_JSON_EDITOR</span>, defaults to <span class="mono">jsoned</span></td></tr>
+          <tr><td>Response diff</td><td><span class="mono">$TERAPI_JSON_DIFFER</span>, else <span class="mono">$TERAPI_DIFF</span></td></tr>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>
+    <span>terapi v0.10.10 &nbsp;·&nbsp; <strong class="mono">cargo install terapi</strong></span>
+    <span class="mono">terapi build</span>&nbsp;→ campaign builder, see page 2
+  </footer>
+</div>
+
+<!-- ═══════════════════════════ PAGE 2 — CAMPAIGN BUILDER ═══════════════════════════ -->
+<div class="page">
+  <div class="page-label">Page 2 of 2 — Campaign Builder (<span class="mono">terapi build</span>)</div>
+  <header>
+    <div>
+      <h1>⌨ <span>terapi</span> <span style="color:var(--muted); font-weight:400; font-size:11pt;">build</span></h1>
+      <div class="tagline">Interactive campaign editor — assemble pipelines without hand-writing TOML</div>
+    </div>
+    <div class="meta">
+      v0.10.10 &nbsp;·&nbsp; MIT<br>
+      crates.io/crates/terapi<br>
+      github.com/TSODev/terapi
+    </div>
+  </header>
+
+  <div class="columns">
+
+    <!-- ═══════════════════ COLUMN 1 ═══════════════════ -->
+    <div>
+
+      <!-- Pipeline -->
+      <div class="section camp">
+        <div class="section-title"><span class="icon">🧩</span> Pipeline</div>
+        <table>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Navigate steps — wraps into [IN] / [OUT]</td></tr>
+          <tr><td><kbd>Enter</kbd>/<kbd>e</kbd></td><td>Edit selected step</td></tr>
+          <tr><td><kbd>n</kbd></td><td>New step (append) → Catalog</td></tr>
+          <tr><td><kbd>i</kbd></td><td>Insert step after cursor → Catalog</td></tr>
+          <tr><td><kbd>D</kbd></td><td>Duplicate step (copy inserted below)</td></tr>
+          <tr><td><kbd>d</kbd></td><td>Delete step — press again to confirm</td></tr>
+          <tr><td><kbd>K</kbd> <kbd>J</kbd></td><td>Move step up / down</td></tr>
+          <tr class="sep"><td><kbd>r</kbd></td><td>Run full campaign → Run view</td></tr>
+          <tr><td><kbd>s</kbd></td><td>Campaign settings</td></tr>
+          <tr><td><kbd>v</kbd></td><td>Variables panel</td></tr>
+          <tr><td><kbd>c</kbd></td><td>Checker (static validation)</td></tr>
+          <tr><td><kbd>p</kbd></td><td>TOML preview</td></tr>
+          <tr><td><kbd>w</kbd></td><td>Save</td></tr>
+          <tr class="sep"><td><kbd>q</kbd></td><td>Quit — confirms if unsaved</td></tr>
+          <tr><td><kbd>Ctrl+C</kbd></td><td>Quit immediately</td></tr>
+        </table>
+      </div>
+
+      <!-- Step editor -->
+      <div class="section edit">
+        <div class="section-title"><span class="icon">🛠</span> Step Editor (Browse mode)</div>
+        <table>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Navigate fields</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Edit field / confirm</td></tr>
+          <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Cycle selector (method, kind, encoding)</td></tr>
+          <tr><td><kbd>a</kbd> <kbd>d</kbd></td><td>Add / delete list item (headers, extract, assert…)</td></tr>
+          <tr><td><kbd>r</kbd></td><td>Run this step — result shown below</td></tr>
+          <tr><td><kbd>L</kbd></td><td>Collection browser (HTTP / Seed steps)</td></tr>
+          <tr><td><kbd>Tab</kbd></td><td>Extract value — open path autocomplete</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Back to Pipeline</td></tr>
+        </table>
+      </div>
+
+      <!-- Body editor -->
+      <div class="section edit">
+        <div class="section-title"><span class="icon">📝</span> Body Editor <em style="font-weight:400;font-size:6.3pt;opacity:.9">(yellow border)</em></div>
+        <table>
+          <tr><td>Any key</td><td>Type / edit</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>New line</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Save and close</td></tr>
+        </table>
+      </div>
+
+    </div>
+
+    <!-- ═══════════════════ COLUMN 2 ═══════════════════ -->
+    <div>
+
+      <!-- Collection browser -->
+      <div class="section rest">
+        <div class="section-title"><span class="icon">📁</span> Collection Browser</div>
+        <table>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Navigate</td></tr>
+          <tr><td><kbd>Space</kbd></td><td>Expand / collapse folder</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Load request into step</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Cancel</td></tr>
+        </table>
+      </div>
+
+      <!-- Extract path picker -->
+      <div class="section rest">
+        <div class="section-title"><span class="icon">🎯</span> Extract Path Picker <em style="font-weight:400;font-size:6.3pt;opacity:.9">(Tab)</em></div>
+        <table>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Navigate matching paths</td></tr>
+          <tr><td>Type</td><td>Filter paths</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Insert selected path</td></tr>
+          <tr><td><kbd>Tab</kbd>/<kbd>Esc</kbd></td><td>Close, back to value editor</td></tr>
+        </table>
+      </div>
+
+      <!-- Variables panel -->
+      <div class="section edit">
+        <div class="section-title"><span class="icon">🌱</span> Variables Panel</div>
+        <table>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Navigate</td></tr>
+          <tr><td><kbd>a</kbd></td><td>Add variable</td></tr>
+          <tr><td><kbd>d</kbd></td><td>Delete selected</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Edit (key + value)</td></tr>
+          <tr><td><kbd>Tab</kbd></td><td>Switch Key ↔ Value in edit form</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Close / cancel</td></tr>
+        </table>
+      </div>
+
+      <!-- Connectors / Outputs -->
+      <div class="section camp">
+        <div class="section-title"><span class="icon">🔌</span> Connectors [IN] / Outputs [OUT]</div>
+        <table>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Navigate list</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Add new / edit selected</td></tr>
+          <tr><td><kbd>d</kbd></td><td>Delete selected</td></tr>
+          <tr><td><kbd>Tab</kbd></td><td>Next field (edit mode)</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Cancel / back to pipeline</td></tr>
+        </table>
+      </div>
+
+    </div>
+
+    <!-- ═══════════════════ COLUMN 3 ═══════════════════ -->
+    <div>
+
+      <!-- Checker / Preview / Save -->
+      <div class="section slate">
+        <div class="section-title"><span class="icon">✅</span> Checker · TOML Preview · Save</div>
+        <table>
+          <tr><td><kbd>c</kbd></td><td>Static validation — per-kind rules, <span class="mono">{{VAR}}</span> resolution</td></tr>
+          <tr><td><kbd>p</kbd></td><td>Syntax-highlighted live TOML preview</td></tr>
+          <tr><td><kbd>w</kbd></td><td>Write to file, or <span class="mono">&lt;terapi_dir&gt;/campaigns/</span></td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Back to Pipeline</td></tr>
+        </table>
+      </div>
+
+      <!-- Run view -->
+      <div class="section resp">
+        <div class="section-title"><span class="icon">▶</span> Run View (step &amp; campaign results)</div>
+        <table>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Scroll 1 line</td></tr>
+          <tr><td><kbd>PgUp</kbd> <kbd>PgDn</kbd></td><td>Scroll 10 lines</td></tr>
+          <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Scroll horizontal (long URLs / values)</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Back to Step editor / Pipeline</td></tr>
+        </table>
+      </div>
+
+      <!-- Campaign settings / Run params -->
+      <div class="section camp">
+        <div class="section-title"><span class="icon">🎛</span> Campaign Settings · Run Params</div>
+        <table>
+          <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Navigate settings / parameters</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Edit selected value</td></tr>
+          <tr><td><kbd>r</kbd></td><td>Run params modal — run with current values</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Back / cancel</td></tr>
+        </table>
+      </div>
+
+      <!-- Tips -->
+      <div class="section slate">
+        <div class="section-title"><span class="icon">💡</span> Tips</div>
+        <table>
+          <tr><td>Invocation</td><td><span class="mono">terapi build [file.toml]</span> — blank or edit existing</td></tr>
+          <tr><td>Badges</td><td><span class="mono">HTTP TRSF WAIT SEED FILE SRCH LOOP POLL SET BILD JQ PAR NTFY GQL #</span></td></tr>
+          <tr><td>Params</td><td><span class="mono">[[params]]</span> without a default prompts at run time</td></tr>
+          <tr><td>Quit confirm</td><td><kbd>y</kbd> / <kbd>n</kbd> / <kbd>Esc</kbd> shown only if unsaved</td></tr>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>
+    <span>terapi v0.10.10 &nbsp;·&nbsp; <strong class="mono">cargo install terapi</strong></span>
+    <span>github.com/TSODev/terapi &nbsp;·&nbsp; USAGE.md for full reference</span>
+  </footer>
+</div>
+
+</body>
+</html>

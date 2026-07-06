@@ -10,6 +10,7 @@
   - [History panel](#history-panel)
   - [Campaigns panel](#campaigns-panel)
   - [GraphQL mode](#graphql-mode)
+  - [SPARQL (via REST mode)](#sparql-via-rest-mode)
   - [Keybindings](#keybindings)
 - [Collections](#collections)
   - [Directory resolution](#directory-resolution)
@@ -592,6 +593,36 @@ graphql_variables = {id = "ZmlsbXM6MQ=="}
 Existing REST collections are unaffected (`#[serde(default)]`).
 
 **Loading from Collections** — pressing `Enter` on a request node with `graphql = true` restores the query, variables, headers, and activates GraphQL mode automatically. The node displays a magenta `GQL` badge in the tree instead of the HTTP method.
+
+#### SPARQL (via REST mode)
+
+There's no dedicated SPARQL mode — a SPARQL endpoint is just an HTTP endpoint, so REST mode already covers it:
+
+1. Method: `POST` (most triple stores accept it; some also accept `GET` with `?query=`)
+2. Headers → `Content-Type: application/sparql-query`, and optionally `Accept: application/sparql-results+json` (some endpoints default to XML or an HTML results page without it)
+3. Body (Text mode) → the raw SPARQL query, e.g.:
+   ```
+   SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 10
+   ```
+4. `s` to send — the SPARQL JSON results shape (`head.vars` + `results.bindings`) renders in the JSON view like any other API response, no special handling needed
+
+Example against Wikidata's endpoint:
+
+```
+POST  https://query.wikidata.org/sparql
+Headers:
+  Content-Type: application/sparql-query
+  Accept:       application/sparql-results+json
+Body (Text):
+  SELECT ?item ?itemLabel WHERE {
+    ?item wdt:P31 wd:Q146 .
+    SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+  } LIMIT 10
+```
+
+If an endpoint rejects `application/sparql-query`, fall back to `application/x-www-form-urlencoded` with a `query=<url-encoded query>` body — supported almost universally.
+
+What you don't get, compared to GraphQL mode: no introspection/autocompletion (SPARQL has no standard schema-discovery query equivalent to `__schema`) and no SPARQL-aware syntax highlighting in the query editor — it's treated as plain text, same as any REST body.
 
 **Response viewer** (bottom half of the Request panel):
 

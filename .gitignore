@@ -2,7 +2,6 @@
 Cargo.lock
 .env
 *.log
-CLAUDE.md
 PUBLISH.md
 .terapi/
 .DS_Store

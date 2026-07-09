@@ -52,13 +52,13 @@ method = "POST"
 url    = "{{BASE_URL}}/post"
 body   = '{"encoding":"base64","payload":"{{FILE_B64}}"}'
 
-[steps.headers]
-Content-Type = "application/json"
-
 assert = [
   { on = "status", eq = 200 },
   { on = "body.json.encoding", eq = "base64" },
 ]
+
+[steps.headers]
+Content-Type = "application/json"
 
 [steps.extract]
 ECHOED_ENCODING = "json.encoding"

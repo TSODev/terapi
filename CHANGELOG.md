@@ -7,6 +7,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **`examples/campaigns/upload_demo.toml` failed to import** — `assert = [...]` was placed after `[steps.headers]` in step 3 ("POST base64 in JSON body"), so TOML parsed it as a field of the `headers` table (typed `HashMap<String, String>`) instead of a field of the step, causing `terapi import` to fail with `invalid type: sequence, expected a string`. Moved `assert` back above `[steps.headers]`, in line with every other step in the file.
+
 ### Added
 - **Status bar redesign** — the 2-line status bar had no background and rendered hints as one flat grey string. Both rows now share a background band (`STATUS_BG`, matching the look of terapi's sibling tool `jsoned`), and the existing `status_message` string is tokenized on its already-universal `"key: label"` convention into bold key / dim colon / muted label spans — no changes needed at the ~40 call sites across `app/` that set it. The env indicator becomes a solid-colour chip when it carries meaningful state (active env, unresolved `{{VAR}}` warning); plain muted text for "no active env". HTTP status codes and elapsed time are colour-coded by value — status reuses the existing 2xx/3xx/4xx/5xx scheme, elapsed time reuses the exact thresholds already used in the HTTP view's Diagnostics section (`<300ms` green / `<1s` yellow / `>=1s` red), rather than inventing a second convention.
 

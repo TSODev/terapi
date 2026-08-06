@@ -551,8 +551,8 @@ pub enum ModalState {
         active_field: SaveField,
     },
     BodyPair {
-        key: String,
-        value: String,
+        key: TextArea<'static>,
+        value: TextArea<'static>,
         active_field: VarField,
         edit_idx: Option<usize>,
     },

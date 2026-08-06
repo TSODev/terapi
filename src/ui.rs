@@ -2399,28 +2399,8 @@ fn render_modal(frame: &mut Frame, app: &App) {
 
         Some(ModalState::BodyPair { key, value, active_field, edit_idx }) => {
             let area = centered_rect(64, 9, frame.area());
-            frame.render_widget(Clear, area);
-            let key_style  = if *active_field == VarField::Key   { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
-            let val_style  = if *active_field == VarField::Value { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
-            let key_cursor = if *active_field == VarField::Key   { "_" } else { "" };
-            let val_cursor = if *active_field == VarField::Value { "_" } else { "" };
-            let modal_title = if edit_idx.is_some() { " Edit Field " } else { " Add Field " };
-            let text = vec![
-                Line::from(""),
-                Line::from(vec![Span::raw("  Key:   "), Span::styled(format!("{}{}", key, key_cursor), key_style)]),
-                Line::from(""),
-                Line::from(vec![Span::raw("  Value: "), Span::styled(format!("{}{}", value, val_cursor), val_style)]),
-                Line::from(""),
-                Line::from(Span::styled("  Tab: next field   Enter: save   Esc: cancel", Style::default().fg(Color::Gray))),
-            ];
-            frame.render_widget(
-                Paragraph::new(text).block(
-                    Block::default().borders(Borders::ALL)
-                        .title(modal_title).title_alignment(Alignment::Center)
-                        .border_style(Style::default().fg(Color::Yellow)),
-                ),
-                area,
-            );
+            let title = if edit_idx.is_some() { " Edit Field " } else { " Add Field " };
+            render_key_value_modal(frame, area, title, Color::Yellow, key, value, active_field.clone());
         }
 
         Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field }) => {

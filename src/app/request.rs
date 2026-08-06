@@ -600,8 +600,8 @@ impl App {
             }
             KeyCode::Char('a') => {
                 self.modal = Some(ModalState::BodyPair {
-                    key: String::new(),
-                    value: String::new(),
+                    key: TextArea::default(),
+                    value: TextArea::default(),
                     active_field: VarField::Key,
                     edit_idx: None,
                 });
@@ -614,9 +614,13 @@ impl App {
             }
             KeyCode::Enter | KeyCode::Char('e') if !self.body_json_pairs.is_empty() => {
                 let (k, v) = self.body_json_pairs[self.body_json_cursor].clone();
+                let mut key_ta = TextArea::from(vec![k]);
+                key_ta.move_cursor(tui_textarea::CursorMove::End);
+                let mut value_ta = TextArea::from(vec![v]);
+                value_ta.move_cursor(tui_textarea::CursorMove::End);
                 self.modal = Some(ModalState::BodyPair {
-                    key: k,
-                    value: v,
+                    key: key_ta,
+                    value: value_ta,
                     active_field: VarField::Key,
                     edit_idx: Some(self.body_json_cursor),
                 });

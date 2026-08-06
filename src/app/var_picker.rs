@@ -89,14 +89,11 @@ impl App {
             VarPickerTarget::ModalValue => {
                 if let Some(modal) = &mut self.modal {
                     match modal {
-                        ModalState::NewHeader { value, .. } | ModalState::UrlParam { value, .. } => {
+                        ModalState::NewHeader { value, .. }
+                        | ModalState::UrlParam { value, .. }
+                        | ModalState::BodyPair { value, .. } => {
                             for _ in 0..remove_count { value.delete_char(); }
                             value.insert_str(&insert);
-                        }
-                        ModalState::BodyPair { value, .. } => {
-                            let new_len = value.len().saturating_sub(remove_count);
-                            value.truncate(new_len);
-                            value.push_str(&insert);
                         }
                         _ => {}
                     }
@@ -124,8 +121,9 @@ impl App {
             VarPickerTarget::ModalValue => {
                 if let Some(modal) = &mut self.modal {
                     match modal {
-                        ModalState::NewHeader { value, .. } | ModalState::UrlParam { value, .. } => { value.insert_char(c); }
-                        ModalState::BodyPair { value, .. } => { value.push(c); }
+                        ModalState::NewHeader { value, .. }
+                        | ModalState::UrlParam { value, .. }
+                        | ModalState::BodyPair { value, .. } => { value.insert_char(c); }
                         _ => {}
                     }
                 }
@@ -146,8 +144,9 @@ impl App {
             VarPickerTarget::ModalValue => {
                 if let Some(modal) = &mut self.modal {
                     match modal {
-                        ModalState::NewHeader { value, .. } | ModalState::UrlParam { value, .. } => { value.delete_char(); }
-                        ModalState::BodyPair { value, .. } => { value.pop(); }
+                        ModalState::NewHeader { value, .. }
+                        | ModalState::UrlParam { value, .. }
+                        | ModalState::BodyPair { value, .. } => { value.delete_char(); }
                         _ => {}
                     }
                 }

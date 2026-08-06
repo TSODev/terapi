@@ -633,8 +633,8 @@ impl App {
                     && self.active_graphql_tab == GraphqlTab::Variables =>
             {
                 self.modal = Some(ModalState::BodyPair {
-                    key: String::new(),
-                    value: String::new(),
+                    key: TextArea::default(),
+                    value: TextArea::default(),
                     active_field: VarField::Key,
                     edit_idx: None,
                 });
@@ -657,9 +657,13 @@ impl App {
                     && !self.graphql_vars.is_empty() =>
             {
                 let (k, v) = self.graphql_vars[self.graphql_vars_cursor].clone();
+                let mut key_ta = TextArea::from(vec![k]);
+                key_ta.move_cursor(tui_textarea::CursorMove::End);
+                let mut value_ta = TextArea::from(vec![v]);
+                value_ta.move_cursor(tui_textarea::CursorMove::End);
                 self.modal = Some(ModalState::BodyPair {
-                    key: k,
-                    value: v,
+                    key: key_ta,
+                    value: value_ta,
                     active_field: VarField::Key,
                     edit_idx: Some(self.graphql_vars_cursor),
                 });
@@ -1761,36 +1765,47 @@ impl App {
 
             Some(ModalState::BodyPair { key: mut bp_key, value: mut bp_val, mut active_field, edit_idx }) => match key.code {
                 KeyCode::Esc => {}
-                KeyCode::Enter if !bp_key.trim().is_empty() => {
-                    if self.graphql_mode {
-                        if let Some(idx) = edit_idx {
-                            self.graphql_vars[idx] = (bp_key.trim().to_string(), bp_val.trim().to_string());
+                KeyCode::Enter => {
+                    let k = bp_key.lines()[0].trim().to_string();
+                    let v = bp_val.lines()[0].trim().to_string();
+                    if !k.is_empty() {
+                        if self.graphql_mode {
+                            if let Some(idx) = edit_idx {
+                                self.graphql_vars[idx] = (k, v);
+                            } else {
+                                self.graphql_vars.push((k, v));
+                                self.graphql_vars_cursor = self.graphql_vars.len() - 1;
+                            }
+                        } else if let Some(idx) = edit_idx {
+                            self.body_json_pairs[idx] = (k, v);
                         } else {
-                            self.graphql_vars.push((bp_key.trim().to_string(), bp_val.trim().to_string()));
-                            self.graphql_vars_cursor = self.graphql_vars.len() - 1;
+                            self.body_json_pairs.push((k, v));
+                            self.body_json_cursor = self.body_json_pairs.len() - 1;
                         }
-                    } else if let Some(idx) = edit_idx {
-                        self.body_json_pairs[idx] = (bp_key.trim().to_string(), bp_val.trim().to_string());
                     } else {
-                        self.body_json_pairs.push((bp_key.trim().to_string(), bp_val.trim().to_string()));
-                        self.body_json_cursor = self.body_json_pairs.len() - 1;
+                        self.modal = Some(ModalState::BodyPair { key: bp_key, value: bp_val, active_field, edit_idx });
                     }
                 }
                 KeyCode::Tab => {
                     active_field = match active_field { VarField::Key => VarField::Value, VarField::Value => VarField::Key };
                     self.modal = Some(ModalState::BodyPair { key: bp_key, value: bp_val, active_field, edit_idx });
                 }
-                KeyCode::Char(c) => {
-                    match active_field { VarField::Key => bp_key.push(c), VarField::Value => bp_val.push(c) }
-                    let trigger = active_field == VarField::Value && bp_val.ends_with("{{");
+                KeyCode::Char('l') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    match active_field {
+                        VarField::Key => { bp_key = TextArea::default(); }
+                        VarField::Value => { bp_val = TextArea::default(); }
+                    }
+                    self.modal = Some(ModalState::BodyPair { key: bp_key, value: bp_val, active_field, edit_idx });
+                }
+                _ => {
+                    match active_field {
+                        VarField::Key => { bp_key.input(tui_textarea::Input::from(key)); }
+                        VarField::Value => { bp_val.input(tui_textarea::Input::from(key)); }
+                    }
+                    let trigger = active_field == VarField::Value && bp_val.lines()[0].ends_with("{{");
                     self.modal = Some(ModalState::BodyPair { key: bp_key, value: bp_val, active_field, edit_idx });
                     if trigger { self.open_var_picker(VarPickerTarget::ModalValue); }
                 }
-                KeyCode::Backspace => {
-                    match active_field { VarField::Key => { bp_key.pop(); } VarField::Value => { bp_val.pop(); } }
-                    self.modal = Some(ModalState::BodyPair { key: bp_key, value: bp_val, active_field, edit_idx });
-                }
-                _ => { self.modal = Some(ModalState::BodyPair { key: bp_key, value: bp_val, active_field, edit_idx }); }
             },
 
             Some(ModalState::SaveRequest { mut name, mut collection_idx, mut folder_display_idx, mut active_field }) => {

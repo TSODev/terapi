@@ -135,6 +135,7 @@ After import, a report is printed:
 | `a` / `d` / `Enter` | Headers sub-tab — add / delete / edit header |
 | `a` / `d` / `Enter` | URL Params sub-tab — add / delete / edit param |
 | `t` | Toggle body mode: Text ↔ JSON (Body sub-tab, outside editor) |
+| `a` / `d` / `Enter` (or `e`) | Body sub-tab (JSON mode, after `i`) — add / delete / edit field |
 | `E` | Open body in external JSON editor (`$TERAPI_JSON_EDITOR`, defaults to `jsoned`) |
 | `←` / `→` | Navigate sub-tabs (also exits URL mode) |
 | `Enter` | Send request (URL mode) / fold-unfold JSON node / edit body field (JSON mode) |

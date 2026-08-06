@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.10.11] — 2026-08-06
+
 ### Fixed
 - **`examples/campaigns/upload_demo.toml` failed to import** — `assert = [...]` was placed after `[steps.headers]` in step 3 ("POST base64 in JSON body"), so TOML parsed it as a field of the `headers` table (typed `HashMap<String, String>`) instead of a field of the step, causing `terapi import` to fail with `invalid type: sequence, expected a string`. Moved `assert` back above `[steps.headers]`, in line with every other step in the file.
 - **Binary responses (images, PDFs, …) corrupted the response view and campaign JSON extraction** — both the TUI's `execute_http()` and the campaign engine's step executor read the body via `resp.text()`, which lossily decodes non-UTF8 bytes as replacement characters and then fed that garbage into the JSON tree/raw viewers (TUI) or a `serde_json::from_str()` attempt (campaigns). Both now read `bytes()` and check the Content-Type first: a recognized binary type (`image/*`, `audio/*`, `video/*`, `font/*`, `application/pdf`, archive/office types) shows an informative placeholder in the TUI (`[binary response — image/png — 1.9 KB — not displayed]`) instead of a decoded blob, and leaves `body_value: None` in campaigns instead of attempting to parse it as JSON.

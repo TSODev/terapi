@@ -196,3 +196,25 @@ url    = "https://public-api.meteofrance.fr/public/DPVigilance/v1/vignettenation
 [folders.requests.auth]
 auth_type     = "bearer"
 bearer_token  = "{{METEO_TOKEN}}"
+
+# ── WMS — Modèles numériques (AROME PI) ────────────────────────────────────────
+# Portail public-api.meteofrance.fr : auth par header "apikey" brut (pas Bearer).
+# Créez un environnement avec METEOFRANCE_APIKEY = <votre_clé JWT du portail>
+
+[[folders]]
+name = "WMS — AROME PI"
+
+[[folders.requests]]
+name        = "GetCapabilities — AROME PI France"
+method      = "GET"
+url         = "https://public-api.meteofrance.fr/public/aromepi/1.0/wms/MF-NWP-HIGHRES-AROMEPI-001-FRANCE-WMS/GetCapabilities?service=WMS&version=1.3.0&language=eng"
+description = "Capacités du flux WMS du modèle AROME PI haute résolution (France)."
+
+[folders.requests.headers]
+accept = "*/*"
+
+[folders.requests.auth]
+auth_type         = "apikey"
+api_key_name      = "apikey"
+api_key_value     = "{{METEOFRANCE_APIKEY}}"
+api_key_location  = "header"

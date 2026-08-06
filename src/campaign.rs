@@ -2132,8 +2132,16 @@ async fn execute_step(
         .iter()
         .filter_map(|(k, v)| v.to_str().ok().map(|val| (k.to_string(), val.to_string())))
         .collect();
-    let body_text  = response.text().await?;
-    let body_value: Option<Value> = serde_json::from_str(&body_text).ok();
+    let content_type = resp_headers.iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("content-type"))
+        .map(|(_, v)| v.as_str())
+        .unwrap_or("");
+    let bytes = response.bytes().await?;
+    let body_value: Option<Value> = if is_binary_content_type(content_type) {
+        None
+    } else {
+        serde_json::from_str(&String::from_utf8_lossy(&bytes)).ok()
+    };
 
     let mut extracted = HashMap::new();
     if !step.extract.is_empty() {
@@ -2146,6 +2154,28 @@ async fn execute_step(
         }
     }
     Ok(HttpOutcome { status, body_value, resp_headers, extracted })
+}
+
+/// Content-Type prefixes/values that indicate a body isn't meant to be read as text
+/// (images, PDFs, archives, ...) — skips the JSON-parse attempt on binary bodies so
+/// extraction/assertions just see `body_value: None` instead of a lossily-decoded blob.
+fn is_binary_content_type(content_type: &str) -> bool {
+    let ct = content_type.split(';').next().unwrap_or("").trim().to_ascii_lowercase();
+    ct.starts_with("image/")
+        || ct.starts_with("audio/")
+        || ct.starts_with("video/")
+        || ct.starts_with("font/")
+        || matches!(
+            ct.as_str(),
+            "application/pdf"
+                | "application/octet-stream"
+                | "application/zip"
+                | "application/gzip"
+                | "application/x-gzip"
+                | "application/x-tar"
+                | "application/vnd.ms-excel"
+                | "application/msword"
+        )
 }
 
 // ── assertion evaluator ───────────────────────────────────────────────────────

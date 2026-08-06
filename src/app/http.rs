@@ -85,9 +85,44 @@ pub(super) async fn execute_http(
         .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
         .collect();
 
-    let body = resp.text().await.map_err(|e| e.to_string())?;
+    let content_type = headers.iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case("content-type"))
+        .map(|(_, v)| v.as_str())
+        .unwrap_or("");
+    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+    let body = if is_binary_content_type(content_type) {
+        format!(
+            "[binary response — {} — {:.1} KB — not displayed]",
+            content_type,
+            bytes.len() as f64 / 1024.0
+        )
+    } else {
+        String::from_utf8_lossy(&bytes).into_owned()
+    };
 
     Ok(HttpResult { status, body, headers, elapsed_ms, redirect_chain })
+}
+
+/// Content-Type prefixes/values that indicate a body isn't meant to be read as text
+/// (images, PDFs, archives, ...) — used to show an informative placeholder instead of
+/// dumping raw/lossily-decoded bytes into the JSON tree, XML, or raw-text viewers.
+fn is_binary_content_type(content_type: &str) -> bool {
+    let ct = content_type.split(';').next().unwrap_or("").trim().to_ascii_lowercase();
+    ct.starts_with("image/")
+        || ct.starts_with("audio/")
+        || ct.starts_with("video/")
+        || ct.starts_with("font/")
+        || matches!(
+            ct.as_str(),
+            "application/pdf"
+                | "application/octet-stream"
+                | "application/zip"
+                | "application/gzip"
+                | "application/x-gzip"
+                | "application/x-tar"
+                | "application/vnd.ms-excel"
+                | "application/msword"
+        )
 }
 
 /// Resolve a redirect Location against the current URL.

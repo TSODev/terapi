@@ -784,8 +784,8 @@ impl App {
                     && self.active_request_tab == RequestTab::UrlParams =>
             {
                 self.modal = Some(ModalState::UrlParam {
-                    key: String::new(),
-                    value: String::new(),
+                    key: TextArea::default(),
+                    value: TextArea::default(),
                     active_field: VarField::Key,
                     edit_idx: None,
                 });
@@ -806,9 +806,13 @@ impl App {
                     && !self.request_url_params.is_empty() =>
             {
                 let (k, v) = self.request_url_params[self.url_params_cursor].clone();
+                let mut key_ta = TextArea::from(vec![k]);
+                key_ta.move_cursor(tui_textarea::CursorMove::End);
+                let mut value_ta = TextArea::from(vec![v]);
+                value_ta.move_cursor(tui_textarea::CursorMove::End);
                 self.modal = Some(ModalState::UrlParam {
-                    key: k,
-                    value: v,
+                    key: key_ta,
+                    value: value_ta,
                     active_field: VarField::Key,
                     edit_idx: Some(self.url_params_cursor),
                 });
@@ -1719,29 +1723,40 @@ impl App {
 
             Some(ModalState::UrlParam { key: mut up_key, value: mut up_val, mut active_field, edit_idx }) => match key.code {
                 KeyCode::Esc => {}
-                KeyCode::Enter if !up_key.trim().is_empty() => {
-                    if let Some(idx) = edit_idx {
-                        self.request_url_params[idx] = (up_key.trim().to_string(), up_val.trim().to_string());
+                KeyCode::Enter => {
+                    let k = up_key.lines()[0].trim().to_string();
+                    let v = up_val.lines()[0].trim().to_string();
+                    if !k.is_empty() {
+                        if let Some(idx) = edit_idx {
+                            self.request_url_params[idx] = (k, v);
+                        } else {
+                            self.request_url_params.push((k, v));
+                            self.url_params_cursor = self.request_url_params.len() - 1;
+                        }
                     } else {
-                        self.request_url_params.push((up_key.trim().to_string(), up_val.trim().to_string()));
-                        self.url_params_cursor = self.request_url_params.len() - 1;
+                        self.modal = Some(ModalState::UrlParam { key: up_key, value: up_val, active_field, edit_idx });
                     }
                 }
                 KeyCode::Tab => {
                     active_field = match active_field { VarField::Key => VarField::Value, VarField::Value => VarField::Key };
                     self.modal = Some(ModalState::UrlParam { key: up_key, value: up_val, active_field, edit_idx });
                 }
-                KeyCode::Char(c) => {
-                    match active_field { VarField::Key => up_key.push(c), VarField::Value => up_val.push(c) }
-                    let trigger = active_field == VarField::Value && up_val.ends_with("{{");
+                KeyCode::Char('l') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    match active_field {
+                        VarField::Key => { up_key = TextArea::default(); }
+                        VarField::Value => { up_val = TextArea::default(); }
+                    }
+                    self.modal = Some(ModalState::UrlParam { key: up_key, value: up_val, active_field, edit_idx });
+                }
+                _ => {
+                    match active_field {
+                        VarField::Key => { up_key.input(tui_textarea::Input::from(key)); }
+                        VarField::Value => { up_val.input(tui_textarea::Input::from(key)); }
+                    }
+                    let trigger = active_field == VarField::Value && up_val.lines()[0].ends_with("{{");
                     self.modal = Some(ModalState::UrlParam { key: up_key, value: up_val, active_field, edit_idx });
                     if trigger { self.open_var_picker(VarPickerTarget::ModalValue); }
                 }
-                KeyCode::Backspace => {
-                    match active_field { VarField::Key => { up_key.pop(); } VarField::Value => { up_val.pop(); } }
-                    self.modal = Some(ModalState::UrlParam { key: up_key, value: up_val, active_field, edit_idx });
-                }
-                _ => { self.modal = Some(ModalState::UrlParam { key: up_key, value: up_val, active_field, edit_idx }); }
             },
 
             Some(ModalState::BodyPair { key: mut bp_key, value: mut bp_val, mut active_field, edit_idx }) => match key.code {

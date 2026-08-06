@@ -569,7 +569,7 @@ pub enum ModalState {
     },
     EditAuthField {
         kind: AuthFieldKind,
-        value: String,
+        value: TextArea<'static>,
     },
     CampaignParams {
         campaign_idx: usize,

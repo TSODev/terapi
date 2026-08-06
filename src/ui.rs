@@ -2541,28 +2541,45 @@ fn render_modal(frame: &mut Frame, app: &App) {
             let area = centered_rect(60, 7, frame.area());
             frame.render_widget(Clear, area);
             let label = kind.label();
-            let display = if kind == &crate::app::AuthFieldKind::BasicPassword && !value.is_empty() {
-                "•".repeat(value.len())
-            } else {
-                value.clone()
-            };
-            let text = vec![
-                Line::from(""),
-                Line::from(vec![
-                    Span::styled(format!("  {}:  ", label), Style::default().fg(Color::Gray)),
-                    Span::styled(&display, Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                    Span::styled("█", Style::default().fg(Color::Yellow)),
-                ]),
-                Line::from(""),
-                Line::from(Span::styled("  Enter: confirm   Esc: cancel", Style::default().fg(Color::Gray))),
-            ];
+            let block = Block::default().borders(Borders::ALL)
+                .title(format!(" Edit {} ", label)).title_alignment(Alignment::Center)
+                .border_style(Style::default().fg(Color::Cyan));
+            let inner = block.inner(area);
+            frame.render_widget(block, area);
+
+            let rows = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(1),
+                    Constraint::Length(1),
+                    Constraint::Length(1),
+                    Constraint::Length(1),
+                    Constraint::Min(0),
+                ])
+                .split(inner);
+
+            let field_label = format!("  {}:  ", label);
+            let split = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Length(field_label.chars().count() as u16), Constraint::Min(1)])
+                .split(rows[1]);
+            frame.render_widget(Paragraph::new(Span::styled(field_label, Style::default().fg(Color::Gray))), split[0]);
+
+            let mut field = value.clone();
+            field.set_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD));
+            field.set_cursor_style(Style::default().fg(Color::Black).bg(Color::Yellow));
+            field.set_cursor_line_style(Style::default());
+            if kind == &crate::app::AuthFieldKind::BasicPassword {
+                field.set_mask_char('•');
+            }
+            frame.render_widget(&field, split[1]);
+
             frame.render_widget(
-                Paragraph::new(text).block(
-                    Block::default().borders(Borders::ALL)
-                        .title(format!(" Edit {} ", label)).title_alignment(Alignment::Center)
-                        .border_style(Style::default().fg(Color::Cyan)),
-                ),
-                area,
+                Paragraph::new(Line::from(Span::styled(
+                    "  Enter: confirm   Ctrl+L: clear   Esc: cancel",
+                    Style::default().fg(Color::Gray),
+                ))),
+                rows[3],
             );
         }
 

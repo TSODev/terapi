@@ -140,6 +140,12 @@ pub struct App {
     pub(super) oauth2_tx: mpsc::UnboundedSender<(String, Result<CachedToken, String>)>,
 }
 
+fn prefilled_textarea(s: &str) -> TextArea<'static> {
+    let mut ta = TextArea::from(vec![s.to_string()]);
+    ta.move_cursor(tui_textarea::CursorMove::End);
+    ta
+}
+
 impl App {
     pub fn new(response_body: Option<String>) -> Self {
         let stored_collections = match crate::storage::load_collections() {
@@ -903,31 +909,31 @@ impl App {
                         (AuthType::Bearer, 1) => {
                             self.modal = Some(ModalState::EditAuthField {
                                 kind: AuthFieldKind::BearerToken,
-                                value: self.auth_config.bearer_token.clone(),
+                                value: prefilled_textarea(&self.auth_config.bearer_token),
                             });
                         }
                         (AuthType::Basic, 1) => {
                             self.modal = Some(ModalState::EditAuthField {
                                 kind: AuthFieldKind::BasicUsername,
-                                value: self.auth_config.basic_username.clone(),
+                                value: prefilled_textarea(&self.auth_config.basic_username),
                             });
                         }
                         (AuthType::Basic, 2) => {
                             self.modal = Some(ModalState::EditAuthField {
                                 kind: AuthFieldKind::BasicPassword,
-                                value: self.auth_config.basic_password.clone(),
+                                value: prefilled_textarea(&self.auth_config.basic_password),
                             });
                         }
                         (AuthType::ApiKey, 1) => {
                             self.modal = Some(ModalState::EditAuthField {
                                 kind: AuthFieldKind::ApiKeyName,
-                                value: self.auth_config.api_key_name.clone(),
+                                value: prefilled_textarea(&self.auth_config.api_key_name),
                             });
                         }
                         (AuthType::ApiKey, 2) => {
                             self.modal = Some(ModalState::EditAuthField {
                                 kind: AuthFieldKind::ApiKeyValue,
-                                value: self.auth_config.api_key_value.clone(),
+                                value: prefilled_textarea(&self.auth_config.api_key_value),
                             });
                         }
                         (AuthType::ApiKey, 3) => {
@@ -936,37 +942,37 @@ impl App {
                         (AuthType::OAuth2ClientCredentials, 1) | (AuthType::OAuth2AuthorizationCode, 1) => {
                             self.modal = Some(ModalState::EditAuthField {
                                 kind: AuthFieldKind::OAuth2TokenUrl,
-                                value: self.auth_config.oauth2_token_url.clone(),
+                                value: prefilled_textarea(&self.auth_config.oauth2_token_url),
                             });
                         }
                         (AuthType::OAuth2ClientCredentials, 2) | (AuthType::OAuth2AuthorizationCode, 2) => {
                             self.modal = Some(ModalState::EditAuthField {
                                 kind: AuthFieldKind::OAuth2ClientId,
-                                value: self.auth_config.oauth2_client_id.clone(),
+                                value: prefilled_textarea(&self.auth_config.oauth2_client_id),
                             });
                         }
                         (AuthType::OAuth2ClientCredentials, 3) | (AuthType::OAuth2AuthorizationCode, 3) => {
                             self.modal = Some(ModalState::EditAuthField {
                                 kind: AuthFieldKind::OAuth2ClientSecret,
-                                value: self.auth_config.oauth2_client_secret.clone(),
+                                value: prefilled_textarea(&self.auth_config.oauth2_client_secret),
                             });
                         }
                         (AuthType::OAuth2ClientCredentials, 4) | (AuthType::OAuth2AuthorizationCode, 4) => {
                             self.modal = Some(ModalState::EditAuthField {
                                 kind: AuthFieldKind::OAuth2Scope,
-                                value: self.auth_config.oauth2_scope.clone(),
+                                value: prefilled_textarea(&self.auth_config.oauth2_scope),
                             });
                         }
                         (AuthType::OAuth2AuthorizationCode, 5) => {
                             self.modal = Some(ModalState::EditAuthField {
                                 kind: AuthFieldKind::OAuth2AuthUrl,
-                                value: self.auth_config.oauth2_auth_url.clone(),
+                                value: prefilled_textarea(&self.auth_config.oauth2_auth_url),
                             });
                         }
                         (AuthType::OAuth2AuthorizationCode, 6) => {
                             self.modal = Some(ModalState::EditAuthField {
                                 kind: AuthFieldKind::OAuth2RedirectPort,
-                                value: self.auth_config.oauth2_redirect_port.to_string(),
+                                value: prefilled_textarea(&self.auth_config.oauth2_redirect_port.to_string()),
                             });
                         }
                         _ => {}
@@ -1948,33 +1954,32 @@ impl App {
             Some(ModalState::EditAuthField { kind, mut value }) => match key.code {
                 KeyCode::Esc => {}
                 KeyCode::Enter => {
+                    let v = value.lines()[0].to_string();
                     match kind {
-                        AuthFieldKind::BearerToken        => self.auth_config.bearer_token        = value,
-                        AuthFieldKind::BasicUsername      => self.auth_config.basic_username      = value,
-                        AuthFieldKind::BasicPassword      => self.auth_config.basic_password      = value,
-                        AuthFieldKind::ApiKeyName         => self.auth_config.api_key_name        = value,
-                        AuthFieldKind::ApiKeyValue        => self.auth_config.api_key_value       = value,
-                        AuthFieldKind::OAuth2TokenUrl     => self.auth_config.oauth2_token_url    = value,
-                        AuthFieldKind::OAuth2ClientId     => self.auth_config.oauth2_client_id    = value,
-                        AuthFieldKind::OAuth2ClientSecret => self.auth_config.oauth2_client_secret = value,
-                        AuthFieldKind::OAuth2Scope        => self.auth_config.oauth2_scope        = value,
-                        AuthFieldKind::OAuth2AuthUrl      => self.auth_config.oauth2_auth_url     = value,
+                        AuthFieldKind::BearerToken        => self.auth_config.bearer_token        = v,
+                        AuthFieldKind::BasicUsername      => self.auth_config.basic_username      = v,
+                        AuthFieldKind::BasicPassword      => self.auth_config.basic_password      = v,
+                        AuthFieldKind::ApiKeyName         => self.auth_config.api_key_name        = v,
+                        AuthFieldKind::ApiKeyValue        => self.auth_config.api_key_value       = v,
+                        AuthFieldKind::OAuth2TokenUrl     => self.auth_config.oauth2_token_url    = v,
+                        AuthFieldKind::OAuth2ClientId     => self.auth_config.oauth2_client_id    = v,
+                        AuthFieldKind::OAuth2ClientSecret => self.auth_config.oauth2_client_secret = v,
+                        AuthFieldKind::OAuth2Scope        => self.auth_config.oauth2_scope        = v,
+                        AuthFieldKind::OAuth2AuthUrl      => self.auth_config.oauth2_auth_url     = v,
                         AuthFieldKind::OAuth2RedirectPort => {
-                            if let Ok(port) = value.parse::<u16>() {
+                            if let Ok(port) = v.parse::<u16>() {
                                 self.auth_config.oauth2_redirect_port = port;
                             }
                         }
                     }
                 }
-                KeyCode::Char(c) => {
-                    value.push(c);
+                KeyCode::Char('l') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    self.modal = Some(ModalState::EditAuthField { kind, value: TextArea::default() });
+                }
+                _ => {
+                    value.input(tui_textarea::Input::from(key));
                     self.modal = Some(ModalState::EditAuthField { kind, value });
                 }
-                KeyCode::Backspace => {
-                    value.pop();
-                    self.modal = Some(ModalState::EditAuthField { kind, value });
-                }
-                _ => { self.modal = Some(ModalState::EditAuthField { kind, value }); }
             },
 
             Some(ModalState::CampaignParams { campaign_idx, mut params, mut cursor, mut editing, mut input }) => {

@@ -630,7 +630,7 @@ impl App {
         self.status_message = match self.active_graphql_tab {
             GraphqlTab::Query     => "GQL  i: edit  Ctrl+Space: complete  ←/→: section  s: send  S: save  g: REST  q: quit".into(),
             GraphqlTab::Variables => "GQL Variables  a: add  d: delete  Enter: edit  ↑/↓: nav  ←/→: section  s: send  g: REST  q: quit".into(),
-            GraphqlTab::Headers   => "GQL Headers  a: add  d: delete  ↑/↓: nav  ←/→: section  s: send  g: REST  q: quit".into(),
+            GraphqlTab::Headers   => "GQL Headers  a: add  d: delete  Enter: edit  ↑/↓: nav  ←/→: section  s: send  g: REST  q: quit".into(),
             GraphqlTab::Auth      => "GQL Auth  ↑/↓: nav  Space/Enter: edit  f: fetch OAuth2 token  ←/→: section  s: send  g: REST  q: quit".into(),
             GraphqlTab::Schema    => "GQL Schema  f: fetch  ↑/↓ PgUp/PgDn: types/scroll  Enter: load  Tab: focus  z: expand  /: search  ←/→: section  q: quit".into(),
             GraphqlTab::Options   => "GQL Options  ↑/↓: nav  Space/Enter: toggle/cycle  ←/→: section  s: send  g: REST  q: quit".into(),
@@ -640,7 +640,7 @@ impl App {
     pub fn update_request_status_hint(&mut self) {
         self.status_message = match self.active_request_tab {
             RequestTab::Description => "e: edit URL  m: method  g: GraphQL  n: new  ←/→: section  i: edit description  s: send  S: save  q: quit".into(),
-            RequestTab::Headers     => "e: edit URL  m: method  a: add header  d: delete  ↑/↓: nav  ←/→: section  s: send  S: save  q: quit".into(),
+            RequestTab::Headers     => "e: edit URL  m: method  a: add header  d: delete  Enter: edit  ↑/↓: nav  ←/→: section  s: send  S: save  q: quit".into(),
             RequestTab::UrlParams   => "e: edit URL  m: method  a: add  d: delete  Enter: edit  ↑/↓: nav  ←/→: section  s: send  S: save  q: quit".into(),
             RequestTab::Body => match self.body_mode {
                 BodyMode::Text => "e: edit URL  m: method  i: edit body  E: json editor  t: JSON mode  ←/→: section  s: send  S: save  q: quit".into(),

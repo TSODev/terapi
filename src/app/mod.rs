@@ -999,6 +999,23 @@ impl App {
                     self.header_cursor -= 1;
                 }
             }
+            KeyCode::Enter
+                if self.active_tab == Tab::Request
+                    && self.is_on_headers_tab()
+                    && !self.request_headers.is_empty() =>
+            {
+                let (k, v) = self.request_headers[self.header_cursor].clone();
+                let mut key_ta = TextArea::from(vec![k]);
+                key_ta.move_cursor(tui_textarea::CursorMove::End);
+                let mut value_ta = TextArea::from(vec![v]);
+                value_ta.move_cursor(tui_textarea::CursorMove::End);
+                self.modal = Some(ModalState::NewHeader {
+                    key: key_ta,
+                    value: value_ta,
+                    active_field: VarField::Value,
+                    edit_idx: Some(self.header_cursor),
+                });
+            }
             KeyCode::Up
                 if self.active_tab == Tab::Request
                     && self.is_on_headers_tab() =>
@@ -1602,17 +1619,21 @@ impl App {
                                 self.modal = Some(ModalState::ContentTypePicker { cursor: 0 });
                             } else {
                                 let (k, v) = COMMON_HEADERS[cursor];
+                                let mut value_ta = TextArea::from(vec![v.to_string()]);
+                                value_ta.move_cursor(tui_textarea::CursorMove::End);
                                 self.modal = Some(ModalState::NewHeader {
-                                    key: k.to_string(),
-                                    value: v.to_string(),
+                                    key: TextArea::from(vec![k.to_string()]),
+                                    value: value_ta,
                                     active_field: VarField::Value,
+                                    edit_idx: None,
                                 });
                             }
                         } else {
                             self.modal = Some(ModalState::NewHeader {
-                                key: String::new(),
-                                value: String::new(),
+                                key: TextArea::default(),
+                                value: TextArea::default(),
                                 active_field: VarField::Key,
+                                edit_idx: None,
                             });
                         }
                     }
@@ -1638,44 +1659,62 @@ impl App {
                         } else {
                             String::new()
                         };
+                        let mut value_ta = TextArea::from(vec![value]);
+                        value_ta.move_cursor(tui_textarea::CursorMove::End);
                         self.modal = Some(ModalState::NewHeader {
-                            key: "Content-Type".to_string(),
-                            value,
+                            key: TextArea::from(vec!["Content-Type".to_string()]),
+                            value: value_ta,
                             active_field: if cursor < COMMON_CONTENT_TYPES.len() {
                                 VarField::Value
                             } else {
                                 VarField::Key
                             },
+                            edit_idx: None,
                         });
                     }
                     _ => { self.modal = Some(ModalState::ContentTypePicker { cursor }); }
                 }
             }
 
-            Some(ModalState::NewHeader { key: mut hdr_key, value: mut hdr_val, mut active_field }) => match key.code {
+            Some(ModalState::NewHeader { key: mut hdr_key, value: mut hdr_val, mut active_field, edit_idx }) => match key.code {
                 KeyCode::Esc => {}
-                KeyCode::Enter if !hdr_key.trim().is_empty() => {
-                    self.request_headers.push((hdr_key.trim().to_string(), hdr_val.trim().to_string()));
-                    self.header_cursor = self.request_headers.len() - 1;
+                KeyCode::Enter => {
+                    let k = hdr_key.lines()[0].trim().to_string();
+                    let v = hdr_val.lines()[0].trim().to_string();
+                    if !k.is_empty() {
+                        if let Some(idx) = edit_idx {
+                            self.request_headers[idx] = (k, v);
+                        } else {
+                            self.request_headers.push((k, v));
+                            self.header_cursor = self.request_headers.len() - 1;
+                        }
+                    } else {
+                        self.modal = Some(ModalState::NewHeader { key: hdr_key, value: hdr_val, active_field, edit_idx });
+                    }
                 }
                 KeyCode::Tab => {
                     active_field = match active_field {
                         VarField::Key => VarField::Value,
                         VarField::Value => VarField::Key,
                     };
-                    self.modal = Some(ModalState::NewHeader { key: hdr_key, value: hdr_val, active_field });
+                    self.modal = Some(ModalState::NewHeader { key: hdr_key, value: hdr_val, active_field, edit_idx });
                 }
-                KeyCode::Char(c) => {
-                    match active_field { VarField::Key => hdr_key.push(c), VarField::Value => hdr_val.push(c) }
-                    let trigger = active_field == VarField::Value && hdr_val.ends_with("{{");
-                    self.modal = Some(ModalState::NewHeader { key: hdr_key, value: hdr_val, active_field });
+                KeyCode::Char('l') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    match active_field {
+                        VarField::Key => { hdr_key = TextArea::default(); }
+                        VarField::Value => { hdr_val = TextArea::default(); }
+                    }
+                    self.modal = Some(ModalState::NewHeader { key: hdr_key, value: hdr_val, active_field, edit_idx });
+                }
+                _ => {
+                    match active_field {
+                        VarField::Key => { hdr_key.input(tui_textarea::Input::from(key)); }
+                        VarField::Value => { hdr_val.input(tui_textarea::Input::from(key)); }
+                    }
+                    let trigger = active_field == VarField::Value && hdr_val.lines()[0].ends_with("{{");
+                    self.modal = Some(ModalState::NewHeader { key: hdr_key, value: hdr_val, active_field, edit_idx });
                     if trigger { self.open_var_picker(VarPickerTarget::ModalValue); }
                 }
-                KeyCode::Backspace => {
-                    match active_field { VarField::Key => { hdr_key.pop(); } VarField::Value => { hdr_val.pop(); } }
-                    self.modal = Some(ModalState::NewHeader { key: hdr_key, value: hdr_val, active_field });
-                }
-                _ => { self.modal = Some(ModalState::NewHeader { key: hdr_key, value: hdr_val, active_field }); }
             },
 
             Some(ModalState::UrlParam { key: mut up_key, value: mut up_val, mut active_field, edit_idx }) => match key.code {

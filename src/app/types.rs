@@ -533,9 +533,10 @@ pub enum ModalState {
         cursor: usize,
     },
     NewHeader {
-        key: String,
-        value: String,
+        key: TextArea<'static>,
+        value: TextArea<'static>,
         active_field: VarField,
+        edit_idx: Option<usize>,
     },
     UrlParam {
         key: String,

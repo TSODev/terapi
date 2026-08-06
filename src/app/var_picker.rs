@@ -88,16 +88,17 @@ impl App {
             }
             VarPickerTarget::ModalValue => {
                 if let Some(modal) = &mut self.modal {
-                    let val = match modal {
-                        ModalState::NewHeader { value, .. } => Some(value),
-                        ModalState::UrlParam { value, .. } => Some(value),
-                        ModalState::BodyPair { value, .. } => Some(value),
-                        _ => None,
-                    };
-                    if let Some(v) = val {
-                        let new_len = v.len().saturating_sub(remove_count);
-                        v.truncate(new_len);
-                        v.push_str(&insert);
+                    match modal {
+                        ModalState::NewHeader { value, .. } => {
+                            for _ in 0..remove_count { value.delete_char(); }
+                            value.insert_str(&insert);
+                        }
+                        ModalState::UrlParam { value, .. } | ModalState::BodyPair { value, .. } => {
+                            let new_len = value.len().saturating_sub(remove_count);
+                            value.truncate(new_len);
+                            value.push_str(&insert);
+                        }
+                        _ => {}
                     }
                 }
             }
@@ -123,8 +124,8 @@ impl App {
             VarPickerTarget::ModalValue => {
                 if let Some(modal) = &mut self.modal {
                     match modal {
-                        ModalState::NewHeader { value, .. }
-                        | ModalState::UrlParam { value, .. }
+                        ModalState::NewHeader { value, .. } => { value.insert_char(c); }
+                        ModalState::UrlParam { value, .. }
                         | ModalState::BodyPair { value, .. } => { value.push(c); }
                         _ => {}
                     }
@@ -146,8 +147,8 @@ impl App {
             VarPickerTarget::ModalValue => {
                 if let Some(modal) = &mut self.modal {
                     match modal {
-                        ModalState::NewHeader { value, .. }
-                        | ModalState::UrlParam { value, .. }
+                        ModalState::NewHeader { value, .. } => { value.delete_char(); }
+                        ModalState::UrlParam { value, .. }
                         | ModalState::BodyPair { value, .. } => { value.pop(); }
                         _ => {}
                     }

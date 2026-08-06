@@ -132,6 +132,7 @@ After import, a report is printed:
 | `s` | Send request |
 | `S` | Save current request to a collection |
 | `i` | Edit description (Description sub-tab — enter editor) / Edit body (Body sub-tab — enter editor) |
+| `a` / `d` / `Enter` | Headers sub-tab — add / delete / edit header |
 | `a` / `d` | URL Params sub-tab — add / delete param |
 | `t` | Toggle body mode: Text ↔ JSON (Body sub-tab, outside editor) |
 | `E` | Open body in external JSON editor (`$TERAPI_JSON_EDITOR`, defaults to `jsoned`) |
@@ -162,6 +163,7 @@ After import, a report is printed:
 | `Esc` | Query tab — exit query editor |
 | `a` / `d` | Variables tab — add / delete variable |
 | `Enter` | Variables tab — edit selected variable |
+| `a` / `d` / `Enter` | Headers tab — add / delete / edit header |
 | `↑` / `↓` | Variables tab — navigate variables |
 | `f` | Schema tab — fetch type list via introspection |
 | `↑` / `↓` | Schema tab — navigate type list |

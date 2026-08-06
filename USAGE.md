@@ -632,7 +632,7 @@ The JSON view displays a 3-column table: **Key / Type / Value**.
 - Folded nodes display an inline content preview: `{ id: 42, name: "tsodev" … }`.
 - Press `r` to cycle through three views: **JSON** → **Raw** → **HTTP** → JSON.
 - Press `d` (JSON or Raw view) to diff the last two responses in an external tool — see [Response diff](#response-diff) below.
-- Press `f` (JSON view) when the cursor is on a URL value to **follow the URL** — it is instantly loaded into the request bar with method set to GET and the URL field focused.
+- Press `f` (JSON view) when the cursor is on a URL value (e.g. a pagination `next` link) to **follow the URL** — it replaces the URL bar's content (method reset to GET, query params cleared) but does *not* focus the URL field or send the request; press `s` afterward to actually fetch it. The `f: follow URL` hint only appears in the status bar when the cursor is on a row whose value is a `http://`/`https://` string — on a large response, moving one row off (e.g. onto `data`/an array item) silently removes the hint with no other visual cue.
 - Use `-` / `=` to shrink or grow the Key column width.
 - Use `↑` / `↓` to move the cursor row by row (JSON view) or scroll (Raw / HTTP views); `PgUp` / `PgDn` do the same 10 rows/lines at a time — useful on a large response (thousands of rows) where reaching a distant row would otherwise mean holding `↓` for a while.
 - Press `z` to **expand** the Response panel to the whole Request tab body — hides the URL bar, sub-tabs, and request content, giving the response maximal room; the outer tab bar and status bar stay visible. Press `z` again or `Esc` to collapse back.

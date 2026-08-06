@@ -149,6 +149,7 @@ After import, a report is printed:
 | `↑` / `↓` | Options sub-tab — navigate between options |
 | `Space` / `Enter` | Options sub-tab — toggle (Skip TLS / Follow redirects / Cookie jar) or cycle timeout |
 | `r` | Cycle response view: JSON → Raw → HTTP (full diagnostics + redirect chain + cookies) |
+| `f` | JSON view, cursor on a URL value (e.g. pagination `next`) — load it into the URL bar; does **not** send — press `s` afterward |
 | `d` | Diff last two responses using `$TERAPI_JSON_DIFFER` (structural, e.g. `jsoned`), else `$TERAPI_DIFF` (or `diff -u \| less`); available after 2nd request |
 | `-` / `=` | Resize Key column |
 | `q` `q` | Quit (press twice to confirm) |

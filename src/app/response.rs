@@ -111,6 +111,20 @@ impl App {
                     self.response_headers = http.headers.clone();
                     self.previous_response_body = self.response_body.take();
                     self.response_body = Some(http.body.clone());
+                    // A plain-text/CSV/etc. body left in JSON view would otherwise just show
+                    // "Parse error: ..." — fall back to Raw so the actual content is visible.
+                    // Never forces the other direction: a real JSON/XML body doesn't override
+                    // a Raw view the user picked on purpose.
+                    if self.response_view == ResponseView::Json {
+                        let content_type = self.response_headers.iter()
+                            .find(|(k, _)| k.eq_ignore_ascii_case("content-type"))
+                            .map(|(_, v)| v.as_str());
+                        let is_structured = crate::xml_convert::is_xml(&http.body, content_type)
+                            || serde_json::from_str::<serde_json::Value>(&http.body).is_ok();
+                        if !is_structured {
+                            self.response_view = ResponseView::Raw;
+                        }
+                    }
                     self.response_cursor = 0;
                     self.response_scroll = 0;
                     self.response_folds = HashSet::new();

@@ -7,6 +7,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **A plain-text response (e.g. `Content-Type: text/plain`) landed in JSON view showing `Parse error: ...`** — the default/sticky response view is JSON, and nothing checked whether the body was actually JSON before handing it to the tree parser. On a fresh response, if the current view is JSON and the body is neither XML (already handled) nor valid JSON, terapi now falls back to Raw view so the actual text is visible. One-directional on purpose: a genuinely JSON/XML response never forces the view *into* JSON if the user had deliberately switched to Raw (e.g. for a large body) — only the broken case (JSON view showing a parse error instead of content) is corrected.
+
 ## [0.10.11] — 2026-08-06
 
 ### Fixed

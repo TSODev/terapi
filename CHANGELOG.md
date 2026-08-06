@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.10.12] — 2026-08-06
+
 ### Added
 - **Sensitive environments — confirm before sending a mutating request** — nothing previously stopped a wrong-environment mistake (e.g. accidentally sending a `DELETE`/`POST` against a production API instead of local/staging) from firing immediately on `s`. An environment can now be marked `sensitive` (`s` in the Env panel, persisted as `EnvMeta.sensitive`, shown as `🔒 sensible` in the list). Sending a mutating request against a sensitive env — any non-`GET` REST method, or a GraphQL `mutation` — now opens a confirmation modal (`ModalState::ConfirmSend`) instead of dispatching immediately: `y`/`Enter` sends this one request, `a` sends it and remembers the choice for the rest of the session (no further prompts), `n`/`Esc` cancels. Deliberately narrow on what counts as "mutating": a REST-style "non-GET ⇒ confirm" check would misfire on every GraphQL query, since GraphQL always uses `POST` regardless of read/write — only an actual `mutation { ... }` triggers it. `App::send_request()` splits into resolution (unchanged) + a new `dispatch_http()` that either fires immediately or gets deferred into a held `PendingSend` until confirmed. TUI-only by design — headless campaigns (`terapi run`) and the builder's step preview stay unattended.
 

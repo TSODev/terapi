@@ -1292,9 +1292,13 @@ impl App {
                 if let Some(env) = self.environments.get(self.env_cursor) {
                     let vars = sorted_vars(env);
                     if let Some((key, value)) = vars.get(self.env_var_cursor) {
+                        let mut key_ta = TextArea::from(vec![key.clone()]);
+                        key_ta.move_cursor(tui_textarea::CursorMove::End);
+                        let mut value_ta = TextArea::from(vec![value.clone()]);
+                        value_ta.move_cursor(tui_textarea::CursorMove::End);
                         self.modal = Some(ModalState::EditVar {
-                            key: key.clone(),
-                            value: value.clone(),
+                            key: key_ta,
+                            value: value_ta,
                             active_field: VarField::Value,
                             env_idx: self.env_cursor,
                             original_key: key.clone(),
@@ -1308,8 +1312,8 @@ impl App {
             KeyCode::Char('a') if self.active_tab == Tab::Env => {
                 if !self.environments.is_empty() {
                     self.modal = Some(ModalState::NewVar {
-                        key: String::new(),
-                        value: String::new(),
+                        key: TextArea::default(),
+                        value: TextArea::default(),
                         active_field: VarField::Key,
                         env_idx: self.env_cursor,
                     });
@@ -1513,8 +1517,14 @@ impl App {
 
             Some(ModalState::NewVar { key: mut var_key, value: mut var_value, mut active_field, env_idx }) => match key.code {
                 KeyCode::Esc => {}
-                KeyCode::Enter if !var_key.trim().is_empty() => {
-                    self.add_var(var_key.trim().to_string(), var_value.trim().to_string(), env_idx)?;
+                KeyCode::Enter => {
+                    let k = var_key.lines()[0].trim().to_string();
+                    let v = var_value.lines()[0].trim().to_string();
+                    if !k.is_empty() {
+                        self.add_var(k, v, env_idx)?;
+                    } else {
+                        self.modal = Some(ModalState::NewVar { key: var_key, value: var_value, active_field, env_idx });
+                    }
                 }
                 KeyCode::Tab => {
                     active_field = match active_field {
@@ -1523,21 +1533,32 @@ impl App {
                     };
                     self.modal = Some(ModalState::NewVar { key: var_key, value: var_value, active_field, env_idx });
                 }
-                KeyCode::Char(c) => {
-                    match active_field { VarField::Key => var_key.push(c), VarField::Value => var_value.push(c) }
+                KeyCode::Char('l') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    match active_field {
+                        VarField::Key => { var_key = TextArea::default(); }
+                        VarField::Value => { var_value = TextArea::default(); }
+                    }
                     self.modal = Some(ModalState::NewVar { key: var_key, value: var_value, active_field, env_idx });
                 }
-                KeyCode::Backspace => {
-                    match active_field { VarField::Key => { var_key.pop(); } VarField::Value => { var_value.pop(); } }
+                _ => {
+                    match active_field {
+                        VarField::Key => { var_key.input(tui_textarea::Input::from(key)); }
+                        VarField::Value => { var_value.input(tui_textarea::Input::from(key)); }
+                    }
                     self.modal = Some(ModalState::NewVar { key: var_key, value: var_value, active_field, env_idx });
                 }
-                _ => { self.modal = Some(ModalState::NewVar { key: var_key, value: var_value, active_field, env_idx }); }
             },
 
             Some(ModalState::EditVar { key: mut var_key, value: mut var_value, mut active_field, env_idx, original_key }) => match key.code {
                 KeyCode::Esc => {}
-                KeyCode::Enter if !var_key.trim().is_empty() => {
-                    self.edit_var(env_idx, &original_key, var_key.trim().to_string(), var_value.trim().to_string())?;
+                KeyCode::Enter => {
+                    let k = var_key.lines()[0].trim().to_string();
+                    let v = var_value.lines()[0].trim().to_string();
+                    if !k.is_empty() {
+                        self.edit_var(env_idx, &original_key, k, v)?;
+                    } else {
+                        self.modal = Some(ModalState::EditVar { key: var_key, value: var_value, active_field, env_idx, original_key });
+                    }
                 }
                 KeyCode::Tab => {
                     active_field = match active_field {
@@ -1546,15 +1567,20 @@ impl App {
                     };
                     self.modal = Some(ModalState::EditVar { key: var_key, value: var_value, active_field, env_idx, original_key });
                 }
-                KeyCode::Char(c) => {
-                    match active_field { VarField::Key => var_key.push(c), VarField::Value => var_value.push(c) }
+                KeyCode::Char('l') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    match active_field {
+                        VarField::Key => { var_key = TextArea::default(); }
+                        VarField::Value => { var_value = TextArea::default(); }
+                    }
                     self.modal = Some(ModalState::EditVar { key: var_key, value: var_value, active_field, env_idx, original_key });
                 }
-                KeyCode::Backspace => {
-                    match active_field { VarField::Key => { var_key.pop(); } VarField::Value => { var_value.pop(); } }
+                _ => {
+                    match active_field {
+                        VarField::Key => { var_key.input(tui_textarea::Input::from(key)); }
+                        VarField::Value => { var_value.input(tui_textarea::Input::from(key)); }
+                    }
                     self.modal = Some(ModalState::EditVar { key: var_key, value: var_value, active_field, env_idx, original_key });
                 }
-                _ => { self.modal = Some(ModalState::EditVar { key: var_key, value: var_value, active_field, env_idx, original_key }); }
             },
 
             Some(ModalState::HeaderPicker { mut cursor }) => {

@@ -14,6 +14,7 @@ use crate::app::{
 };
 use crate::json_highlight::ValueType;
 use crate::xml_convert;
+use tui_textarea::TextArea;
 
 pub fn render(frame: &mut Frame, app: &App) {
     let area = frame.area();
@@ -2376,56 +2377,12 @@ fn render_modal(frame: &mut Frame, app: &App) {
 
         Some(ModalState::NewVar { key, value, active_field, .. }) => {
             let area = centered_rect(60, 9, frame.area());
-            frame.render_widget(Clear, area);
-
-            let key_style   = if *active_field == VarField::Key   { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
-            let val_style   = if *active_field == VarField::Value { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
-            let key_cursor  = if *active_field == VarField::Key   { "_" } else { "" };
-            let val_cursor  = if *active_field == VarField::Value { "_" } else { "" };
-
-            let text = vec![
-                Line::from(""),
-                Line::from(vec![Span::raw("  Key:   "), Span::styled(format!("{}{}", key, key_cursor), key_style)]),
-                Line::from(""),
-                Line::from(vec![Span::raw("  Value: "), Span::styled(format!("{}{}", value, val_cursor), val_style)]),
-                Line::from(""),
-                Line::from(Span::styled("  Tab: next field   Enter: save   Esc: cancel", Style::default().fg(Color::Gray))),
-            ];
-            frame.render_widget(
-                Paragraph::new(text).block(
-                    Block::default().borders(Borders::ALL)
-                        .title(" New Variable ").title_alignment(Alignment::Center)
-                        .border_style(Style::default().fg(Color::Yellow)),
-                ),
-                area,
-            );
+            render_key_value_modal(frame, area, " New Variable ", Color::Yellow, key, value, active_field.clone());
         }
 
         Some(ModalState::EditVar { key, value, active_field, .. }) => {
             let area = centered_rect(60, 9, frame.area());
-            frame.render_widget(Clear, area);
-
-            let key_style  = if *active_field == VarField::Key   { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
-            let val_style  = if *active_field == VarField::Value { Style::default().fg(Color::Yellow) } else { Style::default().fg(Color::White) };
-            let key_cursor = if *active_field == VarField::Key   { "_" } else { "" };
-            let val_cursor = if *active_field == VarField::Value { "_" } else { "" };
-
-            let text = vec![
-                Line::from(""),
-                Line::from(vec![Span::raw("  Key:   "), Span::styled(format!("{}{}", key, key_cursor), key_style)]),
-                Line::from(""),
-                Line::from(vec![Span::raw("  Value: "), Span::styled(format!("{}{}", value, val_cursor), val_style)]),
-                Line::from(""),
-                Line::from(Span::styled("  Tab: next field   Enter: save   Esc: cancel", Style::default().fg(Color::Gray))),
-            ];
-            frame.render_widget(
-                Paragraph::new(text).block(
-                    Block::default().borders(Borders::ALL)
-                        .title(" Edit Variable ").title_alignment(Alignment::Center)
-                        .border_style(Style::default().fg(Color::Green)),
-                ),
-                area,
-            );
+            render_key_value_modal(frame, area, " Edit Variable ", Color::Green, key, value, active_field.clone());
         }
 
         Some(ModalState::NewHeader { key, value, active_field }) => {
@@ -2731,6 +2688,71 @@ fn render_modal(frame: &mut Frame, app: &App) {
 
         None => {}
     }
+}
+
+/// Shared renderer for the New/Edit Variable (and any future Key/Value) modals:
+/// draws two navigable, horizontally-scrolling single-line text fields (via
+/// tui-textarea, same widget the URL bar uses) instead of a static Span, so a
+/// long value (e.g. a JWT) can be edited and scrolled through rather than only
+/// appended to at the end and clipped on screen.
+fn render_key_value_modal(
+    frame: &mut Frame,
+    area: Rect,
+    title: &str,
+    border_color: Color,
+    key: &TextArea<'static>,
+    value: &TextArea<'static>,
+    active_field: VarField,
+) {
+    frame.render_widget(Clear, area);
+    let block = Block::default().borders(Borders::ALL)
+        .title(title).title_alignment(Alignment::Center)
+        .border_style(Style::default().fg(border_color));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Min(0),
+        ])
+        .split(inner);
+
+    render_key_value_field(frame, rows[1], "  Key:   ", key, active_field == VarField::Key);
+    render_key_value_field(frame, rows[3], "  Value: ", value, active_field == VarField::Value);
+
+    frame.render_widget(
+        Paragraph::new(Line::from(Span::styled(
+            "  Tab: next field   Ctrl+L: clear field   Enter: save   Esc: cancel",
+            Style::default().fg(Color::Gray),
+        ))),
+        rows[5],
+    );
+}
+
+fn render_key_value_field(frame: &mut Frame, area: Rect, label: &str, field: &TextArea<'static>, active: bool) {
+    let split = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Length(label.chars().count() as u16), Constraint::Min(1)])
+        .split(area);
+    frame.render_widget(Paragraph::new(Span::raw(label)), split[0]);
+
+    let mut field = field.clone();
+    if active {
+        field.set_style(Style::default().fg(Color::Yellow));
+        field.set_cursor_style(Style::default().fg(Color::Black).bg(Color::Yellow));
+    } else {
+        field.set_style(Style::default().fg(Color::White));
+        field.set_cursor_style(Style::default().fg(Color::White));
+    }
+    field.set_cursor_line_style(Style::default());
+    frame.render_widget(&field, split[1]);
 }
 
 // ── History panel ────────────────────────────────────────────────────────────

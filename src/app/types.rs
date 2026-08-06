@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use tui_textarea::TextArea;
+
 use crate::storage::{StoredCollection, StoredEnv};
 
 // ── HTTP types ────────────────────────────────────────────────────────────────
@@ -519,8 +521,8 @@ pub enum ModalState {
         input: String,
     },
     NewVar {
-        key: String,
-        value: String,
+        key: TextArea<'static>,
+        value: TextArea<'static>,
         active_field: VarField,
         env_idx: usize,
     },
@@ -558,8 +560,8 @@ pub enum ModalState {
         address: NodeAddress,
     },
     EditVar {
-        key: String,
-        value: String,
+        key: TextArea<'static>,
+        value: TextArea<'static>,
         active_field: VarField,
         env_idx: usize,
         original_key: String,

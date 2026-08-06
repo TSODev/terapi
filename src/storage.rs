@@ -193,6 +193,11 @@ pub struct StoredEnv {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EnvMeta {
     pub name: String,
+    /// Marks this environment (typically production) as requiring confirmation
+    /// before sending a mutating request (non-GET, or a GraphQL `mutation`) — see
+    /// `App::send_request()` / `ModalState::ConfirmSend`.
+    #[serde(default)]
+    pub sensitive: bool,
 }
 
 pub fn load_envs() -> Result<Vec<StoredEnv>> {

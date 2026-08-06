@@ -7,7 +7,7 @@ use crate::storage::{EnvMeta, StoredEnv};
 impl App {
     pub(super) fn create_env(&mut self, name: String) -> Result<()> {
         let env = StoredEnv {
-            env: EnvMeta { name },
+            env: EnvMeta { name, sensitive: false },
             vars: HashMap::new(),
         };
         crate::storage::save_env(&env)?;

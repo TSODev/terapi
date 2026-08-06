@@ -17,6 +17,18 @@ pub struct HttpResult {
 
 pub type HttpOutcome = anyhow::Result<HttpResult, String>;
 
+/// A fully-resolved request held back by `ModalState::ConfirmSend` — the active
+/// environment is marked `sensitive` and this request is a mutation (non-GET, or a
+/// GraphQL `mutation`). Dispatched as-is once the user confirms, so confirming never
+/// re-resolves `{{VAR}}`s against a possibly-changed environment.
+pub struct PendingSend {
+    pub method: String,
+    pub url: String,
+    pub headers: Vec<(String, String)>,
+    pub body: Option<String>,
+    pub warn_vars: bool,
+}
+
 // ── Request types ─────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, PartialEq)]
@@ -578,6 +590,12 @@ pub enum ModalState {
         cursor: usize,
         editing: bool,
         input: String,
+    },
+    /// Held before sending a mutation against an env marked `sensitive` — see `PendingSend`.
+    ConfirmSend {
+        method: String,
+        url: String,
+        env_name: String,
     },
 }
 

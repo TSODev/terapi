@@ -334,7 +334,7 @@ impl App {
             }
         }
 
-        let (method, body) = if self.graphql_mode {
+        let (method, body, is_mutation) = if self.graphql_mode {
             let query_text = self.graphql_query_textarea.lines().join("\n");
             let resolved_query = crate::storage::resolve_vars(&query_text, &env_vars);
             let vars_map: serde_json::Map<String, serde_json::Value> = self.graphql_vars.iter()
@@ -350,11 +350,15 @@ impl App {
                 "variables": serde_json::Value::Object(vars_map)
             });
             let body_str = serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string());
-            ("POST".to_string(), Some(body_str))
+            // GraphQL is always POST, read or write — only a `mutation { ... }` actually
+            // writes, so a REST-style "non-GET" check would misfire on every query.
+            let is_mutation = query_text.trim_start().to_lowercase().starts_with("mutation");
+            ("POST".to_string(), Some(body_str), is_mutation)
         } else {
             let m = METHODS[self.request_method_idx].to_string();
             let b = self.body_string().map(|b| crate::storage::resolve_vars(&b, &env_vars));
-            (m, b)
+            let is_mutation = m != "GET";
+            (m, b, is_mutation)
         };
 
         if self.graphql_mode
@@ -373,6 +377,40 @@ impl App {
             ));
         }
 
+        let env_sensitive = self.active_env_idx
+            .and_then(|i| self.environments.get(i))
+            .map_or(false, |e| e.env.sensitive);
+
+        if env_sensitive && is_mutation && !self.confirm_mutations_for_session {
+            let env_name = self.active_env_idx
+                .and_then(|i| self.environments.get(i))
+                .map(|e| e.env.name.clone())
+                .unwrap_or_default();
+            self.pending_confirm_send = Some(PendingSend {
+                method: method.clone(),
+                url: resolved_url.clone(),
+                headers: resolved_headers,
+                body,
+                warn_vars,
+            });
+            self.modal = Some(ModalState::ConfirmSend { method, url: resolved_url, env_name });
+            return;
+        }
+
+        self.dispatch_http(method, resolved_url, resolved_headers, body, warn_vars);
+    }
+
+    /// Actually fires the HTTP call for an already-fully-resolved request — split out of
+    /// `send_request()` so `ModalState::ConfirmSend`'s confirm handler can call it directly
+    /// on a held `PendingSend` without re-resolving `{{VAR}}`s.
+    pub(super) fn dispatch_http(
+        &mut self,
+        method: String,
+        resolved_url: String,
+        resolved_headers: Vec<(String, String)>,
+        body: Option<String>,
+        warn_vars: bool,
+    ) {
         let tx = self.response_tx.clone();
         let client = self.http_client.clone();
 

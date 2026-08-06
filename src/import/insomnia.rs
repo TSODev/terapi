@@ -485,7 +485,7 @@ fn env_vars(
 
 fn save_env_file(name: &str, vars: HashMap<String, String>) -> Result<()> {
     crate::storage::save_env(&StoredEnv {
-        env: EnvMeta { name: name.to_string() },
+        env: EnvMeta { name: name.to_string(), sensitive: false },
         vars,
     })
 }

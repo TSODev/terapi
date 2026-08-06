@@ -326,6 +326,7 @@ fn import_collection(path: &str, content: &str) -> Result<ImportReport> {
         crate::storage::save_env(&StoredEnv {
             env: EnvMeta {
                 name: env_name.clone(),
+                sensitive: false,
             },
             vars,
         })?;
@@ -352,6 +353,7 @@ fn import_environment(content: &str) -> Result<ImportReport> {
     let stored_env = StoredEnv {
         env: EnvMeta {
             name: env.name.clone(),
+            sensitive: false,
         },
         vars,
     };

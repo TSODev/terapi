@@ -56,6 +56,8 @@ pub struct App {
     pub description_textarea: TextArea<'static>,
     pub request_focus: RequestFocus,
     pub request_loading: bool,
+    pub pending_confirm_send: Option<PendingSend>,
+    pub confirm_mutations_for_session: bool,
     pub editing_request_origin: Option<(usize, Option<usize>, usize)>,
     pub editing_request_name: String,
     // Auth
@@ -201,6 +203,8 @@ impl App {
             description_textarea: TextArea::default(),
             request_focus: RequestFocus::Response,
             request_loading: false,
+            pending_confirm_send: None,
+            confirm_mutations_for_session: false,
             editing_request_origin: None,
             editing_request_name: String::new(),
             auth_config: AuthConfig::default(),
@@ -404,14 +408,13 @@ impl App {
         // ── URL edit mode intercepts all keys ─────────────────────────────
         if self.active_tab == Tab::Request && self.request_focus == RequestFocus::Url {
             match key.code {
-                KeyCode::Esc => {
+                // Enter used to send immediately here, but the natural flow is URL first,
+                // then Headers/Params/Body, then `s` — a lone Enter mid-setup shouldn't
+                // fire early. It now just confirms the URL and exits edit mode, like Esc.
+                KeyCode::Esc | KeyCode::Enter => {
                     self.parse_url_into_params();
                     self.request_focus = RequestFocus::Response;
                     self.status_message = "Tab: panels  e: edit URL  s: send  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into();
-                }
-                KeyCode::Enter => {
-                    self.parse_url_into_params();
-                    self.send_request();
                 }
                 KeyCode::Up if !self.graphql_mode => {
                     self.request_method_idx = if self.request_method_idx == 0 {
@@ -539,7 +542,7 @@ impl App {
                 match self.active_tab {
                     Tab::Request     => self.update_request_status_hint(),
                     Tab::Collections => self.status_message = "Tab: switch panel  ↑/↓: navigate  Enter: expand/load  n: new  f: folder  a: add  e: edit  D: duplicate  E: open in editor  d: delete  /: search  q: quit".into(),
-                    Tab::Env         => self.status_message = "Tab: switch panel  ←/→: switch focus  ↑/↓: navigate  Enter: activate/edit  n: new env  a: add var  d: delete  q: quit".into(),
+                    Tab::Env         => self.status_message = "Tab: switch panel  ←/→: switch focus  ↑/↓: navigate  Enter: activate/edit  n: new env  s: toggle sensitive  a: add var  d: delete  q: quit".into(),
                     Tab::History     => self.status_message = "Tab: switch panel  ↑/↓: navigate  Enter: load  d: delete  q: quit".into(),
                     Tab::Campaigns   => self.status_message = "Tab: switch panel  ↑/↓: navigate  r: run  E: open in editor  Esc: clear  q: quit".into(),
                 };
@@ -581,7 +584,7 @@ impl App {
             }
             KeyCode::Char('e') if self.active_tab == Tab::Request => {
                 self.request_focus = RequestFocus::Url;
-                self.status_message = "URL: type address  ↑/↓: method  ←/→: section  Enter: send  Esc: done".into();
+                self.status_message = "URL: type address  ↑/↓: method  ←/→: section  Enter/Esc: done".into();
             }
             KeyCode::Char('i')
                 if self.active_tab == Tab::Request
@@ -1340,6 +1343,20 @@ impl App {
             KeyCode::Char('n') if self.active_tab == Tab::Env => {
                 self.modal = Some(ModalState::NewEnv { input: String::new() });
             }
+            KeyCode::Char('s')
+                if self.active_tab == Tab::Env
+                    && self.env_focus == EnvFocus::Envs
+                    && self.env_cursor < self.environments.len() =>
+            {
+                let env = &mut self.environments[self.env_cursor];
+                env.env.sensitive = !env.env.sensitive;
+                let _ = crate::storage::save_env(env);
+                self.status_message = if env.env.sensitive {
+                    format!("\"{}\" marqué sensible — confirmation requise avant toute mutation", env.env.name)
+                } else {
+                    format!("\"{}\" n'est plus marqué sensible", env.env.name)
+                };
+            }
             KeyCode::Char('a') if self.active_tab == Tab::Env => {
                 if !self.environments.is_empty() {
                     self.modal = Some(ModalState::NewVar {
@@ -2033,6 +2050,25 @@ impl App {
                     }
                 }
             }
+
+            Some(ModalState::ConfirmSend { method, url, env_name }) => match key.code {
+                KeyCode::Char('y') | KeyCode::Enter => {
+                    if let Some(p) = self.pending_confirm_send.take() {
+                        self.dispatch_http(p.method, p.url, p.headers, p.body, p.warn_vars);
+                    }
+                }
+                KeyCode::Char('a') => {
+                    self.confirm_mutations_for_session = true;
+                    if let Some(p) = self.pending_confirm_send.take() {
+                        self.dispatch_http(p.method, p.url, p.headers, p.body, p.warn_vars);
+                    }
+                }
+                KeyCode::Char('n') | KeyCode::Esc => {
+                    self.pending_confirm_send = None;
+                    self.status_message = "Envoi annulé".into();
+                }
+                _ => { self.modal = Some(ModalState::ConfirmSend { method, url, env_name }); }
+            },
 
             None => {}
         }

@@ -138,7 +138,7 @@ After import, a report is printed:
 | `a` / `d` / `Enter` (or `e`) | Body sub-tab (JSON mode, after `i`) — add / delete / edit field |
 | `E` | Open body in external JSON editor (`$TERAPI_JSON_EDITOR`, defaults to `jsoned`) |
 | `←` / `→` | Navigate sub-tabs (also exits URL mode) |
-| `Enter` | Send request (URL mode) / fold-unfold JSON node / edit body field (JSON mode) |
+| `Enter` | Finish URL edit (URL mode, does not send — press `s` after) / fold-unfold JSON node / edit body field (JSON mode) |
 | `Esc` | Finish URL edit / exit body editor |
 | `{{` | Open variable picker (any editable field) — insert `{{VAR}}` from active env or built-in variables (yellow, always available) |
 | `↑` / `↓` | Auth sub-tab — navigate fields |
@@ -199,9 +199,22 @@ After import, a report is printed:
 | `↑` / `↓` | Navigate within focused panel |
 | `Enter` | Activate selected environment (focus left) / Edit selected variable (focus right) |
 | `n` | New environment |
+| `s` | Toggle "sensitive" on the selected environment (focus left) — requires confirmation before any mutating request (see below) |
 | `a` | Add variable to selected environment |
 | `d` | Delete selected environment or variable |
 | `q` `q` | Quit (press twice to confirm) |
+
+**Sensitive environments — confirm before mutating**
+
+An environment marked sensitive (`s` in the Env panel, shown as `🔒 sensible` in the list) requires confirmation before sending any request that could modify data — any non-`GET` REST method, or a GraphQL `mutation` (a GraphQL `query`/`subscription` never prompts, since GraphQL always uses `POST` regardless of read/write). Pressing `s` to send such a request opens a modal instead of firing immediately:
+
+| Key | Action |
+|-----|--------|
+| `y` / `Enter` | Confirm — send this one request |
+| `a` | Confirm and don't ask again for the rest of this session |
+| `n` / `Esc` | Cancel — request not sent |
+
+This is TUI-only (interactive `s` to send) — headless campaigns (`terapi run`) and the builder's step preview run unattended by design and are never gated by this.
 
 **History panel**
 

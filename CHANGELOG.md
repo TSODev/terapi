@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **Sensitive environments — confirm before sending a mutating request** — nothing previously stopped a wrong-environment mistake (e.g. accidentally sending a `DELETE`/`POST` against a production API instead of local/staging) from firing immediately on `s`. An environment can now be marked `sensitive` (`s` in the Env panel, persisted as `EnvMeta.sensitive`, shown as `🔒 sensible` in the list). Sending a mutating request against a sensitive env — any non-`GET` REST method, or a GraphQL `mutation` — now opens a confirmation modal (`ModalState::ConfirmSend`) instead of dispatching immediately: `y`/`Enter` sends this one request, `a` sends it and remembers the choice for the rest of the session (no further prompts), `n`/`Esc` cancels. Deliberately narrow on what counts as "mutating": a REST-style "non-GET ⇒ confirm" check would misfire on every GraphQL query, since GraphQL always uses `POST` regardless of read/write — only an actual `mutation { ... }` triggers it. `App::send_request()` splits into resolution (unchanged) + a new `dispatch_http()` that either fires immediately or gets deferred into a held `PendingSend` until confirmed. TUI-only by design — headless campaigns (`terapi run`) and the builder's step preview stay unattended.
+
+### Changed
+- **`Enter` in URL edit mode no longer sends the request** — it now behaves like `Esc` (confirms the URL, exits edit mode, no send). The natural flow is URL first, then Headers/Params/Body, then `s` — an `Enter` typed mid-setup used to fire the request early, before headers/body were ready. `s` is now the single, unambiguous way to send, which also simplifies the sensitive-env confirmation above (one call site to gate instead of two).
+
 ### Fixed
 - **A plain-text response (e.g. `Content-Type: text/plain`) landed in JSON view showing `Parse error: ...`** — the default/sticky response view is JSON, and nothing checked whether the body was actually JSON before handing it to the tree parser. On a fresh response, if the current view is JSON and the body is neither XML (already handled) nor valid JSON, terapi now falls back to Raw view so the actual text is visible. One-directional on purpose: a genuinely JSON/XML response never forces the view *into* JSON if the user had deliberately switched to Raw (e.g. for a large body) — only the broken case (JSON view showing a parse error instead of content) is corrected.
 

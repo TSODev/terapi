@@ -158,7 +158,7 @@ In URL edit mode (`e`), the bar highlights and shows a cursor:
 
 **Workflow — building a request from scratch:**
 1. Press `n` to clear all fields and start a new blank request
-2. Press `e` to enter URL edit mode — type the URL, use `↑`/`↓` to set the method, `Enter` to send or `Esc` to cancel
+2. Press `e` to enter URL edit mode — type the URL, use `↑`/`↓` to set the method, `Enter` or `Esc` to finish editing
 3. Navigate sub-tabs (`←`/`→`) to add headers, URL params, and body
 4. Press `s` to send at any time
 5. Press `S` to save the current request to a collection (see below)
@@ -167,9 +167,8 @@ In URL edit mode (`e`), the bar highlights and shows a cursor:
 1. Press `e` to enter URL edit mode
 2. Type the URL (Backspace to delete)
 3. Use `↑` / `↓` to change the HTTP method
-4. Press `←` / `→` to exit URL mode and jump directly to a sub-tab (Headers, Body…)
-5. Press `Enter` to send — or `Esc` to finish editing without sending
-6. Alternatively, press `s` at any time to send the current URL without entering edit mode
+4. Press `←` / `→`, `Enter`, or `Esc` to exit URL mode (`←`/`→` also jumps directly to a sub-tab — Headers, Body…)
+5. Press `s` to send — the only way to send; `Enter` in URL mode no longer does, on purpose, so it doesn't fire early while you're still adding headers/params/body
 
 `{{VAR}}` placeholders in the URL (and all other fields) are automatically resolved from the active environment before the request is sent.
 
@@ -551,7 +550,7 @@ Variables are serialised as a flat JSON object (`{"key": "value", …}`) and sen
 - Press `z` to **expand** the detail panel to the full tab width (hides the type list) — handy for types with many fields or long argument lists; press `z` again or `Esc` to collapse back
 - `Tab` toggles focus between the type list and the detail panel; `Esc` also clears the search filter and returns to the type list
 
-**Sending** — press `s` (or `Enter` in URL mode). Terapi builds `{"query": "...", "variables": {...}}` and posts it as JSON. `Content-Type: application/json` is added automatically if absent.
+**Sending** — press `s`. Terapi builds `{"query": "...", "variables": {...}}` and posts it as JSON. `Content-Type: application/json` is added automatically if absent.
 
 > **`{{VAR}}` in the query body** — environment variables used directly inside the query string are substituted as raw strings (no JSON quoting or escaping). This is safe for numeric values (`$limit: Int!`, `$offset: Int!`) where the substituted value is a bare number. For string values, always use the **Variables tab** instead: define the variable there and reference it as a typed GraphQL argument (`$name: String!`). Mixing `{{VAR}}` with string arguments risks producing invalid JSON if the value contains quotes or special characters.
 
@@ -1116,7 +1115,7 @@ Tab: panels  e: edit URL  s: send  S: save  ←/→: section  q: quit
 | `←` / `→` | Request panel (response mode) | Navigate request sub-tabs |
 | `←` / `→` | Request panel (URL mode) | Navigate sub-tabs (exit URL mode) |
 | `↑` / `↓` | Request panel (URL mode) | Cycle HTTP method |
-| `Enter` | Request panel (URL mode) | Send request |
+| `Enter` | Request panel (URL mode) | Finish URL edit (stay on current sub-tab) — does not send, press `s` after |
 | `Esc` | Request panel (URL mode) | Finish URL edit (stay on current sub-tab) |
 | `Esc` | Request panel (body editor, Text or JSON) | Exit body editor |
 | `↑` / `↓` | Request panel | Move response cursor (JSON) / scroll (Raw, HTTP) |

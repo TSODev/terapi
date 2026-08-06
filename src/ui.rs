@@ -2081,10 +2081,14 @@ fn render_env_list(frame: &mut Frame, app: &App, area: Rect) {
         app.environments.iter().enumerate().map(|(i, env)| {
             let active = app.active_env_idx == Some(i);
             let indicator = if active { "● " } else { "  " };
-            let line = Line::from(vec![
+            let mut spans = vec![
                 Span::styled(indicator, Style::default().fg(Color::Green)),
                 Span::styled(env.env.name.clone(), Style::default().fg(if active { Color::Green } else { Color::White })),
-            ]);
+            ];
+            if env.env.sensitive {
+                spans.push(Span::styled("  🔒 sensible", Style::default().fg(Color::Red)));
+            }
+            let line = Line::from(spans);
             let style = if i == app.env_cursor && focused {
                 Style::default().bg(Color::Indexed(237)).add_modifier(Modifier::BOLD)
             } else if i == app.env_cursor {
@@ -2637,6 +2641,38 @@ fn render_modal(frame: &mut Frame, app: &App) {
                         .title(format!(" Parameters — {} ", campaign_name))
                         .title_alignment(Alignment::Center)
                         .border_style(Style::default().fg(Color::Magenta)),
+                ),
+                area,
+            );
+        }
+
+        Some(ModalState::ConfirmSend { method, url, env_name }) => {
+            let area = centered_rect(70, 9, frame.area());
+            frame.render_widget(Clear, area);
+            let text = vec![
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled("  ⚠ Environnement sensible : ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+                    Span::styled(env_name.clone(), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                ]),
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled("  ", Style::default()),
+                    Span::styled(method.clone(), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                    Span::raw(" "),
+                    Span::styled(url.clone(), Style::default().fg(Color::White)),
+                ]),
+                Line::from(""),
+                Line::from(Span::styled(
+                    "  y/Enter: confirmer   a: confirmer pour la session   n/Esc: annuler",
+                    Style::default().fg(Color::Gray),
+                )),
+            ];
+            frame.render_widget(
+                Paragraph::new(text).wrap(Wrap { trim: false }).block(
+                    Block::default().borders(Borders::ALL)
+                        .title(" Confirmer l'envoi ").title_alignment(Alignment::Center)
+                        .border_style(Style::default().fg(Color::Red)),
                 ),
                 area,
             );

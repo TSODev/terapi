@@ -103,6 +103,9 @@ pub struct App {
     pub key_col_width: u16,
     pub status_message: String,
     pub pending_editor_open: Option<String>,
+    /// A file path to open read-only-ish in `$TERAPI_JSON_EDITOR`/`$EDITOR`/`$VISUAL`
+    /// (in that order) — used for viewing a campaign `[[outputs]]` file.
+    pub pending_view_file: Option<String>,
     // History
     pub history: Vec<HistoryEntry>,
     pub history_cursor: usize,
@@ -131,6 +134,11 @@ pub struct App {
     pub campaign_result_scroll: u16,
     pub campaign_done_cursor: usize,
     pub campaign_run_state: crate::campaign::CampaignRunState,
+    /// `[[outputs]]` file paths declared by the campaign that just finished running —
+    /// populated when the run starts, surfaced ("o: view") once it's Done.
+    pub campaign_output_paths: Vec<String>,
+    /// Cycles through `campaign_output_paths` on repeated 'o' presses.
+    pub campaign_output_view_idx: usize,
     // OAuth2
     pub oauth2_token_cache: std::collections::HashMap<String, CachedToken>,
     pub oauth2_wait_state: OAuth2WaitState,
@@ -251,6 +259,7 @@ impl App {
             key_col_width: 22,
             status_message: "Tab: panels  e: edit URL  s: send  S: save  n: new  m: method  ←/→: section  ↑/↓: cursor  r: raw  q: quit".into(),
             pending_editor_open: None,
+            pending_view_file: None,
             history,
             history_cursor: 0,
             graphql_mode: false,
@@ -272,6 +281,8 @@ impl App {
             campaign_result_scroll: 0,
             campaign_done_cursor: 0,
             campaign_run_state: crate::campaign::CampaignRunState::Idle,
+            campaign_output_paths: Vec::new(),
+            campaign_output_view_idx: 0,
             response_rx,
             response_tx,
             schema_rx,
@@ -1541,6 +1552,15 @@ impl App {
             KeyCode::Char('E') if self.active_tab == Tab::Campaigns => {
                 if let Some(entry) = self.campaigns.get(self.campaign_cursor) {
                     self.pending_editor_open = Some(entry.path.clone());
+                }
+            }
+            KeyCode::Char('o') if self.active_tab == Tab::Campaigns => {
+                if self.campaign_output_paths.is_empty() {
+                    self.status_message = "No output file(s) for this campaign".into();
+                } else {
+                    let idx = self.campaign_output_view_idx % self.campaign_output_paths.len();
+                    self.pending_view_file = Some(self.campaign_output_paths[idx].clone());
+                    self.campaign_output_view_idx += 1;
                 }
             }
 

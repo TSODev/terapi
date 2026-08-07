@@ -7,6 +7,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **Campaigns tab: view a `[[outputs]]` file right after the run** — previously the TUI gave no feedback at all when a campaign wrote output files (unlike `terapi run`, which prints `→ output written: <path>`); you had to already know the path and go open it yourself. The Done-state status bar now shows `N output file(s) written — o: view` when the campaign has `[[outputs]]`, and pressing `o` opens the file in `$TERAPI_JSON_EDITOR` (falling back to `$EDITOR`/`$VISUAL`, then `vi`) rather than the hardcoded `jsoned` default used by the response/body JSON viewers — since a JSON-specific tool isn't a given for an arbitrary output file. With more than one `[[outputs]]` block, repeated `o` presses cycle through them (`App::campaign_output_paths`/`campaign_output_view_idx`, new `pending_view_file` drained in `main.rs` alongside the existing `pending_editor_open`/`pending_json_editor_open` pattern). TUI-only, same scoping as the sensitive-env confirmation feature — `terapi run` and the builder's step preview are unaffected.
+
 ## [0.10.15] — 2026-08-07
 
 ### Added

@@ -30,7 +30,15 @@ impl App {
                     };
                     let ok: usize  = results.iter().map(|r| r.ok_count()).sum();
                     let err: usize = results.iter().map(|r| r.fail_count()).sum();
-                    self.status_message = format!("Campaign done — {} ok  {} failed  Tab: switch panel  q: quit", ok, err);
+                    self.status_message = if self.campaign_output_paths.is_empty() {
+                        format!("Campaign done — {} ok  {} failed  Tab: switch panel  q: quit", ok, err)
+                    } else {
+                        format!(
+                            "Campaign done — {} ok  {} failed  {} output file(s) written — o: view  Tab: switch panel  q: quit",
+                            ok, err, self.campaign_output_paths.len()
+                        )
+                    };
+                    self.campaign_output_view_idx = 0;
                     self.campaign_run_state = CampaignRunState::Done { name, results };
                 }
                 CampaignEvent::IterationStarted { idx, total, .. } => {

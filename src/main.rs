@@ -475,6 +475,26 @@ async fn run_tui(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, json: Op
             }
         }
 
+        if let Some(path) = app.pending_view_file.take() {
+            let editor = std::env::var("TERAPI_JSON_EDITOR")
+                .or_else(|_| std::env::var("EDITOR"))
+                .or_else(|_| std::env::var("VISUAL"))
+                .unwrap_or_else(|_| "vi".to_string());
+            disable_raw_mode()?;
+            execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+            // Launch directly (not via sh -c) to preserve TTY inheritance for TUI editors.
+            // Fall back to sh -c only if the editor string contains shell metacharacters.
+            if editor.contains(|c: char| matches!(c, ' ' | '|' | '>' | '<' | '&' | ';')) {
+                let cmd = format!("{} \"{}\"", editor, path);
+                let _ = std::process::Command::new("sh").arg("-c").arg(&cmd).status();
+            } else {
+                let _ = std::process::Command::new(&editor).arg(&path).status();
+            }
+            enable_raw_mode()?;
+            execute!(terminal.backend_mut(), EnterAlternateScreen)?;
+            terminal.clear()?;
+        }
+
         if let Some(path) = app.pending_editor_open.take() {
             let editor = std::env::var("EDITOR")
                 .or_else(|_| std::env::var("VISUAL"))

@@ -249,6 +249,7 @@ This is TUI-only (interactive `s` to send) — headless campaigns (`terapi run`)
 | `r` | Run selected campaign — or open params modal if `[[params]]` defined |
 | `L` | Load selected step into Request tab (Done panel, Result focus) |
 | `E` | Open campaign TOML in `$EDITOR` — TUI suspends, reloads on exit |
+| `o` | View a `[[outputs]]` file written by the last run, in `$TERAPI_JSON_EDITOR`/`$EDITOR`/`$VISUAL` — cycles through multiple outputs on repeat |
 | `Esc` | Clear run result |
 | `q` `q` | Quit (press twice to confirm) |
 
@@ -265,7 +266,7 @@ The Campaigns tab lists all `.toml` campaign files found in `<terapi_dir>/campai
 The right panel has three states:
 - **Idle** — campaign metadata (name, description, step list) and a `r` reminder
 - **Running** — each completed step appears immediately; `⟳ current step…` shows what is in flight
-- **Done** — colour-coded verdict (`✓ ALL PASSED` / `✗ SOME STEPS FAILED`), per-step results, extracted variables, assertion failures
+- **Done** — colour-coded verdict (`✓ ALL PASSED` / `✗ SOME STEPS FAILED`), per-step results, extracted variables, assertion failures; if the campaign has `[[outputs]]`, the status bar adds `o: view` to open the written file(s) in `$TERAPI_JSON_EDITOR`/`$EDITOR`
 
 Place campaign files in the campaigns directory:
 

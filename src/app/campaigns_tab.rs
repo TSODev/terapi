@@ -10,6 +10,8 @@ impl App {
         };
         let name = entry.name.clone();
         let camp = entry.campaign.clone();
+        self.campaign_output_paths = camp.outputs.iter().map(|o| o.path.clone()).collect();
+        self.campaign_output_view_idx = 0;
         self.campaign_run_state = CampaignRunState::Running {
             name: name.clone(),
             step_results: Vec::new(),

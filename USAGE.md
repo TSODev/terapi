@@ -3085,6 +3085,8 @@ The CLI confirms each file written at the end of the report:
   → output written: /tmp/profiles.json
 ```
 
+**In the TUI's Campaigns tab**, once a run with `[[outputs]]` finishes, the status bar shows how many output files were written and offers `o` to view them: `Campaign done — 3 ok  0 failed  1 output file(s) written — o: view`. Pressing `o` opens the file in `$TERAPI_JSON_EDITOR` (falling back to `$EDITOR`/`$VISUAL`, then `vi`) — the same external-tool priority used for viewing a response body. With more than one `[[outputs]]` block, repeated `o` presses cycle through them one at a time. This is TUI-only; the headless `terapi run` output above is unaffected.
+
 ### Campaign output
 
 ```

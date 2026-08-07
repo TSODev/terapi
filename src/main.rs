@@ -63,11 +63,18 @@ enum Commands {
     },
 
     /// Import a collection/campaign TOML, Postman/Insomnia JSON, or OpenAPI 3.x
-    /// document — from a local file or an http(s):// URL
+    /// document — from a local file or an http(s):// URL. Passing more than one
+    /// FILE_OR_URL merges them into a single collection (OpenAPI sources only —
+    /// e.g. a vendor split across several product-specific spec files); requires
+    /// --name for the merged collection.
     Import {
-        /// Path to the file to import, or an http(s):// URL to fetch it from
-        #[arg(value_name = "FILE_OR_URL")]
-        file: String,
+        /// Path(s) to the file(s) to import, or http(s):// URL(s) to fetch them from
+        #[arg(value_name = "FILE_OR_URL", required = true, num_args = 1..)]
+        files: Vec<String>,
+
+        /// Name for the merged collection (required when passing more than one FILE_OR_URL)
+        #[arg(long, value_name = "NAME")]
+        name: Option<String>,
     },
 
     /// Build or edit a campaign interactively (TUI campaign editor)
@@ -125,8 +132,8 @@ async fn main() -> Result<()> {
             };
             campaign::run(&camp, silent, overrides, only, fmt, retry).await?;
         }
-        Some(Commands::Import { file }) => {
-            import_collection(&file).await?;
+        Some(Commands::Import { files, name }) => {
+            import_collection(&files, name.as_deref()).await?;
         }
         Some(Commands::Build { file }) => {
             builder::run(file)?;
@@ -205,7 +212,63 @@ async fn fetch_url(url: &str) -> Result<(String, Option<String>, String)> {
     Ok((content, content_type, ext))
 }
 
-async fn import_collection(path: &str) -> Result<()> {
+/// Derives a short, filesystem/env-var-friendly label from a source path or URL —
+/// the basename without its extension (`.../openapi/air-quality.yml` → `air-quality`).
+/// Used only for merged multi-source imports, to prefix notes and to build each
+/// source's own `{label}_base_url` env var name.
+fn source_label(path: &str) -> String {
+    let path_only = path.split(['?', '#']).next().unwrap_or(path);
+    let base = path_only.rsplit('/').next().unwrap_or(path_only);
+    match base.rsplit_once('.') {
+        Some((stem, _ext)) if !stem.is_empty() => stem.to_string(),
+        _ => base.to_string(),
+    }
+}
+
+async fn import_collection(paths: &[String], name: Option<&str>) -> Result<()> {
+    use anyhow::Context;
+
+    if paths.len() == 1 {
+        return import_single(&paths[0]).await;
+    }
+
+    let collection_name = name.ok_or_else(|| {
+        anyhow::anyhow!("importing multiple sources requires --name <NAME> for the merged collection")
+    })?;
+
+    let mut sources: Vec<(String, String, bool)> = Vec::new();
+    for path in paths {
+        let (content, content_type, ext) = if path.starts_with("http://") || path.starts_with("https://") {
+            fetch_url(path).await.with_context(|| format!("cannot fetch '{}'", path))?
+        } else {
+            let content = std::fs::read_to_string(path).with_context(|| format!("cannot read '{}'", path))?;
+            let ext = std::path::Path::new(path)
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+            (content, None, ext)
+        };
+        let format = detect_format(&content, content_type.as_deref(), &ext).ok_or_else(|| {
+            anyhow::anyhow!("could not determine the format of '{}' — expected JSON, YAML, or terapi TOML", path)
+        })?;
+        let is_yaml = match format {
+            SourceFormat::Yaml => true,
+            SourceFormat::Json => false,
+            SourceFormat::Toml => anyhow::bail!(
+                "'{}' is a terapi TOML file — merging multiple sources is only supported for OpenAPI documents",
+                path
+            ),
+        };
+        sources.push((source_label(path), content, is_yaml));
+    }
+
+    let report = import::openapi::import_openapi_merged(collection_name.to_string(), sources)?;
+    report.print();
+    Ok(())
+}
+
+async fn import_single(path: &str) -> Result<()> {
     use anyhow::Context;
 
     let (content, content_type, ext) = if path.starts_with("http://") || path.starts_with("https://") {

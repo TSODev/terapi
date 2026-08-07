@@ -1,7 +1,11 @@
 #![allow(dead_code)]
 
 //! OpenAPI 3.x → terapi collection import (static, one-shot — like the Postman/
-//! Insomnia importers, no live spec browsing and no re-import/merge logic).
+//! Insomnia importers: no live spec browsing, and re-importing the same source
+//! overwrites rather than syncs). `import_openapi_merged()` is a distinct thing —
+//! combining *several* OpenAPI documents into one collection/env in a single
+//! `terapi import` call (e.g. a vendor that splits its API into multiple
+//! product-specific spec files) — not an update/sync mechanism.
 //!
 //! Parses a deliberately minimal, lenient subset of the spec (hand-rolled structs,
 //! not a strict `openapiv3`-style crate) so real-world specs with minor deviations
@@ -13,7 +17,7 @@
 //! known component is reported rather than guessed at. Swagger 2.0 documents are
 //! rejected outright.
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use indexmap::IndexMap;
 use serde::Deserialize;
 use serde_json::Value as Json;
@@ -59,6 +63,11 @@ struct OpenApiServer {
 struct PathItem {
     #[serde(default)]
     parameters: Vec<Parameter>,
+    /// Per-path server override — some specs (notably OpenAPI 3.1 ones) only
+    /// declare `servers` here instead of at the document root; used as a fallback
+    /// by `resolve_base_url()`.
+    #[serde(default)]
+    servers: Vec<OpenApiServer>,
     get: Option<Operation>,
     post: Option<Operation>,
     put: Option<Operation>,
@@ -186,10 +195,31 @@ struct OAuthFlow {
     scopes: IndexMap<String, String>,
 }
 
-// ── Public entry point ─────────────────────────────────────────────────────────
+// ── Public entry points ────────────────────────────────────────────────────────
 
-/// Import an OpenAPI 3.x document, JSON or YAML.
-pub fn import_openapi(content: &str, is_yaml: bool) -> Result<ImportReport> {
+/// One parsed source, before it's turned into an on-disk collection/env — shared
+/// by the single-source and merged-multi-source entry points below.
+struct ParsedOpenApi {
+    title: String,
+    description: Option<String>,
+    openapi_version: String,
+    folders: IndexMap<String, Vec<StoredRequest>>,
+    root_requests: Vec<StoredRequest>,
+    env_vars: HashMap<String, String>,
+    notes: Vec<String>,
+}
+
+/// The document's base URL: `servers` at the root, falling back to the first
+/// per-path `servers` override found (OpenAPI 3.1 specs — e.g. Open-Meteo's —
+/// commonly only declare `servers` there instead of at the document root).
+fn resolve_base_url(doc: &OpenApiDoc) -> Option<String> {
+    doc.servers
+        .first()
+        .or_else(|| doc.paths.values().find_map(|item| item.servers.first()))
+        .map(|s| s.url.clone())
+}
+
+fn parse(content: &str, is_yaml: bool, base_url_var: &str) -> Result<ParsedOpenApi> {
     let doc: OpenApiDoc = if is_yaml {
         serde_yaml::from_str(content).map_err(|e| anyhow::anyhow!("failed to parse OpenAPI YAML: {}", e))?
     } else {
@@ -206,11 +236,14 @@ pub fn import_openapi(content: &str, is_yaml: bool) -> Result<ImportReport> {
     let mut notes: Vec<String> = Vec::new();
     let mut env_vars: HashMap<String, String> = HashMap::new();
 
-    let base_url = doc.servers.first().map(|s| s.url.clone()).unwrap_or_default();
+    let base_url = resolve_base_url(&doc).unwrap_or_default();
     if !base_url.is_empty() {
-        env_vars.insert("base_url".to_string(), base_url);
+        env_vars.insert(base_url_var.to_string(), base_url);
     } else {
-        notes.push("no `servers` entry found — base_url left blank in the generated env".to_string());
+        notes.push(format!(
+            "no `servers` entry found (root or per-path) — `{}` left blank in the generated env",
+            base_url_var
+        ));
     }
 
     let mut folders: IndexMap<String, Vec<StoredRequest>> = IndexMap::new();
@@ -225,6 +258,7 @@ pub fn import_openapi(content: &str, is_yaml: bool) -> Result<ImportReport> {
                 op,
                 &item.parameters,
                 &doc,
+                base_url_var,
                 &mut env_vars,
                 &mut ref_params_skipped,
             );
@@ -242,21 +276,55 @@ pub fn import_openapi(content: &str, is_yaml: bool) -> Result<ImportReport> {
         ));
     }
 
-    let stored_folders: Vec<StoredFolder> = folders
+    Ok(ParsedOpenApi {
+        title: doc.info.title,
+        description: doc.info.description,
+        openapi_version: doc.openapi.unwrap_or_default(),
+        folders,
+        root_requests,
+        env_vars,
+        notes,
+    })
+}
+
+/// Lowercases and collapses anything that isn't `[a-z0-9]` into a single `_`, for
+/// deriving an env-var-safe name from a source's label (URL/filename stem).
+fn sanitize_ident(s: &str) -> String {
+    let mut out = String::new();
+    let mut last_was_sep = true; // avoids a leading '_'
+    for c in s.chars() {
+        if c.is_ascii_alphanumeric() {
+            out.push(c.to_ascii_lowercase());
+            last_was_sep = false;
+        } else if !last_was_sep {
+            out.push('_');
+            last_was_sep = true;
+        }
+    }
+    out.trim_end_matches('_').to_string()
+}
+
+/// Import a single OpenAPI 3.x document, JSON or YAML.
+pub fn import_openapi(content: &str, is_yaml: bool) -> Result<ImportReport> {
+    let parsed = parse(content, is_yaml, "base_url")?;
+
+    let stored_folders: Vec<StoredFolder> = parsed
+        .folders
         .into_iter()
         .map(|(name, requests)| StoredFolder { name, requests })
         .collect();
 
-    let requests_imported = stored_folders.iter().map(|f| f.requests.len()).sum::<usize>() + root_requests.len();
+    let requests_imported =
+        stored_folders.iter().map(|f| f.requests.len()).sum::<usize>() + parsed.root_requests.len();
     let folders_imported = stored_folders.len();
 
     let stored_col = StoredCollection {
         collection: CollectionMeta {
-            name: doc.info.title.clone(),
-            description: doc.info.description.clone().unwrap_or_default(),
+            name: parsed.title.clone(),
+            description: parsed.description.unwrap_or_default(),
         },
         folders: stored_folders,
-        requests: root_requests,
+        requests: parsed.root_requests,
         path: String::new(),
     };
 
@@ -268,19 +336,19 @@ pub fn import_openapi(content: &str, is_yaml: bool) -> Result<ImportReport> {
     std::fs::write(&dest, toml::to_string_pretty(&stored_col)?)?;
 
     let mut env_created = None;
-    if !env_vars.is_empty() {
-        let env_name = format!("{} vars", doc.info.title);
-        let count = env_vars.len();
+    if !parsed.env_vars.is_empty() {
+        let env_name = format!("{} vars", parsed.title);
+        let count = parsed.env_vars.len();
         crate::storage::save_env(&StoredEnv {
             env: EnvMeta { name: env_name.clone(), sensitive: false },
-            vars: env_vars,
+            vars: parsed.env_vars,
         })?;
         env_created = Some((env_name, count));
     }
 
     Ok(ImportReport {
-        source_name: doc.info.title,
-        format: format!("OpenAPI {}", doc.openapi.unwrap_or_default()),
+        source_name: parsed.title,
+        format: format!("OpenAPI {}", parsed.openapi_version),
         is_env_only: false,
         requests_imported,
         folders_imported,
@@ -290,7 +358,92 @@ pub fn import_openapi(content: &str, is_yaml: bool) -> Result<ImportReport> {
         env_created,
         dest: dest.to_string_lossy().to_string(),
         existed,
-        notes,
+        notes: parsed.notes,
+    })
+}
+
+/// Import several OpenAPI documents into a **single** collection/env — e.g. a
+/// vendor that splits its API into multiple product-specific specs (Open-Meteo's
+/// forecast/air-quality/marine/... files). `sources` is `(label, content, is_yaml)`
+/// per document; `label` (typically the URL/filename stem) is used to prefix
+/// per-source notes and to derive a unique `{label}_base_url` env var per source,
+/// since each spec may point at a different host — a single shared `base_url`
+/// wouldn't work once more than one distinct domain is involved. Folders with the
+/// same tag name across sources are merged into one; env vars that collide by
+/// name keep whichever source's value was seen first.
+pub fn import_openapi_merged(name: String, sources: Vec<(String, String, bool)>) -> Result<ImportReport> {
+    let mut merged_folders: IndexMap<String, Vec<StoredRequest>> = IndexMap::new();
+    let mut merged_root: Vec<StoredRequest> = Vec::new();
+    let mut merged_env: HashMap<String, String> = HashMap::new();
+    let mut merged_notes: Vec<String> = Vec::new();
+    let mut titles: Vec<String> = Vec::new();
+
+    for (label, content, is_yaml) in &sources {
+        let base_url_var = format!("{}_base_url", sanitize_ident(label));
+        let parsed =
+            parse(content, *is_yaml, &base_url_var).with_context(|| format!("in source '{}'", label))?;
+        titles.push(parsed.title);
+        for (tag, reqs) in parsed.folders {
+            merged_folders.entry(tag).or_default().extend(reqs);
+        }
+        merged_root.extend(parsed.root_requests);
+        for (k, v) in parsed.env_vars {
+            merged_env.entry(k).or_insert(v);
+        }
+        for note in parsed.notes {
+            merged_notes.push(format!("[{}] {}", label, note));
+        }
+    }
+
+    let stored_folders: Vec<StoredFolder> = merged_folders
+        .into_iter()
+        .map(|(name, requests)| StoredFolder { name, requests })
+        .collect();
+
+    let requests_imported = stored_folders.iter().map(|f| f.requests.len()).sum::<usize>() + merged_root.len();
+    let folders_imported = stored_folders.len();
+
+    let stored_col = StoredCollection {
+        collection: CollectionMeta {
+            name: name.clone(),
+            description: format!("Merged from {} OpenAPI source(s): {}", sources.len(), titles.join(", ")),
+        },
+        folders: stored_folders,
+        requests: merged_root,
+        path: String::new(),
+    };
+
+    let dir = crate::storage::resolve_terapi_dir().join("collections");
+    std::fs::create_dir_all(&dir)?;
+    let filename = crate::storage::sanitize_filename(&name);
+    let dest = dir.join(format!("{}.toml", filename));
+    let existed = dest.exists();
+    std::fs::write(&dest, toml::to_string_pretty(&stored_col)?)?;
+
+    let mut env_created = None;
+    if !merged_env.is_empty() {
+        let env_name = format!("{} vars", name);
+        let count = merged_env.len();
+        crate::storage::save_env(&StoredEnv {
+            env: EnvMeta { name: env_name.clone(), sensitive: false },
+            vars: merged_env,
+        })?;
+        env_created = Some((env_name, count));
+    }
+
+    Ok(ImportReport {
+        source_name: name,
+        format: format!("OpenAPI (merged, {} source(s))", sources.len()),
+        is_env_only: false,
+        requests_imported,
+        folders_imported,
+        scripts_ignored: 0,
+        formdata_degraded: 0,
+        urlencoded_degraded: 0,
+        env_created,
+        dest: dest.to_string_lossy().to_string(),
+        existed,
+        notes: merged_notes,
     })
 }
 
@@ -302,6 +455,7 @@ fn build_request(
     op: &Operation,
     path_level_params: &[Parameter],
     doc: &OpenApiDoc,
+    base_url_var: &str,
     env_vars: &mut HashMap<String, String>,
     ref_params_skipped: &mut usize,
 ) -> StoredRequest {
@@ -314,7 +468,7 @@ fn build_request(
         .or_else(|| op.operation_id.clone())
         .unwrap_or_else(|| format!("{} {}", method, path));
 
-    let mut req = StoredRequest::new(name, method.to_string(), format!("{{{{base_url}}}}{}", url_path));
+    let mut req = StoredRequest::new(name, method.to_string(), format!("{{{{{}}}}}{}", base_url_var, url_path));
     req.description = op.description.clone();
     // StoredAuth's #[derive(Default)] gives 0, not the app's actual default of 9876
     // (only `#[serde(default = "...")]` — deserialization — uses the custom function).

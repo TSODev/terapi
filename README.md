@@ -113,6 +113,8 @@ After import, a report is printed:
 
 Try it: `terapi import examples/openapi/petstore.yaml` — a trimmed spec exercising path/query/header params, a `$ref` request body, and Bearer auth. For a much larger real-world spec (1200+ operations, hundreds of shared `$ref` parameters like `owner`/`repo`), import it straight from a URL: `terapi import https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.yaml`.
 
+**Merging several OpenAPI sources into one collection:** pass more than one `FILE_OR_URL` (with `--name <NAME>` for the merged collection) to combine them instead of writing one file per source — useful for a vendor that splits its API across multiple product-specific spec files, e.g. Open-Meteo's nine separate forecast/air-quality/marine/... documents. Each source keeps its own `{label}_base_url` var (since they commonly point at different hosts); see USAGE.md for the full example and details.
+
 ---
 
 ## TUI keybindings

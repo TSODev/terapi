@@ -69,10 +69,16 @@ storage.rs         Everything about the on-disk terapi directory: resolving
                    {{VAR}} substitution from an env map (resolve_vars).
 import/            Postman v2.1, Insomnia v4, and OpenAPI 3.x (YAML/JSON) importers
                      → terapi TOML, all sharing one `ImportReport`. `main.rs`'s
-                     `import_collection()` is async and accepts a local path or an
-                     http(s):// URL (fetched with a 30s-timeout reqwest client);
-                     format is picked via a Content-Type → extension → content-sniff
-                     cascade (`detect_format()`), same logic for files and URLs.
+                     `import_collection()` is async and accepts one or more local
+                     paths/http(s):// URLs (fetched with a 30s-timeout reqwest
+                     client); format is picked via a Content-Type → extension →
+                     content-sniff cascade (`detect_format()`), same logic for
+                     files and URLs. Passing more than one source merges them
+                     (OpenAPI only, `--name` required) into a single collection/env
+                     via `openapi::import_openapi_merged()` — each source keeps its
+                     own `{label}_base_url` var rather than sharing one `base_url`,
+                     since a vendor that splits its API across multiple spec files
+                     (e.g. Open-Meteo) commonly puts each on a different host.
 xml_convert.rs     Converts XML/HTML response bodies to a JSON-shaped tree so the
                    same JSON viewer/extract/diff code paths work for XML responses.
 json_highlight.rs  Flattens/tokenizes JSON into rows for the windowed table-based

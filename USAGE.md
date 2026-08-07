@@ -1512,6 +1512,39 @@ Try it against the bundled example: `terapi import examples/openapi/petstore.yam
 terapi import https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.yaml
 ```
 
+### Merging multiple OpenAPI sources into one collection
+
+Some vendors split their API across several product-specific spec files instead of one combined document — [Open-Meteo](https://open-meteo.com), for example, publishes nine separate OpenAPI 3.1 documents (forecast, air quality, marine, climate, flood, elevation, ensemble, seasonal, historical weather), each with its own base URL. Passing more than one `FILE_OR_URL` to `terapi import` merges them into a **single** collection and env instead of writing one file per source:
+
+```bash
+terapi import --name "Open-Meteo" \
+  https://raw.githubusercontent.com/open-meteo/open-meteo/main/openapi/forecast.yml \
+  https://raw.githubusercontent.com/open-meteo/open-meteo/main/openapi/air-quality.yml \
+  https://raw.githubusercontent.com/open-meteo/open-meteo/main/openapi/marine.yml \
+  https://raw.githubusercontent.com/open-meteo/open-meteo/main/openapi/climate.yml \
+  https://raw.githubusercontent.com/open-meteo/open-meteo/main/openapi/flood.yml \
+  https://raw.githubusercontent.com/open-meteo/open-meteo/main/openapi/elevation.yml \
+  https://raw.githubusercontent.com/open-meteo/open-meteo/main/openapi/ensemble.yml \
+  https://raw.githubusercontent.com/open-meteo/open-meteo/main/openapi/seasonal.yml \
+  https://raw.githubusercontent.com/open-meteo/open-meteo/main/openapi/historical-weather.yml
+```
+
+```
+Import: Open-Meteo (OpenAPI (merged, 9 source(s)))
+
+  ✓   9 requests imported
+  ✓   9 folders
+  ✓  39 variables → Open-Meteo vars
+
+  Saved   → ~/.config/terapi/collections/open-meteo.toml
+```
+
+Notes:
+- `--name <NAME>` is **required** once more than one source is given — there's no single obvious title to derive it from, so terapi asks rather than guesses.
+- Merging is only supported for OpenAPI sources — mixing in a Postman/Insomnia/terapi-TOML file fails with a clear error rather than silently dropping it.
+- Each source keeps its own `{label}_base_url` env var (`forecast_base_url`, `air_quality_base_url`, ...) instead of sharing a single `base_url`, since different products commonly live on different hosts/subdomains — `label` is the source's filename/URL stem. A parameter name that's genuinely shared across sources (e.g. `latitude`, `apikey`) is seeded once, keeping whichever source's example/default value was seen first.
+- Folders with the same tag name across sources are merged into one rather than duplicated.
+
 ---
 
 ## OAuth2 authentication

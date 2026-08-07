@@ -164,6 +164,11 @@ impl App {
         let environments = crate::storage::load_envs().unwrap_or_default();
         let active_env_idx = crate::storage::load_active_env()
             .and_then(|name| environments.iter().position(|e| e.env.name == name));
+        // Start the Env panel cursor on the actually-active env (row i+1, row 0 being the
+        // synthetic "No active environment") rather than always on row 0 — otherwise the
+        // Variables panel opens on the empty "Select an environment" placeholder even when
+        // an environment is already active from a previous session.
+        let env_cursor = active_env_idx.map_or(0, |i| i + 1);
         let history = crate::storage::load_history().unwrap_or_default();
         let campaigns = crate::storage::load_campaigns()
             .into_iter()
@@ -187,7 +192,7 @@ impl App {
             collection_search: None,
             environments,
             active_env_idx,
-            env_cursor: 0,
+            env_cursor,
             env_var_cursor: 0,
             env_focus: EnvFocus::Envs,
             modal: None,

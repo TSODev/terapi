@@ -111,7 +111,7 @@ After import, a report is printed:
 
 **Auth mapping:** Bearer → Bearer · Basic → Basic · API Key → API Key · OAuth2 → OAuth2 Client Credentials or Authorization Code (OpenAPI import picks whichever flow the spec defines and carries over the real `tokenUrl`/`authorizationUrl` — Postman/Insomnia imports only get a client-credentials placeholder since Postman's own auth block doesn't carry OAuth2 flow URLs)
 
-Try it: `terapi import examples/openapi/petstore.yaml` — a trimmed spec exercising path/query/header params, a `$ref` request body, and Bearer auth.
+Try it: `terapi import examples/openapi/petstore.yaml` — a trimmed spec exercising path/query/header params, a `$ref` request body, and Bearer auth. For a much larger real-world spec (1200+ operations, hundreds of shared `$ref` parameters like `owner`/`repo`), import it straight from a URL: `terapi import https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.yaml`.
 
 ---
 

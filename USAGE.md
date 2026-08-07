@@ -1506,6 +1506,12 @@ Import: Petstore Example (OpenAPI 3.0.3)
 
 Try it against the bundled example: `terapi import examples/openapi/petstore.yaml` — covers path/query/header parameters, a `$ref` request body, and Bearer auth.
 
+**Try it against a large real-world spec:** GitHub publishes its full REST API description at [`github/rest-api-description`](https://github.com/github/rest-api-description) — a ~10MB document with 1200+ operations and hundreds of shared `components.parameters` entries (`owner`, `repo`, etc., reused across most endpoints), a good stress test for the `$ref`-parameter resolution above. It isn't vendored into `examples/` (it's large and GitHub updates it regularly, so a checked-in copy would just go stale) — import it straight from the URL instead:
+
+```bash
+terapi import https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.yaml
+```
+
 ---
 
 ## OAuth2 authentication

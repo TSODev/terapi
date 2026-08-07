@@ -333,8 +333,8 @@ impl App {
                         self.active_env_idx = Some(active - 1);
                     }
                 }
-                if self.env_cursor >= self.environments.len() && !self.environments.is_empty() {
-                    self.env_cursor = self.environments.len() - 1;
+                if self.env_cursor > self.environments.len() {
+                    self.env_cursor = self.environments.len();
                 }
             }
             NodeAddress::EnvVar { env_idx, key } => {

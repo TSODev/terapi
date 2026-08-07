@@ -2134,17 +2134,32 @@ fn render_env_list(frame: &mut Frame, app: &App, area: Rect) {
         Style::default().fg(Color::Indexed(238))
     };
 
-    let items: Vec<ListItem> = if app.environments.is_empty() {
-        vec![ListItem::new(Line::from(Span::styled(
-            "  No environments",
-            Style::default().fg(Color::Gray),
-        ))),
-        ListItem::new(Line::from(Span::styled(
+    let none_active = app.active_env_idx.is_none();
+    let none_style = if app.env_cursor == 0 && focused {
+        Style::default().bg(Color::Indexed(237)).add_modifier(Modifier::BOLD)
+    } else if app.env_cursor == 0 {
+        Style::default().bg(Color::Indexed(235))
+    } else {
+        Style::default()
+    };
+    let mut items: Vec<ListItem> = vec![
+        ListItem::new(Line::from(vec![
+            Span::styled(if none_active { "● " } else { "  " }, Style::default().fg(Color::Green)),
+            Span::styled(
+                "No active environment",
+                Style::default().fg(if none_active { Color::Green } else { Color::Gray }),
+            ),
+        ])).style(none_style),
+    ];
+
+    if app.environments.is_empty() {
+        items.push(ListItem::new(Line::from(Span::styled(
             "  Press n to create one",
             Style::default().fg(Color::Gray),
-        )))]
+        ))));
     } else {
-        app.environments.iter().enumerate().map(|(i, env)| {
+        items.extend(app.environments.iter().enumerate().map(|(i, env)| {
+            let cursor_pos = i + 1;
             let active = app.active_env_idx == Some(i);
             let indicator = if active { "● " } else { "  " };
             let mut spans = vec![
@@ -2155,16 +2170,16 @@ fn render_env_list(frame: &mut Frame, app: &App, area: Rect) {
                 spans.push(Span::styled("  🔒 sensitive", Style::default().fg(Color::Red)));
             }
             let line = Line::from(spans);
-            let style = if i == app.env_cursor && focused {
+            let style = if cursor_pos == app.env_cursor && focused {
                 Style::default().bg(Color::Indexed(237)).add_modifier(Modifier::BOLD)
-            } else if i == app.env_cursor {
+            } else if cursor_pos == app.env_cursor {
                 Style::default().bg(Color::Indexed(235))
             } else {
                 Style::default()
             };
             ListItem::new(line).style(style)
-        }).collect()
-    };
+        }));
+    }
 
     let list = List::new(items).block(
         Block::default()
@@ -2183,7 +2198,7 @@ fn render_env_vars(frame: &mut Frame, app: &App, area: Rect) {
         Style::default().fg(Color::Indexed(238))
     };
 
-    let Some(env) = app.environments.get(app.env_cursor) else {
+    let Some(env) = app.env_cursor.checked_sub(1).and_then(|i| app.environments.get(i)) else {
         let block = Block::default()
             .borders(Borders::ALL)
             .title(" Variables ")

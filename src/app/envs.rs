@@ -5,6 +5,13 @@ use super::*;
 use crate::storage::{EnvMeta, StoredEnv};
 
 impl App {
+    /// Real index into `self.environments` for the row currently highlighted by
+    /// `env_cursor`, or `None` when the cursor is on the synthetic "No active
+    /// environment" row (index 0) at the top of the Environments list.
+    pub(super) fn env_cursor_index(&self) -> Option<usize> {
+        self.env_cursor.checked_sub(1)
+    }
+
     pub(super) fn create_env(&mut self, name: String) -> Result<()> {
         let env = StoredEnv {
             env: EnvMeta { name, sensitive: false },
@@ -12,7 +19,7 @@ impl App {
         };
         crate::storage::save_env(&env)?;
         self.environments.push(env);
-        self.env_cursor = self.environments.len() - 1;
+        self.env_cursor = self.environments.len(); // row for the new (last) real env
         self.env_var_cursor = 0;
         Ok(())
     }
@@ -34,23 +41,24 @@ impl App {
     }
 
     pub(super) fn open_env_delete_modal(&mut self) {
+        let Some(idx) = self.env_cursor_index() else { return };
         match self.env_focus {
             EnvFocus::Envs => {
-                if let Some(env) = self.environments.get(self.env_cursor) {
+                if let Some(env) = self.environments.get(idx) {
                     self.modal = Some(ModalState::ConfirmDelete {
                         label: env.env.name.clone(),
-                        address: NodeAddress::Env(self.env_cursor),
+                        address: NodeAddress::Env(idx),
                     });
                 }
             }
             EnvFocus::Vars => {
-                if let Some(env) = self.environments.get(self.env_cursor) {
+                if let Some(env) = self.environments.get(idx) {
                     let vars = sorted_vars(env);
                     if let Some((key, _)) = vars.get(self.env_var_cursor) {
                         self.modal = Some(ModalState::ConfirmDelete {
                             label: key.clone(),
                             address: NodeAddress::EnvVar {
-                                env_idx: self.env_cursor,
+                                env_idx: idx,
                                 key: key.clone(),
                             },
                         });

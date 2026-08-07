@@ -204,6 +204,7 @@ The Extract sub-tab holds a list of `var_name ← dot.path` rules (same dot-path
 | `←` / `→` | Switch focus: Environments ↔ Variables |
 | `↑` / `↓` | Navigate within focused panel |
 | `Enter` | Activate selected environment (focus left) / Edit selected variable (focus right) |
+| — | The Environments list always has a **"No active environment"** row at the top — select it and press `Enter` to deactivate (no `{{VAR}}` resolves against any env's vars) |
 | `n` | New environment |
 | `s` | Toggle "sensitive" on the selected environment (focus left) — requires confirmation before any mutating request (see below) |
 | `a` | Add variable to selected environment |

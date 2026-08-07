@@ -1352,14 +1352,14 @@ impl App {
             KeyCode::Down if self.active_tab == Tab::Env => {
                 match self.env_focus {
                     EnvFocus::Envs => {
-                        if self.env_cursor + 1 < self.environments.len() {
+                        if self.env_cursor < self.environments.len() {
                             self.env_cursor += 1;
                             self.env_var_cursor = 0;
                         }
                     }
                     EnvFocus::Vars => {
-                        let count = self.environments
-                            .get(self.env_cursor)
+                        let count = self.env_cursor_index()
+                            .and_then(|i| self.environments.get(i))
                             .map_or(0, |e| e.vars.len());
                         if self.env_var_cursor + 1 < count {
                             self.env_var_cursor += 1;
@@ -1368,28 +1368,38 @@ impl App {
                 }
             }
             KeyCode::Enter if self.active_tab == Tab::Env && self.env_focus == EnvFocus::Envs => {
-                if self.env_cursor < self.environments.len() {
-                    self.active_env_idx = Some(self.env_cursor);
-                    let name = self.environments[self.env_cursor].env.name.clone();
-                    self.status_message = format!("Active env: {}", name);
-                    let _ = crate::storage::save_active_env(Some(&name));
+                match self.env_cursor_index() {
+                    None => {
+                        self.active_env_idx = None;
+                        self.status_message = "No active environment".into();
+                        let _ = crate::storage::save_active_env(None);
+                    }
+                    Some(idx) if idx < self.environments.len() => {
+                        self.active_env_idx = Some(idx);
+                        let name = self.environments[idx].env.name.clone();
+                        self.status_message = format!("Active env: {}", name);
+                        let _ = crate::storage::save_active_env(Some(&name));
+                    }
+                    Some(_) => {}
                 }
             }
             KeyCode::Enter if self.active_tab == Tab::Env && self.env_focus == EnvFocus::Vars => {
-                if let Some(env) = self.environments.get(self.env_cursor) {
-                    let vars = sorted_vars(env);
-                    if let Some((key, value)) = vars.get(self.env_var_cursor) {
-                        let mut key_ta = TextArea::from(vec![key.clone()]);
-                        key_ta.move_cursor(tui_textarea::CursorMove::End);
-                        let mut value_ta = TextArea::from(vec![value.clone()]);
-                        value_ta.move_cursor(tui_textarea::CursorMove::End);
-                        self.modal = Some(ModalState::EditVar {
-                            key: key_ta,
-                            value: value_ta,
-                            active_field: VarField::Value,
-                            env_idx: self.env_cursor,
-                            original_key: key.clone(),
-                        });
+                if let Some(idx) = self.env_cursor_index() {
+                    if let Some(env) = self.environments.get(idx) {
+                        let vars = sorted_vars(env);
+                        if let Some((key, value)) = vars.get(self.env_var_cursor) {
+                            let mut key_ta = TextArea::from(vec![key.clone()]);
+                            key_ta.move_cursor(tui_textarea::CursorMove::End);
+                            let mut value_ta = TextArea::from(vec![value.clone()]);
+                            value_ta.move_cursor(tui_textarea::CursorMove::End);
+                            self.modal = Some(ModalState::EditVar {
+                                key: key_ta,
+                                value: value_ta,
+                                active_field: VarField::Value,
+                                env_idx: idx,
+                                original_key: key.clone(),
+                            });
+                        }
                     }
                 }
             }
@@ -1397,29 +1407,31 @@ impl App {
                 self.modal = Some(ModalState::NewEnv { input: String::new() });
             }
             KeyCode::Char('s')
-                if self.active_tab == Tab::Env
-                    && self.env_focus == EnvFocus::Envs
-                    && self.env_cursor < self.environments.len() =>
+                if self.active_tab == Tab::Env && self.env_focus == EnvFocus::Envs =>
             {
-                let env = &mut self.environments[self.env_cursor];
-                env.env.sensitive = !env.env.sensitive;
-                let _ = crate::storage::save_env(env);
-                self.status_message = if env.env.sensitive {
-                    format!("\"{}\" marked sensitive — confirmation required before any mutation", env.env.name)
-                } else {
-                    format!("\"{}\" is no longer marked sensitive", env.env.name)
-                };
+                if let Some(idx) = self.env_cursor_index().filter(|&i| i < self.environments.len()) {
+                    let env = &mut self.environments[idx];
+                    env.env.sensitive = !env.env.sensitive;
+                    let _ = crate::storage::save_env(env);
+                    self.status_message = if env.env.sensitive {
+                        format!("\"{}\" marked sensitive — confirmation required before any mutation", env.env.name)
+                    } else {
+                        format!("\"{}\" is no longer marked sensitive", env.env.name)
+                    };
+                }
             }
             KeyCode::Char('a') if self.active_tab == Tab::Env => {
-                if !self.environments.is_empty() {
+                if let Some(idx) = self.env_cursor_index().filter(|&i| i < self.environments.len()) {
                     self.modal = Some(ModalState::NewVar {
                         key: TextArea::default(),
                         value: TextArea::default(),
                         active_field: VarField::Key,
-                        env_idx: self.env_cursor,
+                        env_idx: idx,
                     });
-                } else {
+                } else if self.environments.is_empty() {
                     self.status_message = "No environment — press n to create one first.".into();
+                } else {
+                    self.status_message = "Select an environment first (↓ from \"No active environment\")".into();
                 }
             }
             KeyCode::Char('d') if self.active_tab == Tab::Env => {

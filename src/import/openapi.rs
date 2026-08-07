@@ -6,9 +6,12 @@
 //! Parses a deliberately minimal, lenient subset of the spec (hand-rolled structs,
 //! not a strict `openapiv3`-style crate) so real-world specs with minor deviations
 //! still import something useful rather than failing outright — same philosophy as
-//! `postman.rs`/`insomnia.rs`. `$ref` is only resolved for `components.schemas`
-//! (request body shapes); `$ref`-only parameters and Swagger 2.0 documents are
-//! reported/rejected rather than guessed at.
+//! `postman.rs`/`insomnia.rs`. `$ref` is resolved for `components.schemas` (request
+//! body shapes) and `components.parameters` (shared path/query/header parameters —
+//! a very common pattern for specs where the same parameter, e.g. a resource id, is
+//! reused across many operations); a parameter `$ref` that doesn't resolve to a
+//! known component is reported rather than guessed at. Swagger 2.0 documents are
+//! rejected outright.
 
 use anyhow::Result;
 use indexmap::IndexMap;
@@ -148,6 +151,8 @@ struct Schema {
 struct Components {
     #[serde(default)]
     schemas: IndexMap<String, Schema>,
+    #[serde(default)]
+    parameters: IndexMap<String, Parameter>,
     #[serde(rename = "securitySchemes", default)]
     security_schemes: IndexMap<String, SecurityScheme>,
 }
@@ -232,7 +237,7 @@ pub fn import_openapi(content: &str, is_yaml: bool) -> Result<ImportReport> {
 
     if ref_params_skipped > 0 {
         notes.push(format!(
-            "{} parameter(s) using `$ref` were skipped (only inline parameters are resolved)",
+            "{} parameter(s) had a `$ref` that didn't resolve to a `components.parameters` entry and were skipped",
             ref_params_skipped
         ));
     }
@@ -318,11 +323,21 @@ fn build_request(
 
     let mut query_pairs: Vec<String> = Vec::new();
 
-    for p in path_level_params.iter().chain(op.parameters.iter()) {
-        if p.r#ref.is_some() {
-            *ref_params_skipped += 1;
-            continue;
-        }
+    for raw in path_level_params.iter().chain(op.parameters.iter()) {
+        let resolved;
+        let p = match &raw.r#ref {
+            Some(r) => match r.rsplit('/').next().and_then(|name| doc.components.parameters.get(name)) {
+                Some(found) => {
+                    resolved = found;
+                    resolved
+                }
+                None => {
+                    *ref_params_skipped += 1;
+                    continue;
+                }
+            },
+            None => raw,
+        };
         if p.name.is_empty() {
             continue;
         }

@@ -1489,7 +1489,7 @@ terapi import https://petstore3.swagger.io/api/v3/openapi.json
 | Query/header parameters | Appended to the URL (query) or added as a header, both as a `{{name}}` placeholder; each parameter's `example`/`schema.default` seeds the generated env var when present, otherwise it's left blank |
 | Request body | For `content.application/json`: the spec's `example`/`examples` value if given, otherwise synthesized from the JSON `schema` (`$ref` into `components.schemas` is resolved; other types fall back to an empty/zero/false placeholder per field). `Content-Type: application/json` is added automatically |
 | Auth | Resolved via `operation.security` (falling back to the document's top-level `security`) into `components.securitySchemes` — `http`/`bearer` → Bearer, `http`/`basic` → Basic, `apiKey` → API Key, `oauth2` → OAuth2 Client Credentials or Authorization Code, whichever flow the scheme defines. Unlike a Postman/Insomnia import, the real `tokenUrl`/`authorizationUrl` come straight from the spec instead of being placeholders you have to fill in yourself |
-| Parameters using `$ref` | Skipped (only inline parameters are resolved) and counted in the report |
+| Parameters using `$ref` | Resolved into `components.parameters` (a common pattern for a parameter shared across many operations, e.g. a resource id); a `$ref` that doesn't resolve to a known component is skipped and counted in the report |
 | Env | A single generated env `"<title> vars"`, with `base_url` from the first entry in `servers`, plus a blank or seeded var for every parameter/secret referenced above |
 
 **Import report:**

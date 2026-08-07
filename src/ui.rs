@@ -2133,7 +2133,7 @@ fn render_env_list(frame: &mut Frame, app: &App, area: Rect) {
     let border_style = if focused {
         Style::default().fg(Color::Yellow)
     } else {
-        Style::default().fg(Color::Indexed(238))
+        Style::default().fg(Color::Indexed(245))
     };
 
     let none_active = app.active_env_idx.is_none();
@@ -2199,7 +2199,7 @@ fn render_env_vars(frame: &mut Frame, app: &App, area: Rect) {
     let border_style = if focused {
         Style::default().fg(Color::Yellow)
     } else {
-        Style::default().fg(Color::Indexed(238))
+        Style::default().fg(Color::Indexed(245))
     };
 
     let Some(env) = app.env_cursor.checked_sub(1).and_then(|i| app.environments.get(i)) else {

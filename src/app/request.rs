@@ -74,6 +74,14 @@ impl App {
         }
     }
 
+    pub fn is_on_extract_tab(&self) -> bool {
+        if self.graphql_mode {
+            self.active_graphql_tab == crate::app::types::GraphqlTab::Extract
+        } else {
+            self.active_request_tab == crate::app::types::RequestTab::Extract
+        }
+    }
+
     /// Build the auth header(s) from the current auth config, resolving {{VAR}} from the active env.
     /// Used by schema introspection so it shares the same credentials as regular requests.
     pub(super) fn auth_headers(&self) -> Vec<(String, String)> {
@@ -465,6 +473,8 @@ impl App {
         self.graphql_vars = Vec::new();
         self.graphql_vars_cursor = 0;
         self.active_graphql_tab = GraphqlTab::Query;
+        self.request_extract = Vec::new();
+        self.extract_cursor = 0;
         self.last_request_raw = None;
         self.response_body = None;
         self.response_status = None;
@@ -538,6 +548,7 @@ impl App {
             graphql: self.graphql_mode,
             graphql_query: if self.graphql_mode && !gql_query_text.trim().is_empty() { Some(gql_query_text) } else { None },
             graphql_variables: if self.graphql_mode { self.graphql_vars.iter().cloned().collect() } else { HMap::new() },
+            extract: self.request_extract.iter().cloned().collect::<HMap<_, _>>(),
         };
         let col_name = self.stored_collections[collection_idx].collection.name.clone();
         if let Some(fi) = folder_idx {
@@ -674,6 +685,7 @@ impl App {
             GraphqlTab::Variables => "GQL Variables  a: add  d: delete  Enter: edit  ↑/↓: nav  ←/→: section  s: send  g: REST  q: quit".into(),
             GraphqlTab::Headers   => "GQL Headers  a: add  d: delete  Enter: edit  ↑/↓: nav  ←/→: section  s: send  g: REST  q: quit".into(),
             GraphqlTab::Auth      => "GQL Auth  ↑/↓: nav  Space/Enter: edit  f: fetch OAuth2 token  ←/→: section  s: send  g: REST  q: quit".into(),
+            GraphqlTab::Extract   => "GQL Extract  a: add  d: delete  Enter: edit  ↑/↓: nav  ←/→: section  s: send  g: REST  q: quit".into(),
             GraphqlTab::Schema    => "GQL Schema  f: fetch  ↑/↓ PgUp/PgDn: types/scroll  Enter: load  Tab: focus  z: expand  /: search  ←/→: section  q: quit".into(),
             GraphqlTab::Options   => "GQL Options  ↑/↓: nav  Space/Enter: toggle/cycle  ←/→: section  s: send  g: REST  q: quit".into(),
         };
@@ -689,6 +701,7 @@ impl App {
                 BodyMode::Json => "e: edit URL  m: method  i: edit fields  t: text mode  ←/→: section  s: send  S: save  q: quit".into(),
             },
             RequestTab::Auth        => "e: edit URL  ↑/↓: field  Space/Enter: type or edit  ←/→: section  s: send  S: save  q: quit".into(),
+            RequestTab::Extract     => "e: edit URL  a: add  d: delete  Enter: edit  ↑/↓: nav  ←/→: section  s: send  S: save  q: quit".into(),
             RequestTab::Options     => "e: edit URL  ↑/↓: nav  Space/Enter: toggle/cycle  ←/→: section  s: send  S: save  q: quit".into(),
         };
     }

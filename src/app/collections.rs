@@ -154,6 +154,12 @@ impl App {
             self.graphql_vars = gql_vars;
             self.graphql_vars_cursor = 0;
             self.active_graphql_tab = GraphqlTab::Query;
+            let mut extract: Vec<(String, String)> = req.extract.iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            extract.sort_by(|a, b| a.0.cmp(&b.0));
+            self.request_extract = extract;
+            self.extract_cursor = 0;
             let req_name = req.name.clone();
             self.request_focus = RequestFocus::Response;
             self.response_body = None;
@@ -271,6 +277,7 @@ impl App {
         req.graphql = self.graphql_mode;
         req.graphql_query = if self.graphql_mode && !gql_query_text.trim().is_empty() { Some(gql_query_text) } else { None };
         req.graphql_variables = if self.graphql_mode { self.graphql_vars.iter().cloned().collect() } else { std::collections::HashMap::new() };
+        req.extract = self.request_extract.iter().cloned().collect();
 
         crate::storage::save_collection(&self.stored_collections[ci])?;
         self.editing_request_origin = None;

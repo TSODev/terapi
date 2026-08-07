@@ -200,6 +200,7 @@ fn render_request_content(frame: &mut Frame, app: &App, area: Rect) {
             GraphqlTab::Variables => render_graphql_vars_editor(frame, app, area),
             GraphqlTab::Headers   => render_headers_editor(frame, app, area),
             GraphqlTab::Auth      => render_auth_editor(frame, app, area),
+            GraphqlTab::Extract   => render_extract_editor(frame, app, area),
             GraphqlTab::Schema    => render_graphql_schema(frame, app, area),
             GraphqlTab::Options   => render_options_editor(frame, app, area),
         }
@@ -223,6 +224,10 @@ fn render_request_content(frame: &mut Frame, app: &App, area: Rect) {
     }
     if app.active_request_tab == RequestTab::Auth {
         render_auth_editor(frame, app, area);
+        return;
+    }
+    if app.active_request_tab == RequestTab::Extract {
+        render_extract_editor(frame, app, area);
         return;
     }
 
@@ -320,6 +325,67 @@ fn render_graphql_vars_editor(frame: &mut Frame, app: &App, area: Rect) {
         .borders(Borders::ALL)
         .title(title)
         .border_style(Style::default().fg(Color::Magenta));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(1), Constraint::Length(1)])
+        .split(inner);
+
+    frame.render_widget(List::new(items), chunks[0]);
+    frame.render_widget(Paragraph::new(hint), chunks[1]);
+}
+
+fn render_extract_editor(frame: &mut Frame, app: &App, area: Rect) {
+    let count = app.request_extract.len();
+    let title = if count == 0 {
+        " Extract to env ".to_string()
+    } else {
+        format!(" Extract to env ({}) ", count)
+    };
+
+    let items: Vec<ListItem> = if app.request_extract.is_empty() {
+        vec![ListItem::new(Line::from(Span::styled(
+            "  No extract rules — press a to add one (e.g. token ← token, after a Login response)",
+            Style::default().fg(Color::Indexed(238)),
+        )))]
+    } else {
+        app.request_extract.iter().enumerate().map(|(i, (var, path))| {
+            let selected = i == app.extract_cursor;
+            let cursor = if selected {
+                Span::styled("▶ ", Style::default().fg(Color::Cyan))
+            } else {
+                Span::raw("  ")
+            };
+            let var_style = if selected {
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::Cyan)
+            };
+            let path_style = if selected {
+                Style::default().fg(Color::White).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            ListItem::new(Line::from(vec![
+                cursor,
+                Span::styled(format!("{{{{{}}}}}", var), var_style),
+                Span::styled("  ←  ", Style::default().fg(Color::Indexed(244))),
+                Span::styled(path.clone(), path_style),
+            ]))
+        }).collect()
+    };
+
+    let hint = Line::from(Span::styled(
+        "  a: add  d: delete  Enter: edit  ↑/↓: navigate — runs on the active env after a successful response",
+        Style::default().fg(Color::Indexed(238)),
+    ));
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(title)
+        .border_style(Style::default().fg(Color::Cyan));
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -2405,6 +2471,12 @@ fn render_modal(frame: &mut Frame, app: &App) {
             let area = centered_rect(64, 9, frame.area());
             let title = if edit_idx.is_some() { " Edit Field " } else { " Add Field " };
             render_key_value_modal(frame, area, title, Color::Yellow, key, value, active_field.clone());
+        }
+
+        Some(ModalState::ExtractPair { key, value, active_field, edit_idx }) => {
+            let area = centered_rect(64, 9, frame.area());
+            let title = if edit_idx.is_some() { " Edit Extract Rule " } else { " Add Extract Rule " };
+            render_key_value_modal(frame, area, title, Color::Cyan, key, value, active_field.clone());
         }
 
         Some(ModalState::SaveRequest { name, collection_idx, folder_display_idx, active_field }) => {

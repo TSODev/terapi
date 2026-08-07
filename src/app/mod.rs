@@ -112,6 +112,9 @@ pub struct App {
     pub graphql_vars: Vec<(String, String)>,
     pub graphql_vars_cursor: usize,
     pub active_graphql_tab: GraphqlTab,
+    // Extract-to-env rules (var_name, dot.path) run after a successful response
+    pub request_extract: Vec<(String, String)>,
+    pub extract_cursor: usize,
     // GraphQL schema introspection
     pub schema_state: SchemaState,
     pub schema_type_cursor: usize,
@@ -250,6 +253,8 @@ impl App {
             graphql_vars: Vec::new(),
             graphql_vars_cursor: 0,
             active_graphql_tab: GraphqlTab::Query,
+            request_extract: Vec::new(),
+            extract_cursor: 0,
             schema_state: SchemaState::Idle,
             schema_type_cursor: 0,
             schema_field_scroll: 0,
@@ -693,6 +698,54 @@ impl App {
             {
                 if self.graphql_vars_cursor + 1 < self.graphql_vars.len() {
                     self.graphql_vars_cursor += 1;
+                }
+            }
+            // Extract tab — add/delete/edit (var_name -> dot.path rules run after send)
+            KeyCode::Char('a')
+                if self.active_tab == Tab::Request && self.is_on_extract_tab() =>
+            {
+                self.modal = Some(ModalState::ExtractPair {
+                    key: TextArea::default(),
+                    value: TextArea::default(),
+                    active_field: VarField::Key,
+                    edit_idx: None,
+                });
+            }
+            KeyCode::Char('d')
+                if self.active_tab == Tab::Request
+                    && self.is_on_extract_tab()
+                    && !self.request_extract.is_empty() =>
+            {
+                self.request_extract.remove(self.extract_cursor);
+                if self.extract_cursor > 0 && self.extract_cursor >= self.request_extract.len() {
+                    self.extract_cursor -= 1;
+                }
+            }
+            KeyCode::Enter
+                if self.active_tab == Tab::Request
+                    && self.is_on_extract_tab()
+                    && !self.request_extract.is_empty() =>
+            {
+                let (k, v) = self.request_extract[self.extract_cursor].clone();
+                let mut key_ta = TextArea::from(vec![k]);
+                key_ta.move_cursor(tui_textarea::CursorMove::End);
+                let mut value_ta = TextArea::from(vec![v]);
+                value_ta.move_cursor(tui_textarea::CursorMove::End);
+                self.modal = Some(ModalState::ExtractPair {
+                    key: key_ta,
+                    value: value_ta,
+                    active_field: VarField::Key,
+                    edit_idx: Some(self.extract_cursor),
+                });
+            }
+            KeyCode::Up if self.active_tab == Tab::Request && self.is_on_extract_tab() => {
+                if self.extract_cursor > 0 {
+                    self.extract_cursor -= 1;
+                }
+            }
+            KeyCode::Down if self.active_tab == Tab::Request && self.is_on_extract_tab() => {
+                if self.extract_cursor + 1 < self.request_extract.len() {
+                    self.extract_cursor += 1;
                 }
             }
             // ── Request panel — GraphQL Schema tab ────────────────────────
@@ -1828,6 +1881,42 @@ impl App {
                     let trigger = active_field == VarField::Value && bp_val.lines()[0].ends_with("{{");
                     self.modal = Some(ModalState::BodyPair { key: bp_key, value: bp_val, active_field, edit_idx });
                     if trigger { self.open_var_picker(VarPickerTarget::ModalValue); }
+                }
+            },
+
+            Some(ModalState::ExtractPair { key: mut ex_key, value: mut ex_val, mut active_field, edit_idx }) => match key.code {
+                KeyCode::Esc => {}
+                KeyCode::Enter => {
+                    let k = ex_key.lines()[0].trim().to_string();
+                    let v = ex_val.lines()[0].trim().to_string();
+                    if !k.is_empty() && !v.is_empty() {
+                        if let Some(idx) = edit_idx {
+                            self.request_extract[idx] = (k, v);
+                        } else {
+                            self.request_extract.push((k, v));
+                            self.extract_cursor = self.request_extract.len() - 1;
+                        }
+                    } else {
+                        self.modal = Some(ModalState::ExtractPair { key: ex_key, value: ex_val, active_field, edit_idx });
+                    }
+                }
+                KeyCode::Tab => {
+                    active_field = match active_field { VarField::Key => VarField::Value, VarField::Value => VarField::Key };
+                    self.modal = Some(ModalState::ExtractPair { key: ex_key, value: ex_val, active_field, edit_idx });
+                }
+                KeyCode::Char('l') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    match active_field {
+                        VarField::Key => { ex_key = TextArea::default(); }
+                        VarField::Value => { ex_val = TextArea::default(); }
+                    }
+                    self.modal = Some(ModalState::ExtractPair { key: ex_key, value: ex_val, active_field, edit_idx });
+                }
+                _ => {
+                    match active_field {
+                        VarField::Key => { ex_key.input(tui_textarea::Input::from(key)); }
+                        VarField::Value => { ex_val.input(tui_textarea::Input::from(key)); }
+                    }
+                    self.modal = Some(ModalState::ExtractPair { key: ex_key, value: ex_val, active_field, edit_idx });
                 }
             },
 

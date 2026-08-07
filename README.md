@@ -146,6 +146,7 @@ After import, a report is printed:
 | `Enter` | Auth sub-tab (field row) — open edit modal for token / username / password / key / OAuth2 fields |
 | `f` | Auth sub-tab — fetch OAuth2 token manually (without sending the request) |
 | `Esc` | Auth sub-tab — cancel OAuth2 browser wait or clear OAuth2 error |
+| `a` / `d` / `Enter` | Extract sub-tab — add / delete / edit an extract-to-env rule |
 | `↑` / `↓` | Options sub-tab — navigate between options |
 | `Space` / `Enter` | Options sub-tab — toggle (Skip TLS / Follow redirects / Cookie jar) or cycle timeout |
 | `r` | Cycle response view: JSON → Raw → HTTP (full diagnostics + redirect chain + cookies) |
@@ -154,18 +155,23 @@ After import, a report is printed:
 | `-` / `=` | Resize Key column |
 | `q` `q` | Quit (press twice to confirm) |
 
+**Extract to env — auto-capture a value from the response**
+
+The Extract sub-tab holds a list of `var_name ← dot.path` rules (same dot-path language as a campaign step's `[steps.extract]`) that run automatically against every successful response from this request, writing matches into the *active* environment and saving it to disk. The classic use case: on a Login request, add `token ← token` (or whatever field your API returns, e.g. `accessToken`) once, and every future send of that request refreshes `{{token}}` for use in other requests — no more copy-pasting a JWT out of the response by hand. A rule whose path doesn't match anything in the response is silently skipped (same behavior as campaigns); if no environment is active, the status bar shows `⚠ extract configured but no active environment` instead of writing nowhere silently.
+
 **GraphQL mode** (activate with `g`)
 
 | Key | Action |
 |-----|--------|
 | `g` | Toggle GraphQL mode (REST ↔ GraphQL) |
-| `←` / `→` | Navigate GraphQL sub-tabs (Query / Variables / Headers / Schema / Options) |
+| `←` / `→` | Navigate GraphQL sub-tabs (Query / Variables / Headers / Auth / Extract / Schema / Options) |
 | `i` | Query tab — enter query editor |
 | `Ctrl+Space` | Query tab — open autocompletion popup (fields / type names) |
 | `Esc` | Query tab — exit query editor |
 | `a` / `d` | Variables tab — add / delete variable |
 | `Enter` | Variables tab — edit selected variable |
 | `a` / `d` / `Enter` | Headers tab — add / delete / edit header |
+| `a` / `d` / `Enter` | Extract tab — add / delete / edit an extract-to-env rule |
 | `↑` / `↓` | Variables tab — navigate variables |
 | `f` | Schema tab — fetch type list via introspection |
 | `↑` / `↓` | Schema tab — navigate type list |

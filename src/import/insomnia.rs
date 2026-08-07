@@ -381,6 +381,7 @@ fn build_request(r: &InsomniaResource, report: &mut ImportReport) -> Result<Stor
         graphql,
         graphql_query,
         graphql_variables,
+        extract: HashMap::new(),
     })
 }
 

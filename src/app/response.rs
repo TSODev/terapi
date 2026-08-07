@@ -130,6 +130,7 @@ impl App {
                     self.response_folds = HashSet::new();
                     self.rebuild_response_rows();
                     self.update_response_status_hint();
+                    self.apply_extract_rules();
                     self.record_history(Some(http.status), Some(http.elapsed_ms));
                 }
                 Err(msg) => {
@@ -167,6 +168,37 @@ impl App {
                     self.status_message = format!("OAuth2 error: {}", short);
                 }
             }
+        }
+    }
+
+    /// Runs `request_extract` (var_name -> dot.path, same language as a campaign
+    /// step's `[steps.extract]`, see `campaign::extract_at`) against the response
+    /// that was just received, writing matches into the active environment's vars
+    /// and persisting it. Silent no-op if there's nothing to extract, matching the
+    /// campaign engine's own behavior: a path that doesn't resolve is skipped, not
+    /// an error. The one thing surfaced is the "no active environment" case, since
+    /// otherwise a configured rule would silently never do anything.
+    pub(super) fn apply_extract_rules(&mut self) {
+        if self.request_extract.is_empty() {
+            return;
+        }
+        let Some(env_idx) = self.active_env_idx else {
+            self.status_message = format!("{}  —  ⚠ extract configured but no active environment", self.status_message);
+            return;
+        };
+        let Some(json_text) = self.response_json_text() else { return; };
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(&json_text) else { return; };
+
+        let mut extracted = Vec::new();
+        for (var, path) in &self.request_extract {
+            if let Some(val) = crate::campaign::extract_at(&value, path) {
+                self.environments[env_idx].vars.insert(var.clone(), val);
+                extracted.push(var.clone());
+            }
+        }
+        if !extracted.is_empty() {
+            let _ = crate::storage::save_env(&self.environments[env_idx]);
+            self.status_message = format!("{}  —  extracted: {}", self.status_message, extracted.join(", "));
         }
     }
 

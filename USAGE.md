@@ -1715,6 +1715,8 @@ The `*` wildcard maps over every element of an array and collects the sub-path r
 
 Extracted values are injected into all subsequent steps.
 
+> **Same language outside campaigns:** the Request panel's **Extract** sub-tab (`a`/`d`/`Enter`) runs the exact same dot-path rules — including the `*` wildcard — against a single request's response, writing the result into the *active* environment's vars instead of a campaign's in-memory ones. Typical use: on a Login request, add `token ← token` once and every future send refreshes `{{token}}` automatically, no copy-pasting a JWT out of the response by hand.
+
 > **Tip — find the right path in the TUI:** send the request in the Request panel, navigate to the key you want in the JSON view with `↑`/`↓`, and read the dot-path shown in the `↳` bar at the bottom of the response. That string is the exact value to use in `[steps.extract]`.
 >
 > ```toml

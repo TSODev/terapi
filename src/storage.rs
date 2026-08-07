@@ -93,6 +93,11 @@ pub struct StoredRequest {
     pub graphql_query: Option<String>,
     #[serde(default)]
     pub graphql_variables: HashMap<String, String>,
+    /// Extracted into the active environment's vars after a successful response —
+    /// `var_name -> dot.path` using the same extraction language as a campaign
+    /// step's `[steps.extract]` (see `campaign::extract_at`). Empty by default.
+    #[serde(default)]
+    pub extract: HashMap<String, String>,
 }
 
 fn default_timeout() -> u64 { 30 }
@@ -115,6 +120,7 @@ impl StoredRequest {
             graphql: false,
             graphql_query: None,
             graphql_variables: HashMap::new(),
+            extract: HashMap::new(),
         }
     }
 }

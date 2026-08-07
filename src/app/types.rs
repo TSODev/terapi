@@ -174,6 +174,7 @@ pub enum GraphqlTab {
     Variables,
     Headers,
     Auth,
+    Extract,
     Schema,
     Options,
 }
@@ -185,6 +186,7 @@ impl GraphqlTab {
             GraphqlTab::Variables => "Variables",
             GraphqlTab::Headers   => "Headers",
             GraphqlTab::Auth      => "Auth",
+            GraphqlTab::Extract   => "Extract",
             GraphqlTab::Schema    => "Schema",
             GraphqlTab::Options   => "Options",
         }
@@ -196,6 +198,7 @@ impl GraphqlTab {
             GraphqlTab::Variables,
             GraphqlTab::Headers,
             GraphqlTab::Auth,
+            GraphqlTab::Extract,
             GraphqlTab::Schema,
             GraphqlTab::Options,
         ]
@@ -203,14 +206,16 @@ impl GraphqlTab {
 
     pub fn next(&self) -> GraphqlTab {
         let all = GraphqlTab::all();
+        let len = all.len();
         let pos = all.iter().position(|t| t == self).unwrap_or(0);
-        all.into_iter().nth((pos + 1) % 6).unwrap_or(GraphqlTab::Query)
+        all.into_iter().nth((pos + 1) % len).unwrap_or(GraphqlTab::Query)
     }
 
     pub fn prev(&self) -> GraphqlTab {
         let all = GraphqlTab::all();
+        let len = all.len();
         let pos = all.iter().position(|t| t == self).unwrap_or(0);
-        all.into_iter().nth(if pos == 0 { 5 } else { pos - 1 }).unwrap_or(GraphqlTab::Options)
+        all.into_iter().nth(if pos == 0 { len - 1 } else { pos - 1 }).unwrap_or(GraphqlTab::Options)
     }
 }
 
@@ -256,6 +261,7 @@ pub enum RequestTab {
     UrlParams,
     Body,
     Auth,
+    Extract,
     Options,
 }
 
@@ -267,6 +273,7 @@ impl RequestTab {
             RequestTab::UrlParams => "URL Params",
             RequestTab::Body => "Body",
             RequestTab::Auth => "Auth",
+            RequestTab::Extract => "Extract",
             RequestTab::Options => "Options",
         }
     }
@@ -278,20 +285,23 @@ impl RequestTab {
             RequestTab::UrlParams,
             RequestTab::Body,
             RequestTab::Auth,
+            RequestTab::Extract,
             RequestTab::Options,
         ]
     }
 
     pub fn next(&self) -> RequestTab {
         let all = RequestTab::all();
+        let len = all.len();
         let pos = all.iter().position(|t| t == self).unwrap_or(0);
-        all.into_iter().nth((pos + 1) % 6).unwrap_or(RequestTab::Description)
+        all.into_iter().nth((pos + 1) % len).unwrap_or(RequestTab::Description)
     }
 
     pub fn prev(&self) -> RequestTab {
         let all = RequestTab::all();
+        let len = all.len();
         let pos = all.iter().position(|t| t == self).unwrap_or(0);
-        all.into_iter().nth(if pos == 0 { 5 } else { pos - 1 }).unwrap_or(RequestTab::Options)
+        all.into_iter().nth(if pos == 0 { len - 1 } else { pos - 1 }).unwrap_or(RequestTab::Options)
     }
 }
 
@@ -563,6 +573,14 @@ pub enum ModalState {
         active_field: SaveField,
     },
     BodyPair {
+        key: TextArea<'static>,
+        value: TextArea<'static>,
+        active_field: VarField,
+        edit_idx: Option<usize>,
+    },
+    /// Add/Edit Extract Rule — `key` is the env var name, `value` is the dot-path
+    /// into the response (same language as a campaign step's `[steps.extract]`).
+    ExtractPair {
         key: TextArea<'static>,
         value: TextArea<'static>,
         active_field: VarField,

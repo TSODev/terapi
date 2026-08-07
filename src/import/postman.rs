@@ -566,6 +566,7 @@ fn parse_request(
         graphql,
         graphql_query,
         graphql_variables,
+        extract: HashMap::new(),
     })
 }
 

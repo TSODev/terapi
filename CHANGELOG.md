@@ -7,6 +7,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **Extract-to-env sub-tab — auto-capture a value from every response** (e.g. a login JWT) — until now, pulling a token out of a response into an env var meant copy-pasting it by hand into the Env panel after every login. A new **Extract** sub-tab (REST `RequestTab`, GraphQL `GraphqlTab`) holds a list of `var_name ← dot.path` rules using the exact same extraction language as a campaign step's `[steps.extract]` (including the `*` wildcard) — `campaign::extract_at`/`extract_value_at` are now `pub(crate)` so `app/response.rs` can call them directly instead of duplicating the dot-path logic. Rules run automatically (`App::apply_extract_rules()`) after every successful response from that request, writing matches into the *active* environment's vars and persisting it to disk; a path that doesn't resolve is silently skipped (same as campaigns), and if no environment is active the status bar shows `⚠ extract configured but no active environment` rather than writing nowhere silently. New `StoredRequest.extract: HashMap<String, String>` field (TOML shape matches `[steps.extract]`); `a`/`d`/`Enter` add/delete/edit rules via a new `ModalState::ExtractPair` modal (reuses the `tui-textarea`-backed key/value modal from the other four).
+
 ### Fixed
 - **French leaked into the sensitive-env confirmation UI** — the `ConfirmSend` modal, the `🔒` env-list badge, and the two `s`-toggle status messages introduced in 0.10.12 were written in French, inconsistent with the rest of the app's English-only UI text. All now read in English (`Sensitive environment: ...`, `y/Enter: confirm  a: confirm for session  n/Esc: cancel`, `🔒 sensitive`, `"<name>" marked sensitive — ...` / `"<name>" is no longer marked sensitive`, `Send cancelled`).
 

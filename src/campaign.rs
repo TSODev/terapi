@@ -2450,14 +2450,14 @@ fn resolve_value(v: &Value, env: &HashMap<String, String>) -> Value {
     match v { Value::String(s) => Value::String(resolve(s, env)), other => other.clone() }
 }
 
-fn extract_at(value: &Value, path: &str) -> Option<String> {
+pub(crate) fn extract_at(value: &Value, path: &str) -> Option<String> {
     extract_value_at(value, path).map(|v| match v {
         Value::String(s) => s,
         other => other.to_string(),
     })
 }
 
-fn extract_value_at(value: &Value, path: &str) -> Option<Value> {
+pub(crate) fn extract_value_at(value: &Value, path: &str) -> Option<Value> {
     let segments: Vec<&str> = path.split('.').collect();
     extract_segments(value, &segments)
 }

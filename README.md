@@ -82,13 +82,15 @@ terapi --help
 
 ---
 
-## Import — Postman & Insomnia
+## Import — Postman, Insomnia & OpenAPI
 
-`terapi import <file.json>` auto-detects the format and copies the result to the right directory:
+`terapi import <file-or-url>` auto-detects the format from Content-Type/extension/content and copies the result to the right directory. The argument can be a local path or an `http(s)://` URL — in the URL case the document is downloaded first, then detected the same way:
 
 ```bash
 terapi import my_collection.json        # Postman v2.1 collection or environment
 terapi import insomnia_export.json      # Insomnia v4 export
+terapi import petstore.yaml             # OpenAPI 3.x document (YAML or JSON)
+terapi import https://petstore3.swagger.io/api/v3/openapi.json   # fetched over HTTP
 ```
 
 After import, a report is printed:
@@ -105,8 +107,11 @@ After import, a report is printed:
 **Supported:**
 - Postman v2.1 — collections (folders, requests, auth, headers, body, raw/GraphQL/formdata) + environment files; collection variables saved as a separate terapi env
 - Insomnia v4 — collections (nested folders, GraphQL, auth) + base environments and sub-environments merged; gRPC/WebSocket entries counted but skipped
+- OpenAPI 3.x (YAML or JSON) — one-shot import, like Postman/Insomnia: each operation becomes a request (grouped into folders by its first `tag`), path/query/header parameters become `{{VAR}}` placeholders seeded into a generated env (using each parameter's `example`/`default` when the spec provides one), and a JSON request body is taken from the spec's `example`/`examples` or synthesized from its schema when neither is present. Re-importing the same file does **not** merge — it overwrites the collection file, so treat re-import as "start over," not "sync." Swagger 2.0 documents are rejected with a clear message (not supported, only OpenAPI 3.x).
 
-**Auth mapping:** Bearer → Bearer · Basic → Basic · API Key → API Key · OAuth2 → OAuth2 Client Credentials
+**Auth mapping:** Bearer → Bearer · Basic → Basic · API Key → API Key · OAuth2 → OAuth2 Client Credentials or Authorization Code (OpenAPI import picks whichever flow the spec defines and carries over the real `tokenUrl`/`authorizationUrl` — Postman/Insomnia imports only get a client-credentials placeholder since Postman's own auth block doesn't carry OAuth2 flow URLs)
+
+Try it: `terapi import examples/openapi/petstore.yaml` — a trimmed spec exercising path/query/header params, a `$ref` request body, and Bearer auth.
 
 ---
 

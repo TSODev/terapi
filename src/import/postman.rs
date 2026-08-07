@@ -188,6 +188,9 @@ pub struct ImportReport {
     pub env_created: Option<(String, usize)>,
     pub dest: String,
     pub existed: bool,
+    /// Free-form warnings not covered by the counters above (used by the OpenAPI
+    /// importer: unsupported methods, unresolved `$ref` parameters, etc.).
+    pub notes: Vec<String>,
 }
 
 impl ImportReport {
@@ -223,6 +226,9 @@ impl ImportReport {
                     "  ⚠ {:>3} urlencoded bodies converted to raw text",
                     self.urlencoded_degraded
                 );
+            }
+            for note in &self.notes {
+                println!("  ⚠ {}", note);
             }
         }
         println!();
@@ -274,6 +280,7 @@ fn import_collection(path: &str, content: &str) -> Result<ImportReport> {
         env_created: None,
         dest: String::new(),
         existed: false,
+        notes: Vec::new(),
     };
 
     let mut root_requests: Vec<StoredRequest> = Vec::new();
@@ -377,6 +384,7 @@ fn import_environment(content: &str) -> Result<ImportReport> {
         env_created: Some((env.name, count)),
         dest: dest.to_string_lossy().to_string(),
         existed,
+        notes: Vec::new(),
     })
 }
 

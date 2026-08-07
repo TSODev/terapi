@@ -37,3 +37,6 @@ rand = "0.8"
 # pin time below 0.3.52 which broke cookie-0.18.1 (parse() signature change)
 time = ">=0.3, <0.3.52"
 roxmltree = "0.21"
+# unmaintained upstream (archived) but still the most widely used YAML parser;
+# only used for OpenAPI/Swagger import, a narrow enough surface that this is fine
+serde_yaml = "0.9.34"

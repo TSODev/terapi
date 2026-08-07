@@ -62,10 +62,11 @@ enum Commands {
         retry: u32,
     },
 
-    /// Import a collection or campaign TOML file into the terapi directory
+    /// Import a collection/campaign TOML, Postman/Insomnia JSON, or OpenAPI 3.x
+    /// document — from a local file or an http(s):// URL
     Import {
-        /// Path to the collection or campaign TOML file to import
-        #[arg(value_name = "FILE")]
+        /// Path to the file to import, or an http(s):// URL to fetch it from
+        #[arg(value_name = "FILE_OR_URL")]
         file: String,
     },
 
@@ -125,7 +126,7 @@ async fn main() -> Result<()> {
             campaign::run(&camp, silent, overrides, only, fmt, retry).await?;
         }
         Some(Commands::Import { file }) => {
-            import_collection(&file)?;
+            import_collection(&file).await?;
         }
         Some(Commands::Build { file }) => {
             builder::run(file)?;
@@ -136,21 +137,102 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn import_collection(path: &str) -> Result<()> {
-    use anyhow::Context;
+/// The three formats `terapi import` understands, independent of where the
+/// content came from (local file or URL).
+enum SourceFormat {
+    Json,
+    Yaml,
+    Toml,
+}
 
-    let content = std::fs::read_to_string(path)
-        .with_context(|| format!("cannot read '{}'", path))?;
+/// Detect format from, in priority order: the HTTP `Content-Type` (URLs only),
+/// the file extension (local paths, or a URL whose path happens to end in one),
+/// then content sniffing as a last resort — needed for URLs like a Springdoc
+/// `/v3/api-docs` endpoint, which has neither a helpful extension nor always a
+/// precise Content-Type. JSON is tried before YAML in the sniffing fallback since
+/// valid JSON also parses as YAML (a syntactic superset) but not the reverse.
+fn detect_format(content: &str, content_type: Option<&str>, ext: &str) -> Option<SourceFormat> {
+    if let Some(ct) = content_type {
+        let ct = ct.to_lowercase();
+        if ct.contains("yaml") {
+            return Some(SourceFormat::Yaml);
+        }
+        if ct.contains("json") {
+            return Some(SourceFormat::Json);
+        }
+    }
+    match ext {
+        "json" => return Some(SourceFormat::Json),
+        "yaml" | "yml" => return Some(SourceFormat::Yaml),
+        "toml" => return Some(SourceFormat::Toml),
+        _ => {}
+    }
+    if serde_json::from_str::<serde_json::Value>(content).is_ok() {
+        return Some(SourceFormat::Json);
+    }
+    if serde_yaml::from_str::<serde_yaml::Value>(content).is_ok() {
+        return Some(SourceFormat::Yaml);
+    }
+    if toml::from_str::<toml::Value>(content).is_ok() {
+        return Some(SourceFormat::Toml);
+    }
+    None
+}
 
-    // Detect JSON (Postman collection or environment)
-    let ext = std::path::Path::new(path)
+/// Fetches an http(s) URL and returns (body, Content-Type header if any, extension
+/// sniffed from the URL's path component, ignoring query string/fragment).
+async fn fetch_url(url: &str) -> Result<(String, Option<String>, String)> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()?;
+    let resp = client.get(url).send().await?;
+    let status = resp.status();
+    if !status.is_success() {
+        anyhow::bail!("HTTP {} fetching '{}'", status.as_u16(), url);
+    }
+    let content_type = resp
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+    let path_only = url.split(['?', '#']).next().unwrap_or(url);
+    let ext = std::path::Path::new(path_only)
         .extension()
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_lowercase();
+    let content = resp.text().await?;
+    Ok((content, content_type, ext))
+}
 
-    if ext == "json" {
+async fn import_collection(path: &str) -> Result<()> {
+    use anyhow::Context;
+
+    let (content, content_type, ext) = if path.starts_with("http://") || path.starts_with("https://") {
+        fetch_url(path).await.with_context(|| format!("cannot fetch '{}'", path))?
+    } else {
+        let content = std::fs::read_to_string(path)
+            .with_context(|| format!("cannot read '{}'", path))?;
+        let ext = std::path::Path::new(path)
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        (content, None, ext)
+    };
+
+    let format = detect_format(&content, content_type.as_deref(), &ext)
+        .ok_or_else(|| anyhow::anyhow!("could not determine the format of '{}' — expected JSON, YAML, or terapi TOML", path))?;
+
+    if matches!(format, SourceFormat::Json) {
         let report = import::import_json(path, &content)
+            .with_context(|| format!("failed to import '{}'", path))?;
+        report.print();
+        return Ok(());
+    }
+
+    if matches!(format, SourceFormat::Yaml) {
+        let report = import::import_yaml(&content)
             .with_context(|| format!("failed to import '{}'", path))?;
         report.print();
         return Ok(());

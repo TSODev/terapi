@@ -1,0 +1,103 @@
+openapi: 3.0.3
+info:
+  title: Petstore Example
+  description: Trimmed-down OpenAPI 3.0 spec used to exercise terapi's `terapi import` OpenAPI support — path/query/header params, a $ref request body, bearer auth, and one public endpoint.
+servers:
+  - url: https://petstore.example.com/v1
+
+security:
+  - petstoreAuth: []
+
+paths:
+  /pets:
+    get:
+      operationId: listPets
+      summary: List all pets
+      tags: [Pets]
+      security: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: OK
+    post:
+      operationId: createPet
+      summary: Create a pet
+      tags: [Pets]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewPet"
+      responses:
+        "201":
+          description: Created
+
+  /pets/{petId}:
+    get:
+      operationId: getPet
+      summary: Get a pet by ID
+      tags: [Pets]
+      security: []
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Request-ID
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+    delete:
+      operationId: deletePet
+      summary: Delete a pet
+      tags: [Pets]
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+
+  /owners:
+    get:
+      operationId: listOwners
+      summary: List owners
+      tags: [Owners]
+      responses:
+        "200":
+          description: OK
+
+components:
+  schemas:
+    NewPet:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Rex
+        tag:
+          type: string
+        age:
+          type: integer
+        vaccinated:
+          type: boolean
+          default: false
+  securitySchemes:
+    petstoreAuth:
+      type: http
+      scheme: bearer

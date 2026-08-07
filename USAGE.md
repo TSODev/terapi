@@ -1358,7 +1358,7 @@ Useful for exploring the JSON viewer, testing fold behaviour, or demoing the TUI
 
 ## Import
 
-`terapi import <file>` auto-detects the format and copies the result to the right directory. Three formats are supported: terapi TOML, Postman v2.1 JSON, and Insomnia v4 JSON.
+`terapi import <file-or-url>` auto-detects the format and copies the result to the right directory. Four formats are supported: terapi TOML, Postman v2.1 JSON, Insomnia v4 JSON, and OpenAPI 3.x (YAML or JSON). `<file>` can be a local path or an `http(s)://` URL, in which case terapi downloads the document before detecting its format.
 
 Directory resolution follows the same priority as the TUI: `$TERAPI_DIR` → `./.terapi/` → `~/.config/terapi/`.
 
@@ -1463,6 +1463,48 @@ terapi import insomnia_export.json
 ```
 
 For collections that require authentication, open the **Env** tab after import, activate the imported environment with `Enter`, and add any credentials that were not exported (secrets are typically not included in Insomnia/Postman exports).
+
+---
+
+### Import OpenAPI 3.x
+
+`terapi import <file>` detects and imports an OpenAPI 3.x document, in either YAML or JSON. This is a **one-shot, static** import, like Postman/Insomnia above — not a live spec browser, and re-importing the same file does not merge with an existing collection: it overwrites it. Swagger 2.0 documents (`swagger: "2.0"` instead of `openapi: "3.x.x"`) are rejected with a clear error rather than misparsed.
+
+```bash
+terapi import petstore.yaml
+terapi import petstore.json
+terapi import https://petstore3.swagger.io/api/v3/openapi.json
+```
+
+**Importing from a URL:** `<file>` may also be an `http(s)://` URL, for any of the four supported formats. terapi fetches it (30s timeout, non-2xx status fails with the HTTP code) and then detects the format the same way it would for a local file, in priority order: the response's `Content-Type` header (`json`/`yaml` substring match), then the URL's path extension, then content sniffing (JSON is attempted before YAML, since YAML is a syntactic superset of JSON). This means an extensionless spec endpoint like `/v3/api-docs` still imports correctly as long as the server sends a sensible `Content-Type`.
+
+**What is imported:**
+
+| Element | Notes |
+|---------|-------|
+| Operations | Each `paths.{path}.{method}` becomes a request — `GET`/`POST`/`PUT`/`PATCH`/`DELETE` only (`HEAD`/`OPTIONS`/`TRACE` are skipped: terapi's interactive Request tab only cycles the five listed methods, so importing the others would silently degrade to `GET` the moment the request is loaded in the TUI) |
+| Name | `summary`, else `operationId`, else `"{METHOD} {path}"` |
+| Folders | Grouped by each operation's first `tags` entry; untagged operations land at the collection root |
+| Path/URL | `/pets/{id}` becomes `{{base_url}}/pets/{{id}}` — OpenAPI path templating already matches terapi's `{{VAR}}` syntax once braces are doubled |
+| Query/header parameters | Appended to the URL (query) or added as a header, both as a `{{name}}` placeholder; each parameter's `example`/`schema.default` seeds the generated env var when present, otherwise it's left blank |
+| Request body | For `content.application/json`: the spec's `example`/`examples` value if given, otherwise synthesized from the JSON `schema` (`$ref` into `components.schemas` is resolved; other types fall back to an empty/zero/false placeholder per field). `Content-Type: application/json` is added automatically |
+| Auth | Resolved via `operation.security` (falling back to the document's top-level `security`) into `components.securitySchemes` — `http`/`bearer` → Bearer, `http`/`basic` → Basic, `apiKey` → API Key, `oauth2` → OAuth2 Client Credentials or Authorization Code, whichever flow the scheme defines. Unlike a Postman/Insomnia import, the real `tokenUrl`/`authorizationUrl` come straight from the spec instead of being placeholders you have to fill in yourself |
+| Parameters using `$ref` | Skipped (only inline parameters are resolved) and counted in the report |
+| Env | A single generated env `"<title> vars"`, with `base_url` from the first entry in `servers`, plus a blank or seeded var for every parameter/secret referenced above |
+
+**Import report:**
+
+```
+Import: Petstore Example (OpenAPI 3.0.3)
+
+  ✓   5 requests imported
+  ✓   2 folders
+  ✓   5 variables → Petstore Example vars
+
+  Saved   → ~/.config/terapi/collections/petstore-example.toml
+```
+
+Try it against the bundled example: `terapi import examples/openapi/petstore.yaml` — covers path/query/header parameters, a `$ref` request body, and Bearer auth.
 
 ---
 

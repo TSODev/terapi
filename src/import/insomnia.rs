@@ -130,6 +130,7 @@ pub fn import_insomnia(content: &str) -> Result<ImportReport> {
         env_created: None,
         dest: String::new(),
         existed: false,
+        notes: Vec::new(),
     };
 
     // Index resources by id for quick lookup

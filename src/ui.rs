@@ -2051,8 +2051,10 @@ fn render_collections_panel(frame: &mut Frame, app: &App, area: Rect) {
             .borders(Borders::ALL)
             .title(title)
             .border_style(Style::default().fg(Color::Cyan)),
-    );
-    frame.render_widget(list, list_area);
+    ).highlight_style(Style::default());
+    let mut list_state = ratatui::widgets::ListState::default();
+    list_state.select(Some(app.collection_cursor));
+    frame.render_stateful_widget(list, list_area, &mut list_state);
 
     // Search bar
     if let Some(sa) = search_area {
@@ -2186,8 +2188,10 @@ fn render_env_list(frame: &mut Frame, app: &App, area: Rect) {
             .borders(Borders::ALL)
             .title(" Environments ")
             .border_style(border_style),
-    );
-    frame.render_widget(list, area);
+    ).highlight_style(Style::default());
+    let mut list_state = ratatui::widgets::ListState::default();
+    list_state.select(Some(app.env_cursor));
+    frame.render_stateful_widget(list, area, &mut list_state);
 }
 
 fn render_env_vars(frame: &mut Frame, app: &App, area: Rect) {
@@ -2244,8 +2248,10 @@ fn render_env_vars(frame: &mut Frame, app: &App, area: Rect) {
             .borders(Borders::ALL)
             .title(title)
             .border_style(border_style),
-    );
-    frame.render_widget(list, area);
+    ).highlight_style(Style::default());
+    let mut list_state = ratatui::widgets::ListState::default();
+    list_state.select(Some(app.env_var_cursor));
+    frame.render_stateful_widget(list, area, &mut list_state);
 }
 
 // ── Modals ───────────────────────────────────────────────────────────────────

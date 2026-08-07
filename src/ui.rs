@@ -2086,7 +2086,7 @@ fn render_env_list(frame: &mut Frame, app: &App, area: Rect) {
                 Span::styled(env.env.name.clone(), Style::default().fg(if active { Color::Green } else { Color::White })),
             ];
             if env.env.sensitive {
-                spans.push(Span::styled("  🔒 sensible", Style::default().fg(Color::Red)));
+                spans.push(Span::styled("  🔒 sensitive", Style::default().fg(Color::Red)));
             }
             let line = Line::from(spans);
             let style = if i == app.env_cursor && focused {
@@ -2652,7 +2652,7 @@ fn render_modal(frame: &mut Frame, app: &App) {
             let text = vec![
                 Line::from(""),
                 Line::from(vec![
-                    Span::styled("  ⚠ Environnement sensible : ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+                    Span::styled("  ⚠ Sensitive environment: ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
                     Span::styled(env_name.clone(), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
                 ]),
                 Line::from(""),
@@ -2664,14 +2664,14 @@ fn render_modal(frame: &mut Frame, app: &App) {
                 ]),
                 Line::from(""),
                 Line::from(Span::styled(
-                    "  y/Enter: confirmer   a: confirmer pour la session   n/Esc: annuler",
+                    "  y/Enter: confirm   a: confirm for session   n/Esc: cancel",
                     Style::default().fg(Color::Gray),
                 )),
             ];
             frame.render_widget(
                 Paragraph::new(text).wrap(Wrap { trim: false }).block(
                     Block::default().borders(Borders::ALL)
-                        .title(" Confirmer l'envoi ").title_alignment(Alignment::Center)
+                        .title(" Confirm Send ").title_alignment(Alignment::Center)
                         .border_style(Style::default().fg(Color::Red)),
                 ),
                 area,

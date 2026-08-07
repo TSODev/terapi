@@ -1352,9 +1352,9 @@ impl App {
                 env.env.sensitive = !env.env.sensitive;
                 let _ = crate::storage::save_env(env);
                 self.status_message = if env.env.sensitive {
-                    format!("\"{}\" marqué sensible — confirmation requise avant toute mutation", env.env.name)
+                    format!("\"{}\" marked sensitive — confirmation required before any mutation", env.env.name)
                 } else {
-                    format!("\"{}\" n'est plus marqué sensible", env.env.name)
+                    format!("\"{}\" is no longer marked sensitive", env.env.name)
                 };
             }
             KeyCode::Char('a') if self.active_tab == Tab::Env => {
@@ -2065,7 +2065,7 @@ impl App {
                 }
                 KeyCode::Char('n') | KeyCode::Esc => {
                     self.pending_confirm_send = None;
-                    self.status_message = "Envoi annulé".into();
+                    self.status_message = "Send cancelled".into();
                 }
                 _ => { self.modal = Some(ModalState::ConfirmSend { method, url, env_name }); }
             },

@@ -206,7 +206,7 @@ After import, a report is printed:
 
 **Sensitive environments — confirm before mutating**
 
-An environment marked sensitive (`s` in the Env panel, shown as `🔒 sensible` in the list) requires confirmation before sending any request that could modify data — any non-`GET` REST method, or a GraphQL `mutation` (a GraphQL `query`/`subscription` never prompts, since GraphQL always uses `POST` regardless of read/write). Pressing `s` to send such a request opens a modal instead of firing immediately:
+An environment marked sensitive (`s` in the Env panel, shown as `🔒 sensitive` in the list) requires confirmation before sending any request that could modify data — any non-`GET` REST method, or a GraphQL `mutation` (a GraphQL `query`/`subscription` never prompts, since GraphQL always uses `POST` regardless of read/write). Pressing `s` to send such a request opens a modal instead of firing immediately:
 
 | Key | Action |
 |-----|--------|

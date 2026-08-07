@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `terapi` (no subcommand) — launches the interactive TUI (`src/ui.rs` + `src/app/`)
 - `terapi run <campaign.toml>` — headless campaign runner (`src/campaign.rs`)
 - `terapi build [campaign.toml]` — TUI campaign editor (`src/builder/`)
-- `terapi import <file>` — Postman/Insomnia/terapi-TOML importer (`src/import/`)
+- `terapi import <file-or-url>` — Postman/Insomnia/OpenAPI 3.x/terapi-TOML importer (`src/import/`), source can be a local path or an `http(s)://` URL
 
 Not a Cargo workspace — one crate, one binary (`Cargo.toml` has no `[lib]`, only `[[bin]] name = "terapi"`).
 
@@ -49,7 +49,7 @@ app/               TUI application state + logic for the main `terapi` binary
   schema.rs, http.rs, gql_completion.rs, var_picker.rs, types.rs
                      one file per panel/concern; all `impl App` blocks, split out of
                      mod.rs to keep it navigable
-ui.rs (3.4k lines) All rendering — pure `fn(&Frame, &App, Rect)` functions, one per
+ui.rs (3.6k lines) All rendering — pure `fn(&Frame, &App, Rect)` functions, one per
                    panel/sub-tab/modal. No state mutation happens here.
 builder/           `terapi build` — a second, independent TUI (own event loop, own
                      BuilderApp struct) for editing campaign TOML interactively
@@ -67,7 +67,12 @@ storage.rs         Everything about the on-disk terapi directory: resolving
                    TERAPI_DIR, loading/saving collections, envs, history, campaigns;
                    also built-in {{VAR}} resolution (resolve_builtin_vars) and
                    {{VAR}} substitution from an env map (resolve_vars).
-import/            Postman v2.1 and Insomnia v4 importers → terapi TOML.
+import/            Postman v2.1, Insomnia v4, and OpenAPI 3.x (YAML/JSON) importers
+                     → terapi TOML, all sharing one `ImportReport`. `main.rs`'s
+                     `import_collection()` is async and accepts a local path or an
+                     http(s):// URL (fetched with a 30s-timeout reqwest client);
+                     format is picked via a Content-Type → extension → content-sniff
+                     cascade (`detect_format()`), same logic for files and URLs.
 xml_convert.rs     Converts XML/HTML response bodies to a JSON-shaped tree so the
                    same JSON viewer/extract/diff code paths work for XML responses.
 json_highlight.rs  Flattens/tokenizes JSON into rows for the windowed table-based
@@ -88,7 +93,7 @@ This is why step-execution bug fixes in `campaign.rs` affect all three surfaces 
 
 ### Variable resolution model
 
-Variables (`{{VAR}}`) are plain string substitution over `HashMap<String, String>` env maps, layered by priority (documented in README): built-ins (`storage::resolve_builtin_vars` — `{{DATE}}`, `{{UUID}}`, `{{TIMESTAMP}}`, etc., support `±N` arithmetic) → `env_file` → `[env]` → `[[params]]` defaults → connector row → step `env` → extracted vars → runtime `-p` overrides. `campaign.rs::resolve()`/`resolve_value()` apply substitution to strings/JSON values; `extract_at()`/`extract_value_at()`/`extract_segments()` implement the dot-path extraction language (including `*` wildcard over arrays) used by both `[steps.extract]` and `foreach`.
+Variables (`{{VAR}}`) are plain string substitution over `HashMap<String, String>` env maps, layered by priority (documented in README): built-ins (`storage::resolve_builtin_vars` — `{{DATE}}`, `{{UUID}}`, `{{TIMESTAMP}}`, etc., support `±N` arithmetic) → `env_file` → `[env]` → `[[params]]` defaults → connector row → step `env` → extracted vars → runtime `-p` overrides. `campaign.rs::resolve()`/`resolve_value()` apply substitution to strings/JSON values; `extract_at()`/`extract_value_at()`/`extract_segments()` (`pub(crate)`) implement the dot-path extraction language (including `*` wildcard over arrays) used by `[steps.extract]`, `foreach`, **and** the TUI's own Extract sub-tab (`app/response.rs::apply_extract_rules()`, `StoredRequest.extract`) — the same extraction language is deliberately shared rather than reimplemented so a rule behaves identically whether it lives in a campaign step or a request's Extract tab.
 
 ### Storage / config resolution
 
@@ -102,6 +107,10 @@ Single `#[tokio::main]` in `main.rs`. The TUI itself is a synchronous render/pol
 
 The TUI shells out to external tools for a few things, each gated by an env var with a fallback, all wired through `main.rs`'s `run_tui()` pending-flag pattern (`app.pending_*` booleans/options set by `app/`, drained after each frame): `$TERAPI_JSON_EDITOR` (body/response editing, default `jsoned`), `$TERAPI_JSON_DIFFER` (structural diff, takes priority) or `$TERAPI_DIFF` (fallback to `diff -u | less`), and `$EDITOR`/`$VISUAL` (opening a collection/campaign TOML directly, default `vi`). `terapi-env.sh` at the repo root auto-detects `jsoned`/`difft`/`delta` on `PATH` and exports these before exec'ing `terapi`.
 
+### Deferred send for sensitive environments
+
+`App::send_request()` splits into resolution (always runs) and `dispatch_http()` (`app/request.rs`, `pub(super)`), which either fires the HTTP call immediately or — if the active environment is marked `sensitive` (`EnvMeta.sensitive`) and the request is mutating (non-`GET` REST, or a GraphQL `mutation`) — stashes the fully-resolved request in `App::pending_confirm_send: Option<PendingSend>` and opens `ModalState::ConfirmSend` instead. The modal's `y`/`a`/`n` handlers call `dispatch_http()` directly on the held `PendingSend` so `{{VAR}}`s aren't re-resolved a second time. TUI-only: `terapi run` and the builder's step preview stay unattended by design.
+
 ### Panic safety
 
 `main.rs::install_panic_hook()` wraps the default panic hook to force `disable_raw_mode()` + `LeaveAlternateScreen` before the panic message prints — without it, a panic while either TUI (main or `terapi build`) is in raw/alternate-screen mode leaves the user's terminal broken until `reset`/`stty sane`. Keep this in place if refactoring `main()`.
@@ -113,6 +122,6 @@ The TUI shells out to external tools for a few things, each gated by an env var 
 ## Documentation files
 
 - `README.md` — user-facing overview, keybindings, campaign TOML reference, stack table.
-- `USAGE.md` (165KB) — the exhaustive reference manual; go here for details README only summarizes.
+- `USAGE.md` (168KB) — the exhaustive reference manual; go here for details README only summarizes.
 - `CHANGELOG.md` — Keep a Changelog format; recent entries often explain *why* a piece of code looks the way it does (perf fixes with benchmarks, TTY-inheritance fixes, dependency pins) — worth checking before "simplifying" something that looks odd.
 - `terapi-keymap.html` / `.pdf` — printable keybinding cheat sheets, generated artifacts, not source of truth (README's keybinding tables are).

@@ -710,7 +710,7 @@ Content-Type: application/json
 Cookie: session=abc123; csrf=xyz          ← jar cookies (when cookie jar on)
 Content-Length: 45
 
-{"username":"thierry","password":"Pr0bleme#"}
+{"username":"alice","password":"hunter2"}
 
 ── Response ─────────────────────────────────────────────
 HTTP/1.1 200 OK

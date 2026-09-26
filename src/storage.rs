@@ -128,7 +128,13 @@ impl StoredRequest {
 /// Resolve the terapi data directory using the following priority:
 ///   1. `TERAPI_DIR` environment variable
 ///   2. `./.terapi/` if the directory exists in the current working dir
-///   3. `~/.config/terapi/` (XDG-compatible global fallback)
+///   3. `~/.config/terapi/` (global fallback, same path on every platform)
+///
+/// `dirs::config_dir()` is deliberately not used for step 3: on macOS it
+/// returns `~/Library/Application Support`, not the documented `~/.config`.
+/// Older builds did use it, so that legacy dir is still picked up when it
+/// exists and `~/.config/terapi/` doesn't yet — otherwise existing data would
+/// silently disappear after upgrading.
 pub fn resolve_terapi_dir() -> PathBuf {
     if let Ok(dir) = std::env::var("TERAPI_DIR") {
         return PathBuf::from(dir);
@@ -137,9 +143,18 @@ pub fn resolve_terapi_dir() -> PathBuf {
     if local.is_dir() {
         return local;
     }
-    dirs::config_dir()
+    let global = dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("terapi")
+        .join(".config")
+        .join("terapi");
+    if !global.is_dir() {
+        if let Some(legacy) = dirs::config_dir().map(|d| d.join("terapi")) {
+            if legacy != global && legacy.is_dir() {
+                return legacy;
+            }
+        }
+    }
+    global
 }
 
 pub fn load_collections() -> Result<Vec<StoredCollection>> {

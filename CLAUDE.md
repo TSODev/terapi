@@ -103,7 +103,7 @@ Variables (`{{VAR}}`) are plain string substitution over `HashMap<String, String
 
 ### Storage / config resolution
 
-`storage::resolve_terapi_dir()` picks the data directory in priority order: `$TERAPI_DIR` env var → `./.terapi/` (if it exists — per-project, git-friendly) → `~/.config/terapi/` (global default, via `dirs::config_dir()`). Collections, environments, history, and campaigns are all TOML files under this directory (`collections/`, `envs/`, `campaigns/`), loaded via `storage::load_collections()`/`load_envs()`/`load_campaigns()`/`load_history()`.
+`storage::resolve_terapi_dir()` picks the data directory in priority order: `$TERAPI_DIR` env var → `./.terapi/` (if it exists — per-project, git-friendly) → `~/.config/terapi/` (global default, built from `dirs::home_dir()` on every platform — not `dirs::config_dir()`, which is `~/Library/Application Support` on macOS; that legacy dir is still used only if it exists and `~/.config/terapi/` doesn't). Collections, environments, history, and campaigns are all TOML files under this directory (`collections/`, `envs/`, `campaigns/`), loaded via `storage::load_collections()`/`load_envs()`/`load_campaigns()`/`load_history()`.
 
 ### Async pattern
 

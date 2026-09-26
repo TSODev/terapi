@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+### Added
+- **XML responses (RSS/Atom feeds, SRU…) usable in campaigns** — the XML→JSON conversion used by the TUI's JSON view was viewer-only: in a campaign, an XML body failed to parse as JSON, so every `extract` silently produced nothing and every `body.…` assertion failed. `execute_step()` (shared by `http`, `graphql`, `loop`, `poll` and seed steps) now falls back to `xml_convert::xml_to_value()` when the body isn't JSON but looks like XML — the exact same conversion as the viewer, so a path read from the JSON view's path bar can be pasted as-is into `[steps.extract]` (e.g. `rss.channel.item.*.link`). Campaigns that already received XML now get their extractions and assertions evaluated instead of silently failing.
+
+### Changed
+- **`*` wildcard on a non-array value** — treated as a one-element array instead of resolving to nothing (`null` still resolves to nothing). The XML→JSON conversion only produces an array for *repeated* sibling tags, so an RSS feed with a single `<item>` would otherwise have broken `rss.channel.item.*.link`. Applies everywhere the extraction language is used (campaign `extract`/`assert`, `loop` `accumulate.from`, the Request panel's Extract sub-tab); a path that previously resolved to nothing may now return a one-element array.
+
+---
+
 ## [0.10.16] — 2026-09-26
 
 ### Added

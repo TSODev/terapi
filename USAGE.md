@@ -698,7 +698,7 @@ The **HTTP view** is the primary debugging tool — it shows the exact request s
 - **Raw view** pretty-prints and syntax-highlights the XML (indented, tags/attributes/values colour-coded) instead of showing the minified original.
 - **JSON view** converts the XML to JSON and displays it in the same tree — since there's no canonical XML→JSON mapping, terapi uses a fixed, arbitrary convention: attributes become `@name` keys, a leaf element's text becomes its value directly, and repeated sibling tags become a JSON array. Namespace prefixes (`dc:`, `srw:`…) are dropped, keeping only the local tag name. The tree's top-level object always starts with a `FromXML: true` entry, so it's immediately visible that this is a converted view rather than the API's real JSON. Fold, search, the extraction path bar and `f: follow URL` all operate on this converted tree, so they stay in sync with what's on screen.
 - **HTTP view** is untouched — the body is shown exactly as received, no conversion or pretty-print.
-- This conversion only applies to the interactive response viewer. Campaign `extract`/`assert` steps still parse the body directly as JSON (`campaign.rs`) — an XML response in a headless campaign won't be extracted from and assertions against it will fail, same as before this feature.
+- **Campaigns use the same conversion** — `extract` and `assert` (`body.…`) on an XML response (RSS/Atom feed, SRU…) run against this same converted tree, so a path read from the JSON view's path bar can be pasted as-is into `[steps.extract]` (e.g. `rss.channel.item.*.link` on an RSS feed). See [Variable extraction](#variable-extraction) for the `*` wildcard's single-element behavior, which matters for XML.
 - **HTML error/block pages** (e.g. a WAF challenge page on a 403, a login-wall redirect) also start with `<` and get caught by the sniffing above, but real-world HTML rarely parses as well-formed XML — instead of a confusing raw parser error, terapi shows `⚠ HTML response — likely an error/block page, not JSON or XML` with a preview of the body, in both the JSON and Raw views.
 - `E` (external JSON editor, read-only on a response) and `d` (diff with the previous response) both open the **converted** JSON for an XML response, not the raw XML — so `$TERAPI_JSON_EDITOR`/`$TERAPI_JSON_DIFFER`/`$TERAPI_DIFF` always receive real JSON.
 
@@ -1793,6 +1793,8 @@ Use dot-path notation in `[steps.extract]` to pull values out of a JSON response
 | `data.*.id` | all `id` fields from the `data` array → stored as a JSON array string |
 
 The `*` wildcard maps over every element of an array and collects the sub-path result into a new JSON array. Use it to feed a `foreach` step.
+
+Applied to a single value that isn't an array, `*` treats it as a one-element array (`null` still resolves to nothing). This matters for XML responses: the XML→JSON conversion only produces an array for **repeated** sibling tags, so an RSS feed with a single `<item>` gives an object, not an array — `rss.channel.item.*.link` still returns `["…"]` instead of nothing.
 
 Extracted values are injected into all subsequent steps.
 

@@ -65,6 +65,13 @@ pub fn to_json_text(body: &str, content_type: Option<&str>) -> String {
 /// - repeated sibling tags become a JSON array
 /// - the root element name becomes the single top-level key
 pub fn xml_to_json(body: &str) -> Result<String, String> {
+    serde_json::to_string_pretty(&xml_to_value(body)?).map_err(|e| e.to_string())
+}
+
+/// Same conversion as `xml_to_json()`, returned as a `Value` — used by the
+/// campaign engine so `extract`/`assert` paths match what the TUI's JSON view
+/// (and its path bar) shows for the same XML response.
+pub fn xml_to_value(body: &str) -> Result<Value, String> {
     let doc = roxmltree::Document::parse(body).map_err(|e| e.to_string())?;
     let root = doc.root_element();
     let mut top = Map::new();
@@ -72,7 +79,7 @@ pub fn xml_to_json(body: &str) -> Result<String, String> {
     // conversion below uses an arbitrary convention, not a canonical one.
     top.insert("FromXML".to_string(), Value::Bool(true));
     top.insert(root.tag_name().name().to_string(), node_to_value(root));
-    serde_json::to_string_pretty(&Value::Object(top)).map_err(|e| e.to_string())
+    Ok(Value::Object(top))
 }
 
 fn node_to_value(node: roxmltree::Node) -> Value {

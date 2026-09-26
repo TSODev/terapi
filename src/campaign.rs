@@ -2140,7 +2140,17 @@ async fn execute_step(
     let body_value: Option<Value> = if is_binary_content_type(content_type) {
         None
     } else {
-        serde_json::from_str(&String::from_utf8_lossy(&bytes)).ok()
+        // XML bodies (RSS/Atom feeds, SRU…) go through the same XML→JSON
+        // conversion as the TUI's JSON view, so a path copied from its path bar
+        // works as-is in `extract`/`assert`.
+        let text = String::from_utf8_lossy(&bytes);
+        serde_json::from_str(&text).ok().or_else(|| {
+            if crate::xml_convert::is_xml(&text, Some(content_type)) {
+                crate::xml_convert::xml_to_value(&text).ok()
+            } else {
+                None
+            }
+        })
     };
 
     let mut extracted = HashMap::new();
@@ -2466,7 +2476,15 @@ fn extract_segments(value: &Value, segments: &[&str]) -> Option<Value> {
     if segments.is_empty() { return Some(value.clone()); }
     let (head, tail) = (segments[0], &segments[1..]);
     if head == "*" {
-        let arr = value.as_array()?;
+        // A lone non-array value is treated as a one-element array: XML→JSON
+        // only produces an array for repeated sibling tags, so a feed with a
+        // single <item> would otherwise make `item.*.link` resolve to nothing.
+        let single;
+        let arr: &[Value] = match value {
+            Value::Array(a) => a,
+            Value::Null => return None,
+            other => { single = [other.clone()]; &single }
+        };
         let results: Vec<Value> = arr.iter()
             .filter_map(|el| extract_segments(el, tail))
             .collect();

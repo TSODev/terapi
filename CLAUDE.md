@@ -80,7 +80,10 @@ import/            Postman v2.1, Insomnia v4, and OpenAPI 3.x (YAML/JSON) import
                      since a vendor that splits its API across multiple spec files
                      (e.g. Open-Meteo) commonly puts each on a different host.
 xml_convert.rs     Converts XML/HTML response bodies to a JSON-shaped tree so the
-                   same JSON viewer/extract/diff code paths work for XML responses.
+                   same JSON viewer/extract/diff code paths work for XML responses —
+                   including campaigns: `campaign.rs::execute_step()` falls back to
+                   `xml_to_value()` when a body isn't JSON, so campaign extract/assert
+                   paths match the TUI path bar exactly.
 json_highlight.rs  Flattens/tokenizes JSON into rows for the windowed table-based
                    JSON tree viewer (perf-critical — see CHANGELOG 0.10.9/0.10.10).
 event.rs           Thin crossterm event/tick loop (250ms tick), shared idea used by

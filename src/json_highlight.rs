@@ -196,8 +196,9 @@ fn preview_atom(v: &Value) -> String {
 /// Collapses embedded newlines/tabs/runs of whitespace to single spaces — a
 /// raw '\n' in a table cell's text corrupts the response viewer's row
 /// layout (the row overlaps its neighbours), regardless of whether the
-/// string came from a real JSON API or an XML→JSON conversion.
-fn single_line(s: &str) -> String {
+/// string came from a real JSON API or an XML→JSON conversion. Also used by
+/// `terapi run`'s text report (`campaign::truncate`) for the same reason.
+pub(crate) fn single_line(s: &str) -> String {
     if s.contains(['\n', '\r', '\t']) {
         s.split_whitespace().collect::<Vec<_>>().join(" ")
     } else {

@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **`terapi run` text report broken by multi-line values, and could panic on non-ASCII text** — an extracted value containing a newline (e.g. a post's text) was printed as-is on its `↳ VAR = …` line, spilling onto the following lines and breaking the report's layout. The report's `truncate()` helper also cut strings by **byte** index (`&s[..max]`), which panics when the cut falls inside a multi-byte character (`é`, `’`, emoji…) — likely with any non-English text over 60 bytes. It now flattens whitespace to single spaces (reusing `json_highlight::single_line()`, the TUI response table's helper for the same problem) and truncates by `char`. Applies to every truncated field in the text report (extracted values, row params, URLs, report box lines); `--format json`/`csv` output is unaffected (full, untruncated values).
+
+---
+
 ## [0.10.17] — 2026-09-26
 
 ### Added

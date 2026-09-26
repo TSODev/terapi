@@ -2520,8 +2520,12 @@ fn fmt_opt(v: &Option<Value>) -> String {
     match v { Some(v) => fmt_val(v), None => "(none)".into() }
 }
 
+/// Single-line, char-safe truncation for the CLI report: a value with an
+/// embedded newline (e.g. a post's text) would otherwise break the report's
+/// layout, and byte slicing panics on a multi-byte char at the cut point.
 fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max { s.to_string() } else { format!("{}…", &s[..max]) }
+    let s = crate::json_highlight::single_line(s);
+    if s.chars().count() <= max { s } else { format!("{}…", s.chars().take(max).collect::<String>()) }
 }
 
 fn run_search_step(step: &Step, env: &HashMap<String, String>) -> Result<HashMap<String, String>> {
